@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <div class="app">
+      <p [title]="title" class="c" [style]="style">
+        我叫{{ name }}, 今年{{ obj.age }}岁
+      </p>
+      <p>
+        array: {{ arrA }}
+      </p>
+      <button (click)="setTitle()">设置 title</button>
+      <button (click)="setName($event)">设置 name</button>
+      <button (click)="setAge()">设置 age</button>
+      <button (click)="setArray()">设置 array</button>
+      <hr />
+      <input type="text" value="hello ajanuw" #input />
+      <p>value: {{ input.value }} {{input.type}}</p>
+      <hr />
+      <ul>
+        <li *for="item in 10">item {{ item }}</li>
+      </ul>
+      <!-- <p *if="show">hello world</p> -->
+    </div>
+    <script src="../dist/aja.js"></script>
+    <script>
+      const l = console.log;
+      let vm = aja.Aja.define(".app", {
+        data() {
+          return {
+            title: 1,
+            name: "ajanwu",
+            obj: {
+              age: 14
+            },
+            arr: ["a", "b", "c"],
+            style: {
+              color: "red",
+              fontSize: "14px"
+            }
+          };
+        },
+        computeds: {
+          arrA() {
+            return this.arr[0];
+          }
+        },
+        methods: {
+          setTitle() {
+            this.title = "hello ajanuw";
+          },
+          setName(e) {
+            l(e);
+            this.name = "Ajanuw";
+          },
+          setAge() {
+            this.obj.age += 1;
+            this.style.fontSize = this.obj.age + "px";
+          },
+          setArray() {
+            this.arr[0] = "ajanuw";
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

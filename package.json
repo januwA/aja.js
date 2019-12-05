@@ -1,0 +1,29 @@
+{
+  "name": "aja.js",
+  "version": "0.0.1",
+  "description": "mvvm",
+  "main": "lib/main.js",
+  "types": "lib/main.d.ts",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "build": "rm -rf lib && tsc && rollup -c",
+    "build:ts": "rm -rf lib && tsc -w",
+    "build:web": "rollup -c --watch"
+  },
+  "keywords": [
+    "ajanuw",
+    "aja"
+  ],
+  "author": "Ajanuw",
+  "license": "MIT",
+  "homepage": "https://github.com/januwA/preview-select.js",
+  "repository": "januwA/aja.js",
+  "devDependencies": {
+    "rollup-plugin-sourcemaps": "^0.4.2",
+    "rollup-plugin-typescript": "^1.0.1",
+    "tslib": "^1.10.0",
+    "typescript": "^3.7.2"
+  }
+}
