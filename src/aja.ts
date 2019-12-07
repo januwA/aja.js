@@ -1,4 +1,11 @@
-import { qs, attrp, eventp, tempvarp, createRoot } from "./utils/util";
+import {
+  qs,
+  attrp,
+  eventp,
+  tempvarp,
+  createRoot,
+  createCommentData
+} from "./utils/util";
 import {
   createStore,
   autorun,
@@ -60,112 +67,122 @@ export function define(
     ) {
       const htmlElement: HTMLElement = childNode as HTMLElement;
 
-      //* 遍历节点熟悉
+      //* 遍历节点属性
       // :if权限最大
-      const attrs: Attr[] =
-        Array.from((childNode as HTMLElement).attributes) || [];
-
+      const attrs: Attr[] = Array.from(htmlElement.attributes);
       let depath = true;
-      for (const { name, value } of attrs) {
-        if (ifp(name)) {
-          autorun(() => {
-            if (!_result[value]) {
-              htmlElement.style.display = "none";
-              depath = false;
-            } else {
-              htmlElement.style.display = "block";
-              depath = true;
-              if (depath && Array.from(childNode.childNodes).length) {
-                define(htmlElement, model);
-              }
-            }
-          });
-        }
-
-        if (attrp(name)) {
-          let attrName = name.replace(/^\[/, "").replace(/\]$/, "");
-          autorun(() => {
-            if (attrName === "style") {
-              const styles: CSSStyleDeclaration = _result[value];
-              for (const key in styles) {
-                if (Object.getOwnPropertyDescriptor(htmlElement.style, key)) {
-                  const _value = styles[key];
-                  if (_value) {
-                    htmlElement.style[key] = _value;
-                  }
-                }
-              }
-            } else {
-              htmlElement.setAttribute(attrName, _result[value]); // 属性扫描绑定
-            }
-          });
-        }
-        if (eventp(name)) {
-          // 绑定的事件: (click)="echo('hello',$event)"
-          let len = name.length;
-          let eventName = name.substr(1, len - 2); // (click) -> click
-
-          // 函数名
-          let funcName: string;
-          // 函数参数
-          let args: any[];
-          if (value.includes("(")) {
-            // 带参数的函数
-            let index = value.indexOf("(");
-            funcName = value.substr(0, index);
-            args = value
-              .substr(index, value.length - 2)
-              .replace(/(^\(*)|(\))/g, "")
-              .split(",")
-              .map(a => a.trim());
+      const ifPrefix = instructionPrefix + "if";
+      let ifAttr = attrs.find(({ name }) => name === ifPrefix);
+      if (ifAttr) {
+        const commentElement = document.createComment("");
+        htmlElement.parentElement!.insertBefore(commentElement, htmlElement);
+        autorun(() => {
+          const show = _result[ifAttr!.value];
+          if (!show) {
+            htmlElement.replaceWith(commentElement);
+            depath = false;
           } else {
-            funcName = value;
-          }
-          childNode.addEventListener(eventName, function(e) {
-            args = args.map(el => (el === "$event" ? e : el));
-            if (funcName in _result) {
-              return _result[funcName](...args);
+            commentElement.after(htmlElement);
+            depath = true;
+            if (Array.from(childNode.childNodes).length) {
+              define(htmlElement, model);
             }
-          });
-        }
-        if (tempvarp(name)) {
-          // 模板变量 #input
-          templateVariables[name.replace(/^#/, "")] = childNode;
-        } else {
-          // l("绑定的静态数据", attrName)
-        }
-
-        // TODO 处理for指令
-        // ! 插值表达式被提前处理为 undefined
-        const forInstruction: string = instructionPrefix + "for";
-        if (name === forInstruction) {
-          // 解析for指令的值
-          let [varb, d] = value.split("in").map(s => s.trim());
-          if (!varb) return null;
-          if (!isNaN(+d)) {
-            const fragment = document.createDocumentFragment();
-            (childNode as HTMLElement).removeAttribute(forInstruction);
-            for (let index = 0; index < +d; index++) {
-              const item = childNode.cloneNode(true);
-              define(item as HTMLElement, {
-                state: {
-                  ...model.state,
-                  [varb]: index
-                },
-                actions: model.actions,
-                computeds: model.computeds
-              });
-              fragment.append(item);
-            }
-            childNode.replaceWith(fragment);
-          } else {
           }
-        }
+          commentElement.data = createCommentData(show);
+        });
+        htmlElement.removeAttribute(ifPrefix);
       }
 
-      // 递归遍历
-      if (depath && Array.from(childNode.childNodes).length) {
-        define(htmlElement, model);
+      if (depath) {
+        for (const { name, value } of attrs) {
+          if (attrp(name)) {
+            let attrName = name.replace(/^\[/, "").replace(/\]$/, "");
+            autorun(() => {
+              if (attrName === "style") {
+                const styles: CSSStyleDeclaration = _result[value];
+                for (const key in styles) {
+                  if (Object.getOwnPropertyDescriptor(htmlElement.style, key)) {
+                    const _value = styles[key];
+                    if (_value) {
+                      htmlElement.style[key] = _value;
+                    }
+                  }
+                }
+              } else {
+                htmlElement.setAttribute(attrName, _result[value]); // 属性扫描绑定
+              }
+            });
+            // 清理aja属性
+            htmlElement.removeAttribute(name);
+          }
+          if (eventp(name)) {
+            // 绑定的事件: (click)="echo('hello',$event)"
+            let eventName = name.replace(/^\(/, "").replace(/\)$/, "");
+
+            // 函数名
+            let funcName: string;
+            // 函数参数
+            let args: any[];
+            if (value.includes("(")) {
+              // 带参数的函数
+              let index = value.indexOf("(");
+              funcName = value.substr(0, index);
+              args = value
+                .substr(index, value.length - 2)
+                .replace(/(^\(*)|(\))/g, "")
+                .split(",")
+                .map(a => a.trim());
+            } else {
+              funcName = value;
+            }
+            childNode.addEventListener(eventName, function(e) {
+              args = args.map(el => (el === "$event" ? e : el));
+              if (funcName in _result) {
+                return _result[funcName](...args);
+              }
+            });
+
+            // 清理aja事件
+            htmlElement.removeAttribute(name);
+          }
+          if (tempvarp(name)) {
+            // 模板变量 #input
+            templateVariables[name.replace(/^#/, "")] = childNode;
+          } else {
+            // l("绑定的静态数据", attrName)
+          }
+
+          // TODO 处理for指令
+          // ! 插值表达式被提前处理为 undefined
+          const forInstruction: string = instructionPrefix + "for";
+          if (name === forInstruction) {
+            // 解析for指令的值
+            let [varb, d] = value.split("in").map(s => s.trim());
+            if (!varb) return null;
+            if (!isNaN(+d)) {
+              const fragment = document.createDocumentFragment();
+              (childNode as HTMLElement).removeAttribute(forInstruction);
+              for (let index = 0; index < +d; index++) {
+                const item = childNode.cloneNode(true);
+                define(item as HTMLElement, {
+                  state: {
+                    ...model.state,
+                    [varb]: index
+                  },
+                  actions: model.actions,
+                  computeds: model.computeds
+                });
+                fragment.append(item);
+              }
+              childNode.replaceWith(fragment);
+            } else {
+            }
+          }
+        }
+        // 递归遍历
+        if (Array.from(childNode.childNodes).length) {
+          define(htmlElement, model);
+        }
       }
     } else if (childNode.nodeType === Node.TEXT_NODE) {
       // 插值表达式 {{ name }} {{ obj.age }}

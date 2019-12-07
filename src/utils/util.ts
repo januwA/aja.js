@@ -34,3 +34,7 @@ export function createRoot(view: string | HTMLElement): HTMLElement | null {
     ? document.querySelector<HTMLElement>(view)
     : view;
 }
+
+export function createCommentData(value: any): string {
+  return `{":if": "${!!value}"}`;
+}

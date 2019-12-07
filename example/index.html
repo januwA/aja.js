@@ -14,18 +14,19 @@
       <p [title]="title" class="c" [style]="style">
         我叫{{ name }}, 今年{{ obj.age }}岁
       </p>
-      <!-- <p>
+      <p>
         array: {{ arrA }}
       </p>
       <button (click)="setTitle()">设置 title</button>
       <button (click)="setName($event)">设置 name</button>
       <button (click)="setAge()">设置 age</button>
       <button (click)="setArray()">设置 array</button>
+      <button (click)="onShow()">show|hide</button>
       <hr />
       <input type="text" value="hello ajanuw" #input />
       <p>value: {{ input.value }} {{input.type}}</p>
-      <hr /> -->
-      <ul>
+      <hr />
+      <ul :if="show">
         <li :for="item in 10">item {{ item }}</li>
       </ul>
       <!-- <p :if="show">hello world</p> -->
@@ -66,6 +67,9 @@
           },
           setArray() {
             this.arr[0] = "ajanuw";
+          },
+          onShow() {
+            this.show = !this.show;
           }
         }
       });

@@ -32,7 +32,7 @@
 </ul
 ```
 
-## TODO :if
+## :if
 ```html
 <p :if="show">hello world</p>
 ```
