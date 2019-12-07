@@ -9,11 +9,12 @@
 
   <body>
     <div class="app">
-      {{ name }}
+      <h1 :if="show">if 指令节点 {{ name }}</h1>
+      hello <span>{{title}}</span> {{ name }}
       <p [title]="title" class="c" [style]="style">
         我叫{{ name }}, 今年{{ obj.age }}岁
       </p>
-      <p>
+      <!-- <p>
         array: {{ arrA }}
       </p>
       <button (click)="setTitle()">设置 title</button>
@@ -23,7 +24,7 @@
       <hr />
       <input type="text" value="hello ajanuw" #input />
       <p>value: {{ input.value }} {{input.type}}</p>
-      <hr />
+      <hr /> -->
       <ul>
         <li :for="item in 10">item {{ item }}</li>
       </ul>
@@ -33,7 +34,8 @@
     <script>
       const l = console.log;
       let vm = aja.define(".app", {
-        data: {
+        state: {
+          show: false,
           title: 1,
           name: "ajanwu",
           obj: {
@@ -50,7 +52,7 @@
             return this.arr[0];
           }
         },
-        methods: {
+        actions: {
           setTitle() {
             this.title = "hello ajanuw";
           },

@@ -17,3 +17,4 @@ export declare function eventp(value: string): boolean;
  * @param value
  */
 export declare function tempvarp(value: string): boolean;
+export declare function createRoot(view: string | HTMLElement): HTMLElement | null;

@@ -1,19 +1,17 @@
-import { qs, attrp, eventp, tempvarp } from "./utils/util";
-import { createStore, autorun, Computeds } from "./store";
+import { qs, attrp, eventp, tempvarp, createRoot } from "./utils/util";
+import {
+  createStore,
+  autorun,
+  Computeds,
+  createState,
+  createActions,
+  createComputeds,
+  Actions,
+  State,
+  Store
+} from "./store";
 
 const l = console.log;
-
-interface ModelData {
-  [key: string]: any;
-}
-
-interface ModelInterface {
-  data?: ModelData;
-  readonly methods?: {
-    [key: string]: Function;
-  };
-  readonly computeds?: Computeds;
-}
 const templateVariables: {
   [key: string]: ChildNode | Element | HTMLElement;
 } = {};
@@ -24,74 +22,88 @@ const templateVariables: {
  */
 export const instructionPrefix = ":";
 
+function ifp(key: string): boolean {
+  return key === instructionPrefix + "if";
+}
+
+function forp(key: string): boolean {
+  return key === instructionPrefix + "for";
+}
+
 // 扫描
 export function define(
   view: string | HTMLElement,
-  model: ModelInterface
+  model: Store
 ): null | {
   [key: string]: any;
 } {
-  const state = model.data ? model.data : {};
-  const actions = model.methods ? model.methods : {};
-  const computeds = model.computeds ? model.computeds : {};
+  const state = createState(model.state);
+  const actions = createActions(model.actions);
+  const computeds = createComputeds(model.computeds);
   const _result = createStore({
     state,
     actions,
     computeds
   });
 
-  const root =
-    typeof view === "string" ? document.querySelector<HTMLElement>(view) : view;
+  const root = createRoot(view);
   if (root === null) return null;
 
   const children = Array.from(root.childNodes);
   for (let index = 0; index < children.length; index++) {
-    const el = children[index];
+    const childNode = children[index];
 
     // dom节点
     if (
-      el.nodeType === Node.ELEMENT_NODE ||
-      el.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+      childNode.nodeType === Node.ELEMENT_NODE ||
+      childNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE
     ) {
-      // 递归遍历
-      if (Array.from(el.childNodes).length) {
-        define(el as HTMLElement, model);
-      }
-      const attrs: Attr[] = Array.from((el as HTMLElement).attributes) || [];
-      for (let attr of attrs) {
-        let key = attr.name;
-        let value = attr.value;
-        if (attrp(key)) {
-          // [title]="title"
-          let len = key.length;
-          let name = key.substr(1, len - 2); // [title] -> title
+      const htmlElement: HTMLElement = childNode as HTMLElement;
+
+      //* 遍历节点熟悉
+      // :if权限最大
+      const attrs: Attr[] =
+        Array.from((childNode as HTMLElement).attributes) || [];
+
+      let depath = true;
+      for (const { name, value } of attrs) {
+        if (ifp(name)) {
           autorun(() => {
-            if (name === "style") {
+            if (!_result[value]) {
+              htmlElement.style.display = "none";
+              depath = false;
+            } else {
+              htmlElement.style.display = "block";
+              depath = true;
+              if (depath && Array.from(childNode.childNodes).length) {
+                define(htmlElement, model);
+              }
+            }
+          });
+        }
+
+        if (attrp(name)) {
+          let attrName = name.replace(/^\[/, "").replace(/\]$/, "");
+          autorun(() => {
+            if (attrName === "style") {
               const styles: CSSStyleDeclaration = _result[value];
               for (const key in styles) {
-                const _isNaN = isNaN(parseInt(key));
-                if (
-                  _isNaN &&
-                  Object.getOwnPropertyDescriptor(
-                    (el as HTMLElement).style,
-                    key
-                  )
-                ) {
+                if (Object.getOwnPropertyDescriptor(htmlElement.style, key)) {
                   const _value = styles[key];
                   if (_value) {
-                    (el as HTMLElement).style[key] = _value;
+                    htmlElement.style[key] = _value;
                   }
                 }
               }
             } else {
-              (el as HTMLElement).setAttribute(name, _result[value]); // 属性扫描绑定
+              htmlElement.setAttribute(attrName, _result[value]); // 属性扫描绑定
             }
           });
         }
-        if (eventp(key)) {
+        if (eventp(name)) {
           // 绑定的事件: (click)="echo('hello',$event)"
-          let len = key.length;
-          let name = key.substr(1, len - 2); // (click) -> click
+          let len = name.length;
+          let eventName = name.substr(1, len - 2); // (click) -> click
 
           // 函数名
           let funcName: string;
@@ -109,16 +121,16 @@ export function define(
           } else {
             funcName = value;
           }
-          el.addEventListener(name, function(e) {
+          childNode.addEventListener(eventName, function(e) {
             args = args.map(el => (el === "$event" ? e : el));
             if (funcName in _result) {
               return _result[funcName](...args);
             }
           });
         }
-        if (tempvarp(key)) {
+        if (tempvarp(name)) {
           // 模板变量 #input
-          templateVariables[key.replace(/^#/, "")] = el;
+          templateVariables[name.replace(/^#/, "")] = childNode;
         } else {
           // l("绑定的静态数据", attrName)
         }
@@ -126,40 +138,41 @@ export function define(
         // TODO 处理for指令
         // ! 插值表达式被提前处理为 undefined
         const forInstruction: string = instructionPrefix + "for";
-        if (key === forInstruction) {
+        if (name === forInstruction) {
           // 解析for指令的值
           let [varb, d] = value.split("in").map(s => s.trim());
           if (!varb) return null;
           if (!isNaN(+d)) {
             const fragment = document.createDocumentFragment();
-            (el as HTMLElement).removeAttribute(forInstruction);
+            (childNode as HTMLElement).removeAttribute(forInstruction);
             for (let index = 0; index < +d; index++) {
-              const item = el.cloneNode(true);
+              const item = childNode.cloneNode(true);
               define(item as HTMLElement, {
-                data: {
-                  ...model.data,
+                state: {
+                  ...model.state,
                   [varb]: index
                 },
-                methods: model.methods,
+                actions: model.actions,
                 computeds: model.computeds
               });
               fragment.append(item);
             }
-            el.replaceWith(fragment);
+            childNode.replaceWith(fragment);
           } else {
           }
         }
-
-        // TODO 处理if指令
-        if (key === ":if") {
-        }
       }
-    } else if (el.nodeType === Node.TEXT_NODE) {
+
+      // 递归遍历
+      if (depath && Array.from(childNode.childNodes).length) {
+        define(htmlElement, model);
+      }
+    } else if (childNode.nodeType === Node.TEXT_NODE) {
       // 插值表达式 {{ name }} {{ obj.age }}
-      if (el.textContent) {
+      if (childNode.textContent) {
         const exp = /{{([\w\s\.][\s\w\.]+)}}/g;
-        if (exp.test(el.textContent)) {
-          const _initTextContent = el.textContent;
+        if (exp.test(childNode.textContent)) {
+          const _initTextContent = childNode.textContent;
           autorun(() => {
             const text = _initTextContent.replace(exp, function(match) {
               var key = Array.prototype.slice
@@ -184,7 +197,7 @@ export function define(
               }
               return data;
             });
-            el.textContent = text;
+            childNode.textContent = text;
           });
         }
       }

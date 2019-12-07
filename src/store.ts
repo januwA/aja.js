@@ -18,7 +18,7 @@ export interface Actions {
  * 计算函数
  */
 export interface Computeds {
-  [key: string]: any;
+  [key: string]: Function;
 }
 
 export interface Store {
@@ -32,6 +32,16 @@ export const autorun = (f: Function) => {
   f();
   listeners.push(f);
 };
+
+export function createState(obj?: State): State {
+  return obj ? obj : {};
+}
+export function createActions(obj?: Actions): Actions {
+  return obj ? obj : {};
+}
+export function createComputeds(obj?: Computeds): Computeds {
+  return obj ? obj : {};
+}
 
 export function createStore({ state, computeds, actions }: Store): any {
   let _result: Object = {};

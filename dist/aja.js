@@ -28,6 +28,11 @@
   function tempvarp(value) {
       return value[0] === "#";
   }
+  function createRoot(view) {
+      return typeof view === "string"
+          ? document.querySelector(view)
+          : view;
+  }
   //# sourceMappingURL=util.js.map
 
   const listeners = [];
@@ -35,6 +40,15 @@
       f();
       listeners.push(f);
   };
+  function createState(obj) {
+      return obj ? obj : {};
+  }
+  function createActions(obj) {
+      return obj ? obj : {};
+  }
+  function createComputeds(obj) {
+      return obj ? obj : {};
+  }
   function createStore({ state, computeds, actions }) {
       let _result = {};
       for (let k in state) {
@@ -81,60 +95,72 @@
    * [:for] [:if]
    */
   const instructionPrefix = ":";
+  function ifp(key) {
+      return key === instructionPrefix + "if";
+  }
   // 扫描
   function define(view, model) {
-      const state = model.data ? model.data : {};
-      const actions = model.methods ? model.methods : {};
-      const computeds = model.computeds ? model.computeds : {};
+      const state = createState(model.state);
+      const actions = createActions(model.actions);
+      const computeds = createComputeds(model.computeds);
       const _result = createStore({
           state,
           actions,
           computeds
       });
-      const root = typeof view === "string" ? document.querySelector(view) : view;
+      const root = createRoot(view);
       if (root === null)
           return null;
       const children = Array.from(root.childNodes);
       for (let index = 0; index < children.length; index++) {
-          const el = children[index];
+          const childNode = children[index];
           // dom节点
-          if (el.nodeType === Node.ELEMENT_NODE ||
-              el.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-              // 递归遍历
-              if (Array.from(el.childNodes).length) {
-                  define(el, model);
-              }
-              const attrs = Array.from(el.attributes) || [];
-              for (let attr of attrs) {
-                  let key = attr.name;
-                  let value = attr.value;
-                  if (attrp(key)) {
-                      // [title]="title"
-                      let len = key.length;
-                      let name = key.substr(1, len - 2); // [title] -> title
+          if (childNode.nodeType === Node.ELEMENT_NODE ||
+              childNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+              const htmlElement = childNode;
+              //* 遍历节点熟悉
+              // :if权限最大
+              const attrs = Array.from(childNode.attributes) || [];
+              let depath = true;
+              for (const { name, value } of attrs) {
+                  if (ifp(name)) {
                       autorun(() => {
-                          if (name === "style") {
+                          if (!_result[value]) {
+                              htmlElement.style.display = "none";
+                              depath = false;
+                          }
+                          else {
+                              htmlElement.style.display = "block";
+                              depath = true;
+                              if (depath && Array.from(childNode.childNodes).length) {
+                                  define(htmlElement, model);
+                              }
+                          }
+                      });
+                  }
+                  if (attrp(name)) {
+                      let attrName = name.replace(/^\[/, "").replace(/\]$/, "");
+                      autorun(() => {
+                          if (attrName === "style") {
                               const styles = _result[value];
                               for (const key in styles) {
-                                  const _isNaN = isNaN(parseInt(key));
-                                  if (_isNaN &&
-                                      Object.getOwnPropertyDescriptor(el.style, key)) {
+                                  if (Object.getOwnPropertyDescriptor(htmlElement.style, key)) {
                                       const _value = styles[key];
                                       if (_value) {
-                                          el.style[key] = _value;
+                                          htmlElement.style[key] = _value;
                                       }
                                   }
                               }
                           }
                           else {
-                              el.setAttribute(name, _result[value]); // 属性扫描绑定
+                              htmlElement.setAttribute(attrName, _result[value]); // 属性扫描绑定
                           }
                       });
                   }
-                  if (eventp(key)) {
+                  if (eventp(name)) {
                       // 绑定的事件: (click)="echo('hello',$event)"
-                      let len = key.length;
-                      let name = key.substr(1, len - 2); // (click) -> click
+                      let len = name.length;
+                      let eventName = name.substr(1, len - 2); // (click) -> click
                       // 函数名
                       let funcName;
                       // 函数参数
@@ -152,48 +178,52 @@
                       else {
                           funcName = value;
                       }
-                      el.addEventListener(name, function (e) {
+                      childNode.addEventListener(eventName, function (e) {
                           args = args.map(el => (el === "$event" ? e : el));
                           if (funcName in _result) {
                               return _result[funcName](...args);
                           }
                       });
                   }
-                  if (tempvarp(key)) {
+                  if (tempvarp(name)) {
                       // 模板变量 #input
-                      templateVariables[key.replace(/^#/, "")] = el;
+                      templateVariables[name.replace(/^#/, "")] = childNode;
                   }
                   // TODO 处理for指令
                   // ! 插值表达式被提前处理为 undefined
                   const forInstruction = instructionPrefix + "for";
-                  if (key === forInstruction) {
+                  if (name === forInstruction) {
                       // 解析for指令的值
                       let [varb, d] = value.split("in").map(s => s.trim());
                       if (!varb)
                           return null;
                       if (!isNaN(+d)) {
                           const fragment = document.createDocumentFragment();
-                          el.removeAttribute(forInstruction);
+                          childNode.removeAttribute(forInstruction);
                           for (let index = 0; index < +d; index++) {
-                              const item = el.cloneNode(true);
+                              const item = childNode.cloneNode(true);
                               define(item, {
-                                  data: Object.assign(Object.assign({}, model.data), { [varb]: index }),
-                                  methods: model.methods,
+                                  state: Object.assign(Object.assign({}, model.state), { [varb]: index }),
+                                  actions: model.actions,
                                   computeds: model.computeds
                               });
                               fragment.append(item);
                           }
-                          el.replaceWith(fragment);
+                          childNode.replaceWith(fragment);
                       }
                   }
               }
+              // 递归遍历
+              if (depath && Array.from(childNode.childNodes).length) {
+                  define(htmlElement, model);
+              }
           }
-          else if (el.nodeType === Node.TEXT_NODE) {
+          else if (childNode.nodeType === Node.TEXT_NODE) {
               // 插值表达式 {{ name }} {{ obj.age }}
-              if (el.textContent) {
+              if (childNode.textContent) {
                   const exp = /{{([\w\s\.][\s\w\.]+)}}/g;
-                  if (exp.test(el.textContent)) {
-                      const _initTextContent = el.textContent;
+                  if (exp.test(childNode.textContent)) {
+                      const _initTextContent = childNode.textContent;
                       autorun(() => {
                           const text = _initTextContent.replace(exp, function (match) {
                               var key = Array.prototype.slice
@@ -217,7 +247,7 @@
                               }
                               return data;
                           });
-                          el.textContent = text;
+                          childNode.textContent = text;
                       });
                   }
               }
