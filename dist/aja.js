@@ -76,23 +76,33 @@
   //# sourceMappingURL=store.js.map
 
   const templateVariables = {};
-  class Aja {
-      // 扫描
-      static define(view, model) {
-          const _result = createStore({
-              state: model.data ? model.data() : {},
-              actions: model.methods ? model.methods : {},
-              computeds: model.computeds ? model.computeds : {}
-          });
-          const root = typeof view === "string"
-              ? document.querySelector(view)
-              : view;
-          if (root === null)
-              return;
-          Array.from(root.children).forEach(el => {
+  /**
+   * *  指令前缀
+   * [:for] [:if]
+   */
+  const instructionPrefix = ":";
+  // 扫描
+  function define(view, model) {
+      const state = model.data ? model.data : {};
+      const actions = model.methods ? model.methods : {};
+      const computeds = model.computeds ? model.computeds : {};
+      const _result = createStore({
+          state,
+          actions,
+          computeds
+      });
+      const root = typeof view === "string" ? document.querySelector(view) : view;
+      if (root === null)
+          return null;
+      const children = Array.from(root.childNodes);
+      for (let index = 0; index < children.length; index++) {
+          const el = children[index];
+          // dom节点
+          if (el.nodeType === Node.ELEMENT_NODE ||
+              el.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
               // 递归遍历
-              if (Array.from(el.children).length) {
-                  return Aja.define(el, model);
+              if (Array.from(el.childNodes).length) {
+                  define(el, model);
               }
               const attrs = Array.from(el.attributes) || [];
               for (let attr of attrs) {
@@ -138,7 +148,6 @@
                               .replace(/(^\(*)|(\))/g, "")
                               .split(",")
                               .map(a => a.trim());
-                          // l(args)
                       }
                       else {
                           funcName = value;
@@ -155,20 +164,31 @@
                       templateVariables[key.replace(/^#/, "")] = el;
                   }
                   // TODO 处理for指令
-                  if (key === "*for") {
-                      // 循环遍历
-                      //   l(key, value);
+                  // ! 插值表达式被提前处理为 undefined
+                  const forInstruction = instructionPrefix + "for";
+                  if (key === forInstruction) {
+                      // 解析for指令的值
                       let [varb, d] = value.split("in").map(s => s.trim());
-                      if (typeof +d === "number") {
+                      if (!varb)
+                          return null;
+                      if (!isNaN(+d)) {
                           const fragment = document.createDocumentFragment();
-                          const parent = el.parentNode;
+                          el.removeAttribute(forInstruction);
                           for (let index = 0; index < +d; index++) {
-                              if (parent)
-                                  parent.appendChild(el.cloneNode(true));
+                              const item = el.cloneNode(true);
+                              define(item, {
+                                  data: Object.assign(Object.assign({}, model.data), { [varb]: index }),
+                                  methods: model.methods,
+                                  computeds: model.computeds
+                              });
+                              fragment.append(item);
                           }
+                          el.replaceWith(fragment);
                       }
                   }
               }
+          }
+          else if (el.nodeType === Node.TEXT_NODE) {
               // 插值表达式 {{ name }} {{ obj.age }}
               if (el.textContent) {
                   const exp = /{{([\w\s\.][\s\w\.]+)}}/g;
@@ -201,12 +221,13 @@
                       });
                   }
               }
-          });
-          return _result;
+          }
       }
+      return _result;
   }
 
-  exports.Aja = Aja;
+  exports.define = define;
+  exports.instructionPrefix = instructionPrefix;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 

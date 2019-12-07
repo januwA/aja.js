@@ -9,6 +9,7 @@
 
   <body>
     <div class="app">
+      {{ name }}
       <p [title]="title" class="c" [style]="style">
         我叫{{ name }}, 今年{{ obj.age }}岁
       </p>
@@ -24,27 +25,25 @@
       <p>value: {{ input.value }} {{input.type}}</p>
       <hr />
       <ul>
-        <li *for="item in 10">item {{ item }}</li>
+        <li :for="item in 10">item {{ item }}</li>
       </ul>
-      <!-- <p *if="show">hello world</p> -->
+      <!-- <p :if="show">hello world</p> -->
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
-      let vm = aja.Aja.define(".app", {
-        data() {
-          return {
-            title: 1,
-            name: "ajanwu",
-            obj: {
-              age: 14
-            },
-            arr: ["a", "b", "c"],
-            style: {
-              color: "red",
-              fontSize: "14px"
-            }
-          };
+      let vm = aja.define(".app", {
+        data: {
+          title: 1,
+          name: "ajanwu",
+          obj: {
+            age: 14
+          },
+          arr: ["a", "b", "c"],
+          style: {
+            color: "red",
+            fontSize: "14px"
+          }
         },
         computeds: {
           arrA() {

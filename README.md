@@ -23,16 +23,16 @@
 <p>value: {{ input.value }} {{input.type}}</p>
 ```
 
-## TODO: for
+## TODO :for
 ```html
 <ul>
-    <li *for="item in 10">item {{ item }}</li>
-    <li *for="(item, index) in array">item {{ item }}</li>
-    <li *for="(key, value) in object">item {{ item }}</li>
+    <li :for="item in 10">item {{ item }}</li>
+    <li :for="(item, index) in array">item {{ item }}</li>
+    <li :for="(key, value) in object">item {{ item }}</li>
 </ul
 ```
 
-## TODO: if
+## TODO :if
 ```html
-<p *if="show">hello world</p>
+<p :if="show">hello world</p>
 ```

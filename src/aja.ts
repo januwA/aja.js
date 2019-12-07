@@ -3,43 +3,61 @@ import { createStore, autorun, Computeds } from "./store";
 
 const l = console.log;
 
-export interface ModelData {
-  (): {
-    [key: string]: any;
-  };
+interface ModelData {
+  [key: string]: any;
 }
 
-export interface ModelInterface {
-  readonly data?: ModelData;
+interface ModelInterface {
+  data?: ModelData;
   readonly methods?: {
     [key: string]: Function;
   };
   readonly computeds?: Computeds;
 }
 const templateVariables: {
-  [key: string]: Element;
+  [key: string]: ChildNode | Element | HTMLElement;
 } = {};
 
-export class Aja {
-  // 扫描
-  static define(view: string | HTMLElement, model: ModelInterface) {
-    const _result = createStore({
-      state: model.data ? model.data() : {},
-      actions: model.methods ? model.methods : {},
-      computeds: model.computeds ? model.computeds : {}
-    });
+/**
+ * *  指令前缀
+ * [:for] [:if]
+ */
+export const instructionPrefix = ":";
 
-    const root =
-      typeof view === "string"
-        ? document.querySelector<HTMLElement>(view)
-        : view;
-    if (root === null) return;
-    Array.from(root.children).forEach(el => {
+// 扫描
+export function define(
+  view: string | HTMLElement,
+  model: ModelInterface
+): null | {
+  [key: string]: any;
+} {
+  const state = model.data ? model.data : {};
+  const actions = model.methods ? model.methods : {};
+  const computeds = model.computeds ? model.computeds : {};
+  const _result = createStore({
+    state,
+    actions,
+    computeds
+  });
+
+  const root =
+    typeof view === "string" ? document.querySelector<HTMLElement>(view) : view;
+  if (root === null) return null;
+
+  const children = Array.from(root.childNodes);
+  for (let index = 0; index < children.length; index++) {
+    const el = children[index];
+
+    // dom节点
+    if (
+      el.nodeType === Node.ELEMENT_NODE ||
+      el.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+    ) {
       // 递归遍历
-      if (Array.from(el.children).length) {
-        return Aja.define(el as HTMLElement, model);
+      if (Array.from(el.childNodes).length) {
+        define(el as HTMLElement, model);
       }
-      const attrs: Attr[] = Array.from(el.attributes) || [];
+      const attrs: Attr[] = Array.from((el as HTMLElement).attributes) || [];
       for (let attr of attrs) {
         let key = attr.name;
         let value = attr.value;
@@ -66,7 +84,7 @@ export class Aja {
                 }
               }
             } else {
-              el.setAttribute(name, _result[value]); // 属性扫描绑定
+              (el as HTMLElement).setAttribute(name, _result[value]); // 属性扫描绑定
             }
           });
         }
@@ -88,7 +106,6 @@ export class Aja {
               .replace(/(^\(*)|(\))/g, "")
               .split(",")
               .map(a => a.trim());
-            // l(args)
           } else {
             funcName = value;
           }
@@ -107,26 +124,38 @@ export class Aja {
         }
 
         // TODO 处理for指令
-        if (key === "*for") {
-          // 循环遍历
-          //   l(key, value);
+        // ! 插值表达式被提前处理为 undefined
+        const forInstruction: string = instructionPrefix + "for";
+        if (key === forInstruction) {
+          // 解析for指令的值
           let [varb, d] = value.split("in").map(s => s.trim());
-          if (typeof +d === "number") {
+          if (!varb) return null;
+          if (!isNaN(+d)) {
             const fragment = document.createDocumentFragment();
-            const parent = el.parentNode;
+            (el as HTMLElement).removeAttribute(forInstruction);
             for (let index = 0; index < +d; index++) {
-              if (parent) parent.appendChild(el.cloneNode(true));
+              const item = el.cloneNode(true);
+              define(item as HTMLElement, {
+                data: {
+                  ...model.data,
+                  [varb]: index
+                },
+                methods: model.methods,
+                computeds: model.computeds
+              });
+              fragment.append(item);
             }
+            el.replaceWith(fragment);
           } else {
           }
         }
 
         // TODO 处理if指令
-        if (key === "*if") {
+        if (key === ":if") {
         }
       }
+    } else if (el.nodeType === Node.TEXT_NODE) {
       // 插值表达式 {{ name }} {{ obj.age }}
-
       if (el.textContent) {
         const exp = /{{([\w\s\.][\s\w\.]+)}}/g;
         if (exp.test(el.textContent)) {
@@ -159,7 +188,7 @@ export class Aja {
           });
         }
       }
-    });
-    return _result;
+    }
   }
+  return _result;
 }
