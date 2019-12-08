@@ -1,1 +1,2 @@
-export * from "./aja";
+import aja from "./aja";
+export default aja;

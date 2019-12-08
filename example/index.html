@@ -17,24 +17,24 @@
       <p>
         array: {{ arrA }}
       </p>
+      <input type="text" value="hello ajanuw" #input />
+      <p [title]="input.value">value: {{ input.value }} {{input.type}}</p>
       <button (click)="setTitle()">设置 title</button>
       <button (click)="setName($event)">设置 name</button>
-      <button (click)="setAge()">设置 age</button>
-      <button (click)="setArray()">设置 array</button>
-      <button (click)="onShow()">show|hide</button>
+      <button (click)="setAge(obj.age, title)">设置 age</button>
+      <button (click)="setArray(alert('xxx'))">设置 array</button>
+      <button (click)="onShow">show|hide</button>
       <hr />
-      <input type="text" value="hello ajanuw" #input />
-      <p>value: {{ input.value }} {{input.type}}</p>
+
       <hr />
       <ul :if="show">
         <li :for="item in 10">item {{ item }}</li>
       </ul>
-      <!-- <p :if="show">hello world</p> -->
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
-      let vm = aja.define(".app", {
+      let vm = new Aja(".app", {
         state: {
           show: false,
           title: 1,
@@ -61,7 +61,8 @@
             l(e);
             this.name = "Ajanuw";
           },
-          setAge() {
+          setAge(v, b) {
+            l(v, b);
             this.obj.age += 1;
             this.style.fontSize = this.obj.age + "px";
           },
@@ -73,6 +74,7 @@
           }
         }
       });
+      console.log(vm);
     </script>
   </body>
 </html>

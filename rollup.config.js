@@ -7,7 +7,7 @@ export default {
     file: "dist/aja.js",
     format: "umd",
     sourcemap: true,
-    name: "aja"
+    name: "Aja"
   },
   plugins: [
     typescript({
