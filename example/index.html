@@ -10,8 +10,8 @@
   <body>
     <div class="app">
       <ul>
-        <li :for="(i, el) in arr" (click)="foo(i)">
-          {{ i }} name: {{el.name}}, age: {{ el.age }}
+        <li :for="(i, el) in arr" (click)="foo(i)" >
+          {{ i % 2 == 0 ? "*" : "-" }} name: {{el.name}}, age: {{ el.age }}
         </li>
       </ul>
     </div>

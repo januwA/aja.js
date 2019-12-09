@@ -79,5 +79,12 @@ declare class Aja {
      * @param param1
      */
     private _tempvarBindHandle;
+    /**
+     * * 克隆DOM节点，默认深度克隆，绑定模板事件
+     * @param htmlElement
+     * @param forState
+     * @param deep
+     */
+    private _cloneNode;
 }
 export default Aja;
