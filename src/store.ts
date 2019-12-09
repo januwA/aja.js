@@ -74,6 +74,8 @@ export class Store {
     }
     if (actions) {
       this.$actions = actions;
+      // 在actions中调用this.m()
+      Object.assign(this, actions);
     }
   }
 }

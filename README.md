@@ -27,7 +27,7 @@
 <p>value: {{ input.value }} {{input.type}}</p>
 ```
 
-## TODO :for
+## :for
 ```html
 <ul>
     <li :for="item in 10">item {{ item }}</li>

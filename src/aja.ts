@@ -121,12 +121,6 @@ class Aja {
             continue;
           }
 
-          // (click)="echo('hello',$event)"
-          if (eventp(name)) {
-            this._eventBindHandle(htmlElement, attr, state);
-            continue;
-          }
-
           // #input #username
           if (tempvarp(name)) {
             this._tempvarBindHandle(htmlElement, attr);
@@ -158,7 +152,6 @@ class Aja {
                 });
                 this._define(item as HTMLElement, state2);
               }
-              commentElement.after(fragment);
             } else {
               const _varb: string[] = varb
                 .trim()
@@ -170,8 +163,6 @@ class Aja {
               const _that = this;
               for (const _k in _data) {
                 const forState = {};
-                const item = htmlElement.cloneNode(true);
-                fragment.append(item);
                 Object.defineProperties(forState, {
                   [_varb[0]]: {
                     get() {
@@ -184,11 +175,21 @@ class Aja {
                     }
                   }
                 });
+                const item = this._cloneNode(htmlElement, forState);
+                fragment.append(item);
                 this._define(item as HTMLElement, forState);
               }
-              commentElement.after(fragment);
             }
+
+            commentElement.after(fragment);
             commentElement.data = createForCommentData(_data);
+            continue;
+          }
+
+          // (click)="echo('hello',$event)"
+          if (eventp(name)) {
+            this._eventBindHandle(htmlElement, attr, state);
+            continue;
           }
         }
         // 递归遍历
@@ -421,6 +422,28 @@ class Aja {
       name.replace(tempvarExp, emptyString)
     ] = htmlElement;
     htmlElement.removeAttribute(name);
+  }
+
+  /**
+   * * 克隆DOM节点，默认深度克隆，绑定模板事件
+   * @param htmlElement
+   * @param forState
+   * @param deep
+   */
+  private _cloneNode(
+    htmlElement: HTMLElement,
+    forState: Object,
+    deep: boolean = true
+  ): Node {
+    const item = htmlElement.cloneNode(deep);
+    const forElementAttrs = Array.from(htmlElement.attributes);
+    const eventAttrs = forElementAttrs.filter(e => eventp(e.name));
+    if (eventAttrs.length) {
+      for (const eventAttr of eventAttrs) {
+        this._eventBindHandle(item as HTMLElement, eventAttr, forState);
+      }
+    }
+    return item;
   }
 }
 

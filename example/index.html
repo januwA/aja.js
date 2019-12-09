@@ -9,36 +9,39 @@
 
   <body>
     <div class="app">
-      <!-- <p>{{ name }}</p> -->
       <ul>
-        <!-- <li class="asd" :for="item in 3">
-          <span>{{name}}</span>
-        </li> -->
-
-        <!-- <li :for="(index, item) in arr">
-          for Array: {{ index }} {{ item }}
-        </li> -->
-        <li :for="(k, v) in obj">
-         {{ name }} for Object: {{ k }} {{ v }}
+        <li :for="(i, el) in arr" (click)="foo(i)">
+          {{ i }} name: {{el.name}}, age: {{ el.age }}
         </li>
       </ul>
-      <button (click)="changeColor">set color</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          name: "ajanwu",
-          arr: ["foo", "bar"],
-          obj: {
-            color: "red",
-            fontSize: "24px"
-          }
+          arr: [
+            {
+              name: "a",
+              age: 12
+            },
+            {
+              name: "b",
+              age: 13
+            },
+            {
+              name: "c",
+              age: 14
+            }
+          ]
         },
         actions: {
           changeColor() {
-            this.obj.color = "blue";
+            this.arr[0].name = "ajanuw";
+          },
+          foo(info) {
+            l(info)
+            // this.changeColor();
           }
         }
       });
