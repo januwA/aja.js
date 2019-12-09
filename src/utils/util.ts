@@ -31,16 +31,16 @@ export function createIfCommentData(value: any): string {
   return `{":if": "${!!value}"}`;
 }
 
-export function createForCommentData(array: any[]): string {
-  return `{":for": "${array}"}`;
+export function createForCommentData(obj: any): string {
+  return `{":for": "${obj}"}`;
 }
 
-export function ifp(key: string, prefix: string): boolean {
-  return key === prefix + "if";
+export function ifp(key: string, ifInstruction: string): boolean {
+  return key === ifInstruction;
 }
 
-export function forp(key: string, prefix: string): boolean {
-  return key === prefix + "for";
+export function forp(key: string, forInstruction: string): boolean {
+  return key === forInstruction;
 }
 
 export function createObject<T>(obj?: T): T {
@@ -82,4 +82,12 @@ export function parseTemplateEventArgs(str: string) {
     .replace(/(^\(*)|(\)$)/g, emptyString)
     .trim()
     .split(",");
+}
+
+/**
+ * 'false' || 'true'
+ * @param str
+ */
+export function isBoolString(str: string): boolean {
+  return str === "true" || str === "false";
 }

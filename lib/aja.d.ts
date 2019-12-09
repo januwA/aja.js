@@ -1,22 +1,4 @@
-import { Store } from "./store";
-/**
- * state 对象
- */
-export interface State {
-    [key: string]: any;
-}
-/**
- * 事件函数对象
- */
-export interface Actions {
-    [key: string]: any;
-}
-/**
- * 计算函数
- */
-export interface Computeds {
-    [key: string]: Function;
-}
+import { State, Actions, Computeds } from "./store";
 export interface Options {
     state?: State;
     actions?: Actions;
@@ -46,12 +28,20 @@ declare class Aja {
      * * :for
      */
     private get _forInstruction();
-    $store: Store;
+    $store: State;
+    get $actions(): any;
     constructor(view: string | HTMLElement, options: Options);
+    /**
+     * 扫描绑定
+     * @param root
+     * @param contextState
+     */
     private _define;
     private _proxyState;
     /**
-     * * 在state中寻找数据
+     * * 1. 优先寻找模板变量
+     * * 2. 在传入的state中寻找
+     * * 3. 在this.$store中找
      * * 'name' 'object.name'
      * ? 有限找模板变量的数据，再找state
      * @param key
@@ -65,5 +55,29 @@ declare class Aja {
      * @param state
      */
     private _parseArgsToArguments;
+    /**
+     * 处理 :if 解析
+     * @param htmlElement
+     * @param attrs
+     */
+    private _ifBindHandle;
+    /**
+     * 处理 [title]='xxx' 解析
+     * @param htmlElement
+     * @param param1
+     */
+    private _attrBindHandle;
+    /**
+     * 处理 (click)="echo('hello',$event)" 解析
+     * @param htmlElement
+     * @param param1
+     */
+    private _eventBindHandle;
+    /**
+     * * 处理模板变量 #input 解析
+     * @param htmlElement
+     * @param param1
+     */
+    private _tempvarBindHandle;
 }
 export default Aja;

@@ -32,6 +32,15 @@
   function createIfCommentData(value) {
       return `{":if": "${!!value}"}`;
   }
+  function createForCommentData(obj) {
+      return `{":for": "${obj}"}`;
+  }
+  function ifp(key, ifInstruction) {
+      return key === ifInstruction;
+  }
+  function forp(key, forInstruction) {
+      return key === forInstruction;
+  }
   function createObject(obj) {
       return obj ? obj : {};
   }
@@ -68,6 +77,13 @@
           .replace(/(^\(*)|(\)$)/g, emptyString)
           .trim()
           .split(",");
+  }
+  /**
+   * 'false' || 'true'
+   * @param str
+   */
+  function isBoolString(str) {
+      return str === "true" || str === "false";
   }
 
   const autorun = (f) => {
@@ -116,6 +132,20 @@
    */
   Store.autorunListeners = [];
 
+  //* 匹配 {{ name }} {{ obj.age }}
+  const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
+  //* 匹配空格
+  const spaceExp = /\s/g;
+  //* !!hide
+  const firstWithExclamationMarkExp = /^!*/;
+  const attrStartExp = /^\[/;
+  const attrEndExp = /^\[/;
+  const eventStartExp = /^\(/;
+  const eventEndExp = /\)$/;
+  const tempvarExp = /^#/;
+  const firstAllValue = /^./;
+  const endAllValue = /.$/;
+
   class Aja {
       constructor(view, options) {
           /**
@@ -139,7 +169,7 @@
           if (options.templateEvent)
               this._templateEvent = options.templateEvent;
           this._proxyState(options);
-          this._define(root, this.$store);
+          this._define(root);
       }
       /**
        * * :if
@@ -153,7 +183,16 @@
       get _forInstruction() {
           return this._instructionPrefix + "for";
       }
-      _define(root, state) {
+      get $actions() {
+          return this.$store.$actions;
+      }
+      /**
+       * 扫描绑定
+       * @param root
+       * @param contextState
+       */
+      _define(root, contextState = null) {
+          const state = contextState ? contextState : this.$store;
           const children = Array.from(root.childNodes);
           for (let index = 0; index < children.length; index++) {
               const childNode = children[index];
@@ -161,122 +200,107 @@
               if (childNode.nodeType === Node.ELEMENT_NODE ||
                   childNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
                   const htmlElement = childNode;
-                  // 遍历节点属性
                   // :if权限最大
                   const attrs = Array.from(htmlElement.attributes);
-                  let depath = true;
-                  let ifAttr = attrs.find(({ name }) => name === this._ifInstruction);
-                  if (ifAttr) {
-                      const commentElement = document.createComment("");
-                      htmlElement.parentElement.insertBefore(commentElement, htmlElement);
-                      autorun(() => {
-                          const show = this._getData(ifAttr.value, state);
-                          if (show) {
-                              commentElement.after(htmlElement);
-                              depath = true;
-                              if (Array.from(childNode.childNodes).length) {
-                                  this._define(htmlElement, state);
+                  let depath = this._ifBindHandle(htmlElement, attrs, state);
+                  if (!depath)
+                      continue;
+                  // 遍历节点属性
+                  for (const attr of attrs) {
+                      const { name, value } = attr;
+                      // [title]='xxx'
+                      if (attrp(name)) {
+                          this._attrBindHandle(htmlElement, attr, state);
+                          continue;
+                      }
+                      // (click)="echo('hello',$event)"
+                      if (eventp(name)) {
+                          this._eventBindHandle(htmlElement, attr, state);
+                          continue;
+                      }
+                      // #input #username
+                      if (tempvarp(name)) {
+                          this._tempvarBindHandle(htmlElement, attr);
+                          continue;
+                      }
+                      // for
+                      if (forp(name, this._forInstruction)) {
+                          // 解析for指令的值
+                          let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
+                          if (!varb)
+                              return;
+                          // 创建注释节点
+                          const commentElement = document.createComment("");
+                          htmlElement.replaceWith(commentElement);
+                          htmlElement.removeAttribute(this._forInstruction);
+                          const fragment = document.createDocumentFragment();
+                          let _data;
+                          if (isNumber(data)) {
+                              _data = +data;
+                              for (let _v = 0; _v < _data; _v++) {
+                                  const state2 = {};
+                                  const item = htmlElement.cloneNode(true);
+                                  fragment.append(item);
+                                  Object.defineProperty(state2, varb, {
+                                      get() {
+                                          return _v;
+                                      }
+                                  });
+                                  this._define(item, state2);
                               }
+                              commentElement.after(fragment);
                           }
                           else {
-                              htmlElement.replaceWith(commentElement);
-                              depath = false;
-                          }
-                          commentElement.data = createIfCommentData(show);
-                      });
-                      htmlElement.removeAttribute(this._ifInstruction);
-                  }
-                  if (depath) {
-                      for (const { name, value } of attrs) {
-                          // [title]='xxx'
-                          if (attrp(name)) {
-                              let attrName = name
-                                  .replace(/^\[/, emptyString)
-                                  .replace(/\]$/, emptyString);
-                              autorun(() => {
-                                  if (attrName === "style") {
-                                      const styles = this._getData(value, state);
-                                      for (const key in styles) {
-                                          // 过滤掉无效的style
-                                          if (Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
-                                              styles[key]) {
-                                              htmlElement.style[key] = styles[key];
+                              const _varb = varb
+                                  .trim()
+                                  .replace(eventStartExp, emptyString)
+                                  .replace(eventEndExp, emptyString)
+                                  .split(",")
+                                  .map(v => v.trim());
+                              _data = this._getData(data, state);
+                              const _that = this;
+                              for (const _k in _data) {
+                                  const forState = {};
+                                  const item = htmlElement.cloneNode(true);
+                                  fragment.append(item);
+                                  Object.defineProperties(forState, {
+                                      [_varb[0]]: {
+                                          get() {
+                                              return _k;
+                                          }
+                                      },
+                                      [_varb[1]]: {
+                                          get() {
+                                              return _that._getData(data, state)[_k];
                                           }
                                       }
-                                  }
-                                  else {
-                                      htmlElement.setAttribute(attrName, this._getData(value, state)); // 属性扫描绑定
-                                  }
-                              });
-                              htmlElement.removeAttribute(name);
-                          }
-                          // (click)="echo('hello',$event)"
-                          if (eventp(name)) {
-                              const eventName = name
-                                  .replace(/^\(/, emptyString)
-                                  .replace(/\)$/, emptyString);
-                              // 函数名
-                              let funcName = value;
-                              // 函数参数
-                              let args = [];
-                              if (value.includes("(")) {
-                                  // 带参数的函数
-                                  const index = value.indexOf("(");
-                                  funcName = value.substr(0, index);
-                                  args = parseTemplateEventArgs(value);
+                                  });
+                                  this._define(item, forState);
                               }
-                              childNode.addEventListener(eventName, e => {
-                                  //? 每次点击都需解析参数?
-                                  //! 如果只解析一次，那么模板变量需要提前声明, 并且模板变量不会更新!
-                                  if (this.$store.$actions && funcName in this.$store.$actions) {
-                                      this.$store.$actions[funcName].apply(this.$store, this._parseArgsToArguments(args, e, state));
-                                  }
-                              });
-                              htmlElement.removeAttribute(name);
+                              commentElement.after(fragment);
                           }
-                          if (tempvarp(name)) {
-                              // 模板变量 #input
-                              this._templateVariables[name.replace(/^#/, "")] = htmlElement;
-                              htmlElement.removeAttribute(name);
-                          }
-                          // TODO 处理for指令
-                          if (name === this._forInstruction) {
-                              // 解析for指令的值
-                              let [varb, d] = value.split("in").map(s => s.trim());
-                              if (!varb)
-                                  return;
-                              if (!isNaN(+d)) {
-                                  const fragment = document.createDocumentFragment();
-                                  htmlElement.removeAttribute(this._forInstruction);
-                                  for (let index = 0; index < +d; index++) {
-                                      const item = childNode.cloneNode(true);
-                                      this._define(item, Object.assign(Object.assign({}, state), { [varb]: index }));
-                                      fragment.append(item);
-                                  }
-                                  childNode.replaceWith(fragment);
-                              }
-                          }
-                      }
-                      // 递归遍历
-                      if (Array.from(childNode.childNodes).length) {
-                          this._define(htmlElement, state);
+                          commentElement.data = createForCommentData(_data);
                       }
                   }
+                  // 递归遍历
+                  // if (Array.from(childNode.childNodes).length) {
+                  this._define(htmlElement);
+                  // }
               }
               else if (childNode.nodeType === Node.TEXT_NODE) {
                   // 插值表达式 {{ name }} {{ obj.age }}
                   if (childNode.textContent) {
-                      const exp = /{{([\w\s\.][\s\w\.]+)}}/g;
-                      if (exp.test(childNode.textContent)) {
-                          const _initTextContent = childNode.textContent;
-                          autorun(() => {
-                              const text = _initTextContent.replace(exp, (...args) => {
-                                  var key = args[1].replace(/\s/g, "");
-                                  return this._getData(key, state);
-                              });
-                              childNode.textContent = text;
+                      // 文本保函插值表达式的
+                      if (!interpolationExpressionExp.test(childNode.textContent))
+                          continue;
+                      const _initTextContent = childNode.textContent;
+                      autorun(() => {
+                          const text = _initTextContent.replace(interpolationExpressionExp, (...args) => {
+                              var key = args[1].replace(spaceExp, emptyString);
+                              return this._getData(key, state);
                           });
-                      }
+                          childNode.textContent = text;
+                      });
                   }
               }
           }
@@ -288,7 +312,9 @@
           this.$store = new Store({ state, computeds, actions });
       }
       /**
-       * * 在state中寻找数据
+       * * 1. 优先寻找模板变量
+       * * 2. 在传入的state中寻找
+       * * 3. 在this.$store中找
        * * 'name' 'object.name'
        * ? 有限找模板变量的数据，再找state
        * @param key
@@ -311,6 +337,15 @@
                   _result = _result ? _result[k] : state[k];
               }
           }
+          // this.$store
+          if (_result === undefined && state !== this.$store) {
+              for (const k of keys) {
+                  _result = _result ? _result[k] : this.$store[k];
+              }
+          }
+          // 避免返回 undefined 的字符串
+          if (_result === undefined)
+              _result = emptyString;
           return _result;
       }
       /**
@@ -332,13 +367,124 @@
                   return arg;
               if (isTemplateString(el)) {
                   return el
-                      .replace(/^./, emptyString)
-                      .replace(/.$/, emptyString)
+                      .replace(firstAllValue, emptyString)
+                      .replace(endAllValue, emptyString)
                       .toString();
               }
               const data = this._getData(el, state);
               return data ? data : eval(el);
           });
+      }
+      /**
+       * 处理 :if 解析
+       * @param htmlElement
+       * @param attrs
+       */
+      _ifBindHandle(htmlElement, attrs, state) {
+          let depath = true;
+          // 是否有 :if 指令
+          let ifAttr = attrs.find(({ name }) => ifp(name, this._ifInstruction));
+          if (ifAttr) {
+              // 创建注释节点做标记
+              const commentElement = document.createComment("");
+              // 将注释节点插入到节点上面
+              htmlElement.before(commentElement);
+              autorun(() => {
+                  let value = ifAttr.value.trim();
+                  const match = value.match(firstWithExclamationMarkExp)[0]; // :if="!show"
+                  if (match) {
+                      // 砍掉! !true -> true
+                      value = value.replace(firstWithExclamationMarkExp, emptyString);
+                  }
+                  let show = true;
+                  if (isBoolString(value)) {
+                      show = value === "true";
+                  }
+                  else {
+                      show = this._getData(value, state);
+                  }
+                  if (match) {
+                      show = eval(`${match}${show}`);
+                  }
+                  if (show) {
+                      commentElement.after(htmlElement);
+                      depath = true;
+                      if (Array.from(htmlElement.childNodes).length) {
+                          this._define(htmlElement);
+                      }
+                  }
+                  else {
+                      htmlElement.replaceWith(commentElement);
+                      depath = false;
+                  }
+                  commentElement.data = createIfCommentData(show);
+              });
+              htmlElement.removeAttribute(this._ifInstruction);
+          }
+          return depath;
+      }
+      /**
+       * 处理 [title]='xxx' 解析
+       * @param htmlElement
+       * @param param1
+       */
+      _attrBindHandle(htmlElement, { name, value }, state) {
+          let attrName = name
+              .replace(attrStartExp, emptyString)
+              .replace(attrEndExp, emptyString);
+          autorun(() => {
+              if (attrName === "style") {
+                  const styles = this._getData(value, state);
+                  for (const key in styles) {
+                      // 过滤掉无效的style
+                      if (Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
+                          styles[key]) {
+                          htmlElement.style[key] = styles[key];
+                      }
+                  }
+              }
+              else {
+                  htmlElement.setAttribute(attrName, this._getData(value, state)); // 属性扫描绑定
+              }
+          });
+          htmlElement.removeAttribute(name);
+      }
+      /**
+       * 处理 (click)="echo('hello',$event)" 解析
+       * @param htmlElement
+       * @param param1
+       */
+      _eventBindHandle(htmlElement, { name, value }, state) {
+          const eventName = name
+              .replace(eventStartExp, emptyString)
+              .replace(eventEndExp, emptyString);
+          // 函数名
+          let funcName = value;
+          // 函数参数
+          let args = [];
+          if (value.includes("(")) {
+              // 带参数的函数
+              const index = value.indexOf("(");
+              funcName = value.substr(0, index);
+              args = parseTemplateEventArgs(value);
+          }
+          htmlElement.addEventListener(eventName, e => {
+              //? 每次点击都需解析参数?
+              //! 如果只解析一次，那么模板变量需要提前声明, 并且模板变量不会更新!
+              if (this.$actions && funcName in this.$actions) {
+                  this.$actions[funcName].apply(this.$store, this._parseArgsToArguments(args, e, state));
+              }
+          });
+          htmlElement.removeAttribute(name);
+      }
+      /**
+       * * 处理模板变量 #input 解析
+       * @param htmlElement
+       * @param param1
+       */
+      _tempvarBindHandle(htmlElement, { name }) {
+          this._templateVariables[name.replace(tempvarExp, emptyString)] = htmlElement;
+          htmlElement.removeAttribute(name);
       }
   }
 

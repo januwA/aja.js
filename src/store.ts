@@ -21,7 +21,7 @@ export interface Computeds {
   [key: string]: Function;
 }
 
-export interface Options {
+export interface StoreOptions {
   state: State;
   actions?: Actions;
   computeds: Computeds;
@@ -33,14 +33,13 @@ export const autorun = (f: Function) => {
 };
 
 export class Store {
-
   /**
    * * 任意一个属性的变化，都会触发所有的监听事件
    */
   static autorunListeners: Function[] = [];
   public $actions!: Actions;
 
-  constructor({ state, computeds, actions }: Options) {
+  constructor({ state, computeds, actions }: StoreOptions) {
     for (const k in state) {
       Object.defineProperty(this, k, {
         get() {

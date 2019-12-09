@@ -16,7 +16,7 @@ export interface Actions {
 export interface Computeds {
     [key: string]: Function;
 }
-export interface Options {
+export interface StoreOptions {
     state: State;
     actions?: Actions;
     computeds: Computeds;
@@ -28,5 +28,5 @@ export declare class Store {
      */
     static autorunListeners: Function[];
     $actions: Actions;
-    constructor({ state, computeds, actions }: Options);
+    constructor({ state, computeds, actions }: StoreOptions);
 }

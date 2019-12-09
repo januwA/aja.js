@@ -9,72 +9,40 @@
 
   <body>
     <div class="app">
-      <h1 :if="show">if 指令节点 {{ name }}</h1>
-      hello <span>{{title}}</span> {{ name }}
-      <p [title]="title" class="c" [style]="style">
-        我叫{{ name }}, 今年{{ obj.age }}岁
-      </p>
-      <p>
-        array: {{ arrA }}
-      </p>
-      <input type="text" value="hello ajanuw" #input />
-      <p [title]="input.value">value: {{ input.value }} {{input.type}}</p>
-      <button (click)="setTitle()">设置 title</button>
-      <button (click)="setName($event)">设置 name</button>
-      <button (click)="setAge(obj.age, title)">设置 age</button>
-      <button (click)="setArray(alert('xxx'))">设置 array</button>
-      <button (click)="onShow">show|hide</button>
-      <hr />
+      <!-- <p>{{ name }}</p> -->
+      <ul>
+        <!-- <li class="asd" :for="item in 3">
+          <span>{{name}}</span>
+        </li> -->
 
-      <hr />
-      <ul :if="show">
-        <li :for="item in 10">item {{ item }}</li>
+        <!-- <li :for="(index, item) in arr">
+          for Array: {{ index }} {{ item }}
+        </li> -->
+        <li :for="(k, v) in obj">
+         {{ name }} for Object: {{ k }} {{ v }}
+        </li>
       </ul>
+      <button (click)="changeColor">set color</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          show: false,
-          title: 1,
           name: "ajanwu",
+          arr: ["foo", "bar"],
           obj: {
-            age: 14
-          },
-          arr: ["a", "b", "c"],
-          style: {
             color: "red",
-            fontSize: "14px"
-          }
-        },
-        computeds: {
-          arrA() {
-            return this.arr[0];
+            fontSize: "24px"
           }
         },
         actions: {
-          setTitle() {
-            this.title = "hello ajanuw";
-          },
-          setName(e) {
-            l(e);
-            this.name = "Ajanuw";
-          },
-          setAge(v, b) {
-            l(v, b);
-            this.obj.age += 1;
-            this.style.fontSize = this.obj.age + "px";
-          },
-          setArray() {
-            this.arr[0] = "ajanuw";
-          },
-          onShow() {
-            this.show = !this.show;
+          changeColor() {
+            this.obj.color = "blue";
           }
         }
       });
-      console.log(vm);
+      // console.log(vm);
     </script>
   </body>
 </html>
