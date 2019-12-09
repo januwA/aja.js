@@ -14,14 +14,13 @@
 
 ## 插值表达式
 ```
-<p>我叫{{ name }}, 今年{{ obj.age }}岁</p>
+<p>我叫{{ name }}, 今年{{ obj.age * 10 }}岁</p>
 
-// todo
 {{ v ? 1 : 2 }}
 ```
 
 ## 模板变量
-> 权限高于state
+> 权限最高
 ```html
 <input type="text" value="hello ajanuw" #input />
 <p>value: {{ input.value }} {{input.type}}</p>

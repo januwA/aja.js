@@ -48,6 +48,7 @@ declare class Aja {
      * @param state
      */
     private _getData;
+    private _parseJsString;
     /**
      * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
      * @param args
@@ -86,5 +87,6 @@ declare class Aja {
      * @param deep
      */
     private _cloneNode;
+    private _bindingAttrs;
 }
 export default Aja;

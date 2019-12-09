@@ -10,9 +10,15 @@
   <body>
     <div class="app">
       <ul>
-        <li :for="(i, el) in arr" (click)="foo(i)" >
-          {{ i % 2 == 0 ? "*" : "-" }} name: {{el.name}}, age: {{ el.age }}
+        <li
+          :for="(i, el) in arr"
+          [title]="el.xx"
+          (click)="foo(i)"
+        >
+          name: {{ el.name }}, age: {{ el['age'] }}
         </li>
+        <hr />
+        <li :for="i in 10" [title]="i + 1">{{ i }}</li>
       </ul>
     </div>
     <script src="../dist/aja.js"></script>
@@ -20,6 +26,7 @@
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
+          name: "ajanuw",
           arr: [
             {
               name: "a",
@@ -33,14 +40,18 @@
               name: "c",
               age: 14
             }
-          ]
+          ],
+
+          me() {
+            return "xxx";
+          }
         },
         actions: {
           changeColor() {
             this.arr[0].name = "ajanuw";
           },
           foo(info) {
-            l(info)
+            l(info);
             // this.changeColor();
           }
         }
