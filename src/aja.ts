@@ -101,6 +101,9 @@ class Aja {
         childNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE
       ) {
         const htmlElement: HTMLElement = childNode as HTMLElement;
+
+        //? 这个[depath]有什么用?
+        //? 当绑定了if和for,指令，就没有必要递归下去了
         let depath = this._bindingAttrs(htmlElement, state);
 
         // 递归遍历
@@ -445,7 +448,7 @@ class Aja {
           }
         }
         commentElement.after(fragment);
-        commentElement.data = createForCommentData(_data);
+        commentElement.data = createForCommentData(data);
         return false;
       }
     }

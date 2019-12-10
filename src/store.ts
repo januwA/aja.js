@@ -38,13 +38,16 @@ export class Store {
    */
   static autorunListeners: Function[] = [];
   public $actions!: Actions;
+  private $state: State;
 
   constructor({ state, computeds, actions }: StoreOptions) {
+    this.$state = state;
     for (const k in state) {
+      const _that = this;
       Object.defineProperty(this, k, {
         get() {
           let value = state[k];
-          if (this._isObject(state[k])) {
+          if (_that._isObject(state[k])) {
             value = new Store({
               state: value,
               computeds: {}
@@ -81,5 +84,9 @@ export class Store {
 
   private _isObject(val: any): boolean {
     return typeof val === "object" && val !== null;
+  }
+
+  public toString(): string {
+    return JSON.stringify(this.$state);
   }
 }

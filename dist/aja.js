@@ -85,6 +85,7 @@
           throw er;
       }
   }
+  //# sourceMappingURL=util.js.map
 
   const autorun = (f) => {
       f();
@@ -92,11 +93,13 @@
   };
   class Store {
       constructor({ state, computeds, actions }) {
+          this.$state = state;
           for (const k in state) {
+              const _that = this;
               Object.defineProperty(this, k, {
                   get() {
                       let value = state[k];
-                      if (this._isObject(state[k])) {
+                      if (_that._isObject(state[k])) {
                           value = new Store({
                               state: value,
                               computeds: {}
@@ -131,11 +134,15 @@
       _isObject(val) {
           return typeof val === "object" && val !== null;
       }
+      toString() {
+          return JSON.stringify(this.$state);
+      }
   }
   /**
    * * 任意一个属性的变化，都会触发所有的监听事件
    */
   Store.autorunListeners = [];
+  //# sourceMappingURL=store.js.map
 
   //* 匹配 {{ name }} {{ obj.age }}
   // export const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
@@ -147,6 +154,7 @@
   const eventStartExp = /^\(/;
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
+  //# sourceMappingURL=exp.js.map
 
   class Aja {
       constructor(view, options) {
@@ -202,6 +210,8 @@
               if (childNode.nodeType === Node.ELEMENT_NODE ||
                   childNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
                   const htmlElement = childNode;
+                  //? 这个[depath]有什么用?
+                  //? 当绑定了if和for,指令，就没有必要递归下去了
                   let depath = this._bindingAttrs(htmlElement, state);
                   // 递归遍历
                   if (depath)
@@ -515,7 +525,7 @@
                       }
                   }
                   commentElement.after(fragment);
-                  commentElement.data = createForCommentData(_data);
+                  commentElement.data = createForCommentData(data);
                   return false;
               }
           }
@@ -551,6 +561,8 @@
           });
       }
   }
+
+  //# sourceMappingURL=main.js.map
 
   return Aja;
 

@@ -9,7 +9,7 @@
 
   <body>
     <div class="app">
-      <h1 :if="show" [title]="title" (click)="foo(title)">hello {{ title }} {{ name }}</h1>
+      <h1 :for="el in 10">{{ el }}</h1>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
