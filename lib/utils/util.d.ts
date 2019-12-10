@@ -40,3 +40,9 @@ export declare function parseTemplateEventArgs(str: string): string[];
  * @param str
  */
 export declare function isBoolString(str: string): boolean;
+/**
+ * * 避免使用全局的eval
+ * @param this
+ * @param bodyString
+ */
+export declare function ourEval(this: any, bodyString: string): any;

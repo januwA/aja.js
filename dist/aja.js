@@ -53,20 +53,6 @@
       return !isNaN(+str);
   }
   /**
-   * 'name'  "name"
-   *
-   */
-  function isTemplateString(str) {
-      return /^['"`]/.test(str.trim());
-  }
-  /**
-   * '       '
-   * @param str
-   */
-  function isTemplateEmptyString(str) {
-      return !str.trim();
-  }
-  /**
    * setAge( obj.age   , '        ') -> ["obj.age   ", " '        '"]
    * @param str
    */
@@ -85,6 +71,20 @@
   function isBoolString(str) {
       return str === "true" || str === "false";
   }
+  /**
+   * * 避免使用全局的eval
+   * @param this
+   * @param bodyString
+   */
+  function ourEval(bodyString) {
+      const f = new Function(bodyString);
+      try {
+          return f.apply(this, arguments);
+      }
+      catch (er) {
+          throw er;
+      }
+  }
 
   const autorun = (f) => {
       f();
@@ -96,7 +96,7 @@
               Object.defineProperty(this, k, {
                   get() {
                       let value = state[k];
-                      if (typeof state[k] === "object") {
+                      if (this._isObject(state[k])) {
                           value = new Store({
                               state: value,
                               computeds: {}
@@ -128,6 +128,9 @@
               Object.assign(this, actions);
           }
       }
+      _isObject(val) {
+          return typeof val === "object" && val !== null;
+      }
   }
   /**
    * * 任意一个属性的变化，都会触发所有的监听事件
@@ -139,15 +142,11 @@
   const interpolationExpressionExp = /{{(.*?)}}/g;
   //* 匹配空格
   const spaceExp = /\s/g;
-  //* !!hide
-  const firstWithExclamationMarkExp = /^!*/;
   const attrStartExp = /^\[/;
   const attrEndExp = /\]$/;
   const eventStartExp = /^\(/;
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
-  const firstAllValue = /^./;
-  const endAllValue = /.$/;
 
   class Aja {
       constructor(view, options) {
@@ -209,18 +208,7 @@
                       this._define(htmlElement);
               }
               else if (childNode.nodeType === Node.TEXT_NODE) {
-                  // 插值表达式 {{ name }} {{ obj.age }}
-                  const _initTextContent = childNode.textContent || emptyString;
-                  // 文本不包含插值表达式的，那么就跳过
-                  if (!interpolationExpressionExp.test(_initTextContent))
-                      continue;
-                  autorun(() => {
-                      const text = _initTextContent.replace(interpolationExpressionExp, (...args) => {
-                          const key = args[1].replace(spaceExp, emptyString);
-                          return this._getData(key, state);
-                      });
-                      childNode.textContent = text;
-                  });
+                  this._setTextContent(childNode, state);
               }
           }
       }
@@ -235,7 +223,8 @@
        * * 2. 在传入的state中寻找
        * * 3. 在this.$store中找
        * * 'name' 'object.name'
-       * ? 有限找模板变量的数据，再找state
+       * ? 优先找模板变量的数据，再找state
+       * ? 虽然返回的是any， 但是这个函数不会返回 undefined
        * @param key
        * @param state
        */
@@ -244,52 +233,65 @@
               return null;
           const keys = key.split(".");
           let _result;
+          const firstKey = keys[0];
           // 模板变量
-          if (keys[0] in this._templateVariables) {
+          //? 如果连第一个key都不存在，那么就别找了，找下去也会找错值
+          if (firstKey in this._templateVariables) {
               for (const k of keys) {
                   _result = _result ? _result[k] : this._templateVariables[k];
               }
           }
           // state
           if (_result === undefined) {
-              for (const k of keys) {
-                  _result = _result ? _result[k] : state[k];
+              if (firstKey in state) {
+                  for (const k of keys) {
+                      _result = _result ? _result[k] : state[k];
+                  }
               }
           }
           // this.$store
           if (_result === undefined && state !== this.$store) {
-              for (const k of keys) {
-                  _result = _result ? _result[k] : this.$store[k];
+              if (firstKey in this.$store) {
+                  for (const k of keys) {
+                      _result = _result ? _result[k] : this.$store[k];
+                  }
               }
           }
-          // 避免返回 undefined 的字符串
           if (_result === undefined) {
+              // 没救了， eval随便解析返回个值吧!
               _result = this._parseJsString(key, state);
           }
           return _result;
       }
+      /**
+       * 解析一些奇怪的插值表达式
+       * {{ el['age'] }}
+       * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
+       * @param key
+       * @param state
+       */
       _parseJsString(key, state) {
           try {
-              return eval(key);
+              return ourEval(`return ${key}`);
           }
           catch (er) {
+              // 利用错误来抓取变量
               const msg = er.message;
               if (msg.includes("is not defined")) {
                   const match = msg.match(/(.*) is not defined/);
                   if (!match)
                       return emptyString;
                   const varName = match[1];
-                  const evalString = `
-        let ${varName} = this._getData(\"${varName}\", state);
-        if(${varName} === undefined) "";
-        ${key}
-      `;
-                  // 一不注意就会照成堆栈溢出
-                  const _result = eval(evalString);
-                  return _result !== undefined ? _result : emptyString;
+                  const context = this._getData(varName, state);
+                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
+                  let _result = ourEval.call(context, `return ${funBody}`);
+                  if (_result === undefined)
+                      return emptyString;
+                  return _result;
               }
               else {
                   console.error(er);
+                  throw er;
               }
           }
       }
@@ -306,18 +308,7 @@
               let el = arg.trim();
               if (el === this._templateEvent)
                   return e;
-              if (isNumber(el))
-                  return +arg;
-              if (isTemplateEmptyString(el))
-                  return arg;
-              if (isTemplateString(el)) {
-                  return el
-                      .replace(firstAllValue, emptyString)
-                      .replace(endAllValue, emptyString)
-                      .toString();
-              }
-              const data = this._getData(el, state);
-              return data ? data : eval(el);
+              return this._getData(el, state);
           });
       }
       /**
@@ -336,20 +327,12 @@
               htmlElement.before(commentElement);
               autorun(() => {
                   let value = ifAttr.value.trim();
-                  const match = value.match(firstWithExclamationMarkExp)[0]; // :if="!show"
-                  if (match) {
-                      // 砍掉! !true -> true
-                      value = value.replace(firstWithExclamationMarkExp, emptyString);
-                  }
                   let show = true;
                   if (isBoolString(value)) {
                       show = value === "true";
                   }
                   else {
                       show = this._getData(value, state);
-                  }
-                  if (match) {
-                      show = eval(`${match}${show}`);
                   }
                   if (show) {
                       commentElement.after(htmlElement);
@@ -381,7 +364,7 @@
               if (attrName === "style") {
                   const styles = this._getData(value, state);
                   for (const key in styles) {
-                      // 过滤掉无效的style
+                      // 过滤掉无效的style, 和空值
                       if (Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
                           styles[key]) {
                           htmlElement.style[key] = styles[key];
@@ -389,7 +372,10 @@
                   }
               }
               else {
-                  htmlElement.setAttribute(attrName, this._getData(value, state));
+                  let _value = this._getData(value, state);
+                  if (_value === null)
+                      _value = emptyString;
+                  htmlElement.setAttribute(attrName, _value);
               }
           });
           htmlElement.removeAttribute(name);
@@ -534,6 +520,35 @@
               }
           }
           return depath;
+      }
+      /**
+       * * 解析文本节点的插值表达式
+       * @param childNode
+       * @param state
+       */
+      _setTextContent(childNode, state) {
+          // 创建一个变量保存源文本
+          const _initTextContent = childNode.textContent || emptyString;
+          // 文本不包含插值表达式的，那么就跳过
+          if (!interpolationExpressionExp.test(_initTextContent))
+              return;
+          _initTextContent.replace(interpolationExpressionExp, (...args) => {
+              // 捕获到的插值表达式 {{name}}
+              const match = args[0];
+              // 获取插值表达式里面的文本 {{name}} -> name
+              const key = args[1].replace(spaceExp, emptyString);
+              autorun(() => {
+                  let _data = this._getData(key, state);
+                  // 如果返回null字符，不好看
+                  // hello null :(
+                  // hello      :)
+                  if (_data === null)
+                      return emptyString;
+                  const newTextContent = _initTextContent.replace(new RegExp(match, "g"), _data);
+                  childNode.textContent = newTextContent;
+              });
+              return emptyString;
+          });
       }
   }
 

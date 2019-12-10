@@ -29,4 +29,5 @@ export declare class Store {
     static autorunListeners: Function[];
     $actions: Actions;
     constructor({ state, computeds, actions }: StoreOptions);
+    private _isObject;
 }

@@ -44,7 +44,7 @@ export class Store {
       Object.defineProperty(this, k, {
         get() {
           let value = state[k];
-          if (typeof state[k] === "object") {
+          if (this._isObject(state[k])) {
             value = new Store({
               state: value,
               computeds: {}
@@ -77,5 +77,9 @@ export class Store {
       // 在actions中调用this.m()
       Object.assign(this, actions);
     }
+  }
+
+  private _isObject(val: any): boolean {
+    return typeof val === "object" && val !== null;
   }
 }

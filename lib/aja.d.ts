@@ -43,11 +43,19 @@ declare class Aja {
      * * 2. 在传入的state中寻找
      * * 3. 在this.$store中找
      * * 'name' 'object.name'
-     * ? 有限找模板变量的数据，再找state
+     * ? 优先找模板变量的数据，再找state
+     * ? 虽然返回的是any， 但是这个函数不会返回 undefined
      * @param key
      * @param state
      */
     private _getData;
+    /**
+     * 解析一些奇怪的插值表达式
+     * {{ el['age'] }}
+     * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
+     * @param key
+     * @param state
+     */
     private _parseJsString;
     /**
      * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
@@ -88,5 +96,11 @@ declare class Aja {
      */
     private _cloneNode;
     private _bindingAttrs;
+    /**
+     * * 解析文本节点的插值表达式
+     * @param childNode
+     * @param state
+     */
+    private _setTextContent;
 }
 export default Aja;

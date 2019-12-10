@@ -9,28 +9,20 @@
 
   <body>
     <div class="app">
-      <ul>
-        <li
-          :for="(i, el) in arr"
-          [title]="el.xx"
-          (click)="foo(i)"
-        >
-          name: {{ el.name }}, age: {{ el['age'] }}
-        </li>
-        <hr />
-        <li :for="i in 10" [title]="i + 1">{{ i }}</li>
-      </ul>
+      <h1 :if="show" [title]="title" (click)="foo(title)">hello {{ title }} {{ name }}</h1>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
+          title: false,
           name: "ajanuw",
+          show: true,
           arr: [
             {
               name: "a",
-              age: 12
+              age: null
             },
             {
               name: "b",
@@ -51,8 +43,7 @@
             this.arr[0].name = "ajanuw";
           },
           foo(info) {
-            l(info);
-            // this.changeColor();
+            this.name = this.name.toUpperCase()
           }
         }
       });

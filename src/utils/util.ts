@@ -91,3 +91,17 @@ export function parseTemplateEventArgs(str: string) {
 export function isBoolString(str: string): boolean {
   return str === "true" || str === "false";
 }
+
+/**
+ * * 避免使用全局的eval
+ * @param this 
+ * @param bodyString 
+ */
+export function ourEval(this: any, bodyString: string): any {
+  const f = new Function(bodyString);
+  try {
+    return f.apply(this, arguments);
+  } catch (er) {
+    throw er;
+  }
+}
