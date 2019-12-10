@@ -12,7 +12,8 @@ import {
   ifp,
   forp,
   createForCommentData,
-  ourEval
+  ourEval,
+  modelp
 } from "./utils/util";
 import { Store, autorun, State, Actions, Computeds } from "./store";
 import {
@@ -94,7 +95,6 @@ class Aja {
     const children = Array.from(root.childNodes);
     for (let index = 0; index < children.length; index++) {
       const childNode: ChildNode = children[index];
-
       // dom节点
       if (
         childNode.nodeType === Node.ELEMENT_NODE ||
@@ -176,8 +176,14 @@ class Aja {
    * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
    * @param key
    * @param state
+   * @param setState
    */
-  private _parseJsString(key: string, state: State) {
+  private _parseJsString(
+    key: string,
+    state: State,
+    setState: boolean = false,
+    newValue: any = ""
+  ) {
     try {
       return ourEval(`return ${key}`);
     } catch (er) {
@@ -188,15 +194,52 @@ class Aja {
         if (!match) return emptyString;
         const varName = match[1];
         const context = this._getData(varName, state);
-        const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
-        let _result = ourEval.call(context, `return ${funBody}`);
-        if (_result === undefined) return emptyString;
-        return _result;
+        if (setState) {
+          const funBody =
+            key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
+            `= '${newValue}'`;
+          ourEval.call(context, `${funBody}`);
+        } else {
+          const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
+          let _result = ourEval.call(context, `return ${funBody}`);
+          if (_result === undefined) _result = emptyString;
+          return _result;
+        }
       } else {
         console.error(er);
         throw er;
       }
     }
+  }
+
+  /**
+   * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
+   * @param key
+   * @param newValue
+   * @param state
+   */
+  private _setDate(key: string, newValue: any, state: State) {
+    if (typeof key !== "string") return null;
+    const keys = key.split(".");
+    const keysSize = keys.length;
+    if (!keysSize) return;
+    let _result: any;
+
+    if (keysSize === 1) {
+      state[keys[0]] = newValue;
+      return;
+    }
+    for (let index = 0; index < keysSize - 1; index++) {
+      const k = keys[index];
+      _result = _result ? _result[k] : state[k];
+    }
+
+    if (_result) {
+      _result[keys[keysSize - 1]] = newValue;
+      return;
+    }
+
+    this._parseJsString(key, state, true, newValue);
   }
 
   /**
@@ -257,6 +300,70 @@ class Aja {
       htmlElement.removeAttribute(this._ifInstruction);
     }
     return depath;
+  }
+
+  private _forBindHandle(
+    htmlElement: HTMLElement,
+    { name, value }: Attr,
+    state: State
+  ) {
+    // 解析for指令的值
+    let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
+    if (!varb) return;
+
+    // 创建注释节点
+    const commentElement = document.createComment("");
+    htmlElement.replaceWith(commentElement);
+    htmlElement.removeAttribute(this._forInstruction);
+    const fragment = document.createDocumentFragment();
+    let _data;
+    if (isNumber(data)) {
+      _data = +data;
+      for (let _v = 0; _v < _data; _v++) {
+        const forState = {};
+        const item = htmlElement.cloneNode(true);
+        fragment.append(item);
+        Object.defineProperty(forState, varb, {
+          get() {
+            return _v;
+          }
+        });
+
+        this._bindingAttrs(item as HTMLElement, forState);
+        this._define(item as HTMLElement, forState);
+      }
+    } else {
+      const _varb: string[] = varb
+        .trim()
+        .replace(eventStartExp, emptyString)
+        .replace(eventEndExp, emptyString)
+        .split(",")
+        .map(v => v.trim());
+      _data = this._getData(data, state);
+      const _that = this;
+
+      for (const _k in _data) {
+        const forState = {};
+        Object.defineProperties(forState, {
+          [_varb[0]]: {
+            get() {
+              return _k;
+            }
+          },
+          [_varb[1]]: {
+            get() {
+              return _that._getData(data, state)[_k];
+            }
+          }
+        });
+        const item = this._cloneNode(htmlElement, forState);
+        fragment.append(item);
+        this._bindingAttrs(item as HTMLElement, forState);
+        this._define(item as HTMLElement, forState);
+      }
+    }
+    commentElement.after(fragment);
+    commentElement.data = createForCommentData(data);
   }
 
   /**
@@ -392,64 +499,23 @@ class Aja {
 
       // :for
       if (forp(name, this._forInstruction)) {
-        // 解析for指令的值
-        let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
-        if (!varb) continue;
+        this._forBindHandle(htmlElement, attr, state);
 
-        // 创建注释节点
-        const commentElement = document.createComment("");
-        htmlElement.replaceWith(commentElement);
-        htmlElement.removeAttribute(this._forInstruction);
-        const fragment = document.createDocumentFragment();
-        let _data;
-        if (isNumber(data)) {
-          _data = +data;
-          for (let _v = 0; _v < _data; _v++) {
-            const forState = {};
-            const item = htmlElement.cloneNode(true);
-            fragment.append(item);
-            Object.defineProperty(forState, varb, {
-              get() {
-                return _v;
-              }
-            });
+        // 绑定for的节点没有必要递归下去， 生成的新节点会自动递归
+        depath = false;
+      }
 
-            this._bindingAttrs(item as HTMLElement, forState);
-            this._define(item as HTMLElement, forState);
-          }
-        } else {
-          const _varb: string[] = varb
-            .trim()
-            .replace(eventStartExp, emptyString)
-            .replace(eventEndExp, emptyString)
-            .split(",")
-            .map(v => v.trim());
-          _data = this._getData(data, state);
-          const _that = this;
+      // [(model)]="username"
+      if (modelp(name)) {
+        const inputElement = htmlElement as HTMLInputElement;
+        autorun(() => {
+          inputElement.value = `${this._getData(value, state)}`;
+        });
+        inputElement.addEventListener("input", () => {
+          this._setDate(value, inputElement.value, state);
+        });
 
-          for (const _k in _data) {
-            const forState = {};
-            Object.defineProperties(forState, {
-              [_varb[0]]: {
-                get() {
-                  return _k;
-                }
-              },
-              [_varb[1]]: {
-                get() {
-                  return _that._getData(data, state)[_k];
-                }
-              }
-            });
-            const item = this._cloneNode(htmlElement, forState);
-            fragment.append(item);
-            this._bindingAttrs(item as HTMLElement, forState);
-            this._define(item as HTMLElement, forState);
-          }
-        }
-        commentElement.after(fragment);
-        commentElement.data = createForCommentData(data);
-        return false;
+        inputElement.removeAttribute(name);
       }
     }
     return depath;
@@ -457,8 +523,8 @@ class Aja {
 
   /**
    * * 解析文本节点的插值表达式
-   * @param childNode 
-   * @param state 
+   * @param childNode
+   * @param state
    */
   private _setTextContent(childNode: ChildNode, state: State): void {
     // 创建一个变量保存源文本

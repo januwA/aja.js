@@ -9,45 +9,24 @@
 
   <body>
     <div class="app">
-      <h1 :for="el in 10">{{ el }}</h1>
+      <input type="text" [(model)]="text" />
+      <p>{{ text }}</p>
+      <button (click)="push">click me</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          title: false,
-          name: "ajanuw",
-          show: true,
-          arr: [
-            {
-              name: "a",
-              age: null
-            },
-            {
-              name: "b",
-              age: 13
-            },
-            {
-              name: "c",
-              age: 14
-            }
-          ],
-
-          me() {
-            return "xxx";
-          }
+          text: []
         },
         actions: {
-          changeColor() {
-            this.arr[0].name = "ajanuw";
-          },
-          foo(info) {
-            this.name = this.name.toUpperCase()
+          push() {
+            this.text = 'xxx'
           }
         }
       });
-      // console.log(vm);
+      console.log(vm.$store);
     </script>
   </body>
 </html>

@@ -18,7 +18,15 @@ export function eventp(value: string) {
  * @param value
  */
 export function tempvarp(value: string) {
-  return value[0] === "#";
+  return value.charAt(0) === "#";
+}
+
+/**
+ * * 双向绑定
+ * @param str
+ */
+export function modelp(str: string) {
+  return str === "[(model)]";
 }
 
 export function createRoot(view: string | HTMLElement): HTMLElement | null {
@@ -94,8 +102,8 @@ export function isBoolString(str: string): boolean {
 
 /**
  * * 避免使用全局的eval
- * @param this 
- * @param bodyString 
+ * @param this
+ * @param bodyString
  */
 export function ourEval(this: any, bodyString: string): any {
   const f = new Function(bodyString);
@@ -104,4 +112,24 @@ export function ourEval(this: any, bodyString: string): any {
   } catch (er) {
     throw er;
   }
+}
+
+/**
+ * Object.prototype.toString.call({}) -> "[object Object]"
+ * @param data
+ */
+export function dataTag(data: any): string {
+  return Object.prototype.toString.call(data);
+}
+
+export function objectp(data: any) {
+  return Object.prototype.toString.call(data) === "[object Object]";
+}
+
+export function arrayp(data: any) {
+  return Object.prototype.toString.call(data) === "[object Array]";
+}
+
+export function nullp(data: any) {
+  return Object.prototype.toString.call(data) === "[object Null]";
 }

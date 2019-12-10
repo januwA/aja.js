@@ -1,3 +1,5 @@
+import { objectp, arrayp } from "./utils/util";
+
 const l = console.log;
 
 /**
@@ -25,6 +27,7 @@ export interface StoreOptions {
   state: State;
   actions?: Actions;
   computeds: Computeds;
+  context?: any;
 }
 
 export const autorun = (f: Function) => {
@@ -38,19 +41,21 @@ export class Store {
    */
   static autorunListeners: Function[] = [];
   public $actions!: Actions;
-  private $state: State;
+  private $state!: State;
 
-  constructor({ state, computeds, actions }: StoreOptions) {
-    this.$state = state;
+  constructor({ state, computeds, actions, context }: StoreOptions) {
+    const _that = context ? context : this;
+
+    // _that.$state = state;
     for (const k in state) {
-      const _that = this;
-      Object.defineProperty(this, k, {
+      Object.defineProperty(_that, k, {
         get() {
           let value = state[k];
-          if (_that._isObject(state[k])) {
+          if (Store._isObject(state[k])) {
             value = new Store({
               state: value,
-              computeds: {}
+              computeds: {},
+              context: arrayp(value) ? [] : {}
             });
           }
           return value;
@@ -68,21 +73,29 @@ export class Store {
     }
 
     for (const k in computeds) {
-      Object.defineProperty(this, k, {
+      Object.defineProperty(_that, k, {
         get() {
-          return computeds[k].call(this);
+          return computeds[k].call(_that);
         },
         enumerable: true
       });
     }
+
+    // 只把actions绑定在store上
     if (actions) {
       this.$actions = actions;
       // 在actions中调用this.m()
       Object.assign(this, actions);
     }
+
+    if (context) return context;
   }
 
-  private _isObject(val: any): boolean {
+  /**
+   * 跳过null和空的对象
+   * @param val
+   */
+  private static _isObject(val: any): boolean {
     return typeof val === "object" && val !== null;
   }
 

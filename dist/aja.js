@@ -22,7 +22,14 @@
    * @param value
    */
   function tempvarp(value) {
-      return value[0] === "#";
+      return value.charAt(0) === "#";
+  }
+  /**
+   * * 双向绑定
+   * @param str
+   */
+  function modelp(str) {
+      return str === "[(model)]";
   }
   function createRoot(view) {
       return typeof view === "string"
@@ -85,6 +92,9 @@
           throw er;
       }
   }
+  function arrayp(data) {
+      return Object.prototype.toString.call(data) === "[object Array]";
+  }
   //# sourceMappingURL=util.js.map
 
   const autorun = (f) => {
@@ -92,17 +102,18 @@
       Store.autorunListeners.push(f);
   };
   class Store {
-      constructor({ state, computeds, actions }) {
-          this.$state = state;
+      constructor({ state, computeds, actions, context }) {
+          const _that = context ? context : this;
+          // _that.$state = state;
           for (const k in state) {
-              const _that = this;
-              Object.defineProperty(this, k, {
+              Object.defineProperty(_that, k, {
                   get() {
                       let value = state[k];
-                      if (_that._isObject(state[k])) {
+                      if (Store._isObject(state[k])) {
                           value = new Store({
                               state: value,
-                              computeds: {}
+                              computeds: {},
+                              context: arrayp(value) ? [] : {}
                           });
                       }
                       return value;
@@ -118,20 +129,27 @@
               });
           }
           for (const k in computeds) {
-              Object.defineProperty(this, k, {
+              Object.defineProperty(_that, k, {
                   get() {
-                      return computeds[k].call(this);
+                      return computeds[k].call(_that);
                   },
                   enumerable: true
               });
           }
+          // 只把actions绑定在store上
           if (actions) {
               this.$actions = actions;
               // 在actions中调用this.m()
               Object.assign(this, actions);
           }
+          if (context)
+              return context;
       }
-      _isObject(val) {
+      /**
+       * 跳过null和空的对象
+       * @param val
+       */
+      static _isObject(val) {
           return typeof val === "object" && val !== null;
       }
       toString() {
@@ -279,8 +297,9 @@
        * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
        * @param key
        * @param state
+       * @param setState
        */
-      _parseJsString(key, state) {
+      _parseJsString(key, state, setState = false, newValue = "") {
           try {
               return ourEval(`return ${key}`);
           }
@@ -293,17 +312,52 @@
                       return emptyString;
                   const varName = match[1];
                   const context = this._getData(varName, state);
-                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
-                  let _result = ourEval.call(context, `return ${funBody}`);
-                  if (_result === undefined)
-                      return emptyString;
-                  return _result;
+                  if (setState) {
+                      const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
+                          `= '${newValue}'`;
+                      ourEval.call(context, `${funBody}`);
+                  }
+                  else {
+                      const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
+                      let _result = ourEval.call(context, `return ${funBody}`);
+                      if (_result === undefined)
+                          _result = emptyString;
+                      return _result;
+                  }
               }
               else {
                   console.error(er);
                   throw er;
               }
           }
+      }
+      /**
+       * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
+       * @param key
+       * @param newValue
+       * @param state
+       */
+      _setDate(key, newValue, state) {
+          if (typeof key !== "string")
+              return null;
+          const keys = key.split(".");
+          const keysSize = keys.length;
+          if (!keysSize)
+              return;
+          let _result;
+          if (keysSize === 1) {
+              state[keys[0]] = newValue;
+              return;
+          }
+          for (let index = 0; index < keysSize - 1; index++) {
+              const k = keys[index];
+              _result = _result ? _result[k] : state[k];
+          }
+          if (_result) {
+              _result[keys[keysSize - 1]] = newValue;
+              return;
+          }
+          this._parseJsString(key, state, true, newValue);
       }
       /**
        * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
@@ -360,6 +414,64 @@
               htmlElement.removeAttribute(this._ifInstruction);
           }
           return depath;
+      }
+      _forBindHandle(htmlElement, { name, value }, state) {
+          // 解析for指令的值
+          let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
+          if (!varb)
+              return;
+          // 创建注释节点
+          const commentElement = document.createComment("");
+          htmlElement.replaceWith(commentElement);
+          htmlElement.removeAttribute(this._forInstruction);
+          const fragment = document.createDocumentFragment();
+          let _data;
+          if (isNumber(data)) {
+              _data = +data;
+              for (let _v = 0; _v < _data; _v++) {
+                  const forState = {};
+                  const item = htmlElement.cloneNode(true);
+                  fragment.append(item);
+                  Object.defineProperty(forState, varb, {
+                      get() {
+                          return _v;
+                      }
+                  });
+                  this._bindingAttrs(item, forState);
+                  this._define(item, forState);
+              }
+          }
+          else {
+              const _varb = varb
+                  .trim()
+                  .replace(eventStartExp, emptyString)
+                  .replace(eventEndExp, emptyString)
+                  .split(",")
+                  .map(v => v.trim());
+              _data = this._getData(data, state);
+              const _that = this;
+              for (const _k in _data) {
+                  const forState = {};
+                  Object.defineProperties(forState, {
+                      [_varb[0]]: {
+                          get() {
+                              return _k;
+                          }
+                      },
+                      [_varb[1]]: {
+                          get() {
+                              return _that._getData(data, state)[_k];
+                          }
+                      }
+                  });
+                  const item = this._cloneNode(htmlElement, forState);
+                  fragment.append(item);
+                  this._bindingAttrs(item, forState);
+                  this._define(item, forState);
+              }
+          }
+          commentElement.after(fragment);
+          commentElement.data = createForCommentData(data);
       }
       /**
        * 处理 [title]='xxx' 解析
@@ -470,63 +582,20 @@
               }
               // :for
               if (forp(name, this._forInstruction)) {
-                  // 解析for指令的值
-                  let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
-                  if (!varb)
-                      continue;
-                  // 创建注释节点
-                  const commentElement = document.createComment("");
-                  htmlElement.replaceWith(commentElement);
-                  htmlElement.removeAttribute(this._forInstruction);
-                  const fragment = document.createDocumentFragment();
-                  let _data;
-                  if (isNumber(data)) {
-                      _data = +data;
-                      for (let _v = 0; _v < _data; _v++) {
-                          const forState = {};
-                          const item = htmlElement.cloneNode(true);
-                          fragment.append(item);
-                          Object.defineProperty(forState, varb, {
-                              get() {
-                                  return _v;
-                              }
-                          });
-                          this._bindingAttrs(item, forState);
-                          this._define(item, forState);
-                      }
-                  }
-                  else {
-                      const _varb = varb
-                          .trim()
-                          .replace(eventStartExp, emptyString)
-                          .replace(eventEndExp, emptyString)
-                          .split(",")
-                          .map(v => v.trim());
-                      _data = this._getData(data, state);
-                      const _that = this;
-                      for (const _k in _data) {
-                          const forState = {};
-                          Object.defineProperties(forState, {
-                              [_varb[0]]: {
-                                  get() {
-                                      return _k;
-                                  }
-                              },
-                              [_varb[1]]: {
-                                  get() {
-                                      return _that._getData(data, state)[_k];
-                                  }
-                              }
-                          });
-                          const item = this._cloneNode(htmlElement, forState);
-                          fragment.append(item);
-                          this._bindingAttrs(item, forState);
-                          this._define(item, forState);
-                      }
-                  }
-                  commentElement.after(fragment);
-                  commentElement.data = createForCommentData(data);
-                  return false;
+                  this._forBindHandle(htmlElement, attr, state);
+                  // 绑定for的节点没有必要递归下去， 生成的新节点会自动递归
+                  depath = false;
+              }
+              // [(model)]="username"
+              if (modelp(name)) {
+                  const inputElement = htmlElement;
+                  autorun(() => {
+                      inputElement.value = `${this._getData(value, state)}`;
+                  });
+                  inputElement.addEventListener("input", () => {
+                      this._setDate(value, inputElement.value, state);
+                  });
+                  inputElement.removeAttribute(name);
               }
           }
           return depath;
