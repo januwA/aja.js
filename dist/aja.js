@@ -28,8 +28,8 @@
    * * 双向绑定
    * @param str
    */
-  function modelp(str) {
-      return str === "[(model)]";
+  function modelp(str, _modeldirective = "[(model)]") {
+      return str === _modeldirective;
   }
   function createRoot(view) {
       return typeof view === "string"
@@ -246,6 +246,10 @@
            * <button (click)="setName($event)">click me</button>
            */
           this._templateEvent = "$event";
+          /**
+           * * 双向绑定指令
+           */
+          this._modeldirective = "[(model)]";
           const root = createRoot(view);
           if (root === null)
               return;
@@ -253,6 +257,8 @@
               this._instructionPrefix = options.instructionPrefix;
           if (options.templateEvent)
               this._templateEvent = options.templateEvent;
+          if (options.modeldirective)
+              this._modeldirective = options.modeldirective;
           this._proxyState(options);
           this._define(root, this.$store);
       }
@@ -650,7 +656,7 @@
                   continue;
               }
               // [(model)]="username"
-              if (modelp(name)) {
+              if (modelp(name, this._modeldirective)) {
                   const nodeName = htmlElement.nodeName;
                   if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
                       const inputElement = htmlElement;
@@ -714,34 +720,33 @@
                   else if (nodeName === "SELECT") {
                       // 对比value
                       const selectElement = htmlElement;
-                      autorun(() => {
-                          const data = this._getData(value, state);
-                          const selectOptions = Array.from(selectElement.options);
-                          let notFind = true;
-                          // 多选参数必须为 array
-                          if (selectElement.multiple && arrayp(data)) {
-                              selectElement.selectedIndex = -1;
-                              for (let index = 0; index < selectOptions.length; index++) {
-                                  const option = selectOptions[index];
-                                  const v = option.value;
-                                  if (data.some(d => d === v)) {
-                                      notFind = false;
-                                      option.selected = true;
+                      // 稍微延迟下，因为内部的模板可能没有解析
+                      setTimeout(() => {
+                          autorun(() => {
+                              const data = this._getData(value, state);
+                              const selectOptions = Array.from(selectElement.options);
+                              let notFind = true;
+                              // 多选参数必须为 array
+                              if (selectElement.multiple && arrayp(data)) {
+                                  selectElement.selectedIndex = -1;
+                                  for (let index = 0; index < selectOptions.length; index++) {
+                                      const option = selectOptions[index];
+                                      const v = option.value;
+                                      if (data.some(d => d === v)) {
+                                          notFind = false;
+                                          option.selected = true;
+                                      }
                                   }
                               }
-                          }
-                          else {
-                              for (let index = 0; index < selectOptions.length; index++) {
-                                  const v = selectOptions[index].value;
-                                  if (v == data) {
-                                      selectElement.selectedIndex = index;
-                                      notFind = false;
-                                      continue;
-                                  }
+                              else {
+                                  // 没找到默认-1
+                                  const index = selectOptions.findIndex(op => op.value === data);
+                                  selectElement.selectedIndex = index;
+                                  notFind = false;
                               }
-                          }
-                          if (notFind)
-                              selectElement.selectedIndex = -1;
+                              if (notFind)
+                                  selectElement.selectedIndex = -1;
+                          });
                       });
                       selectElement.addEventListener("change", () => {
                           if (selectElement.multiple) {
@@ -799,7 +804,9 @@
                   // hello      :)
                   if (_data === null)
                       return emptyString;
-                  return typeof _data === 'string' ? _data : JSON.stringify(_data, null, " ");
+                  return typeof _data === "string"
+                      ? _data
+                      : JSON.stringify(_data, null, " ");
               });
           });
       }

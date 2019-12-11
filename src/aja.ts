@@ -35,6 +35,7 @@ export interface Options {
   computeds?: Computeds;
   instructionPrefix?: string;
   templateEvent?: string;
+  modeldirective?: string;
 }
 
 const l = console.log;
@@ -57,6 +58,11 @@ class Aja {
    * <button (click)="setName($event)">click me</button>
    */
   private _templateEvent: string = "$event";
+
+  /**
+   * * 双向绑定指令
+   */
+  private _modeldirective: string = "[(model)]";
 
   /**
    * * :if
@@ -83,6 +89,7 @@ class Aja {
     if (options.instructionPrefix)
       this._instructionPrefix = options.instructionPrefix;
     if (options.templateEvent) this._templateEvent = options.templateEvent;
+    if (options.modeldirective) this._modeldirective = options.modeldirective;
     this._proxyState(options);
     this._define(root, this.$store);
   }
@@ -508,7 +515,7 @@ class Aja {
       }
 
       // [(model)]="username"
-      if (modelp(name)) {
+      if (modelp(name, this._modeldirective)) {
         const nodeName: string = htmlElement.nodeName;
         if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
           const inputElement = htmlElement as HTMLInputElement;
@@ -569,35 +576,33 @@ class Aja {
         } else if (nodeName === "SELECT") {
           // 对比value
           const selectElement = htmlElement as HTMLSelectElement;
-          autorun(() => {
-            const data = this._getData(value, state);
+          // 稍微延迟下，因为内部的模板可能没有解析
+          setTimeout(() => {
+            autorun(() => {
+              const data = this._getData(value, state);
 
-            const selectOptions = Array.from(selectElement.options);
-            let notFind = true;
-            // 多选参数必须为 array
-            if (selectElement.multiple && arrayp(data)) {
-              selectElement.selectedIndex = -1;
-              for (let index = 0; index < selectOptions.length; index++) {
-                const option = selectOptions[index];
-                const v = option.value;
-                if ((data as Array<any>).some(d => d === v)) {
-                  notFind = false;
-                  option.selected = true;
+              const selectOptions = Array.from(selectElement.options);
+              let notFind = true;
+              // 多选参数必须为 array
+              if (selectElement.multiple && arrayp(data)) {
+                selectElement.selectedIndex = -1;
+                for (let index = 0; index < selectOptions.length; index++) {
+                  const option = selectOptions[index];
+                  const v = option.value;
+                  if ((data as Array<any>).some(d => d === v)) {
+                    notFind = false;
+                    option.selected = true;
+                  }
                 }
+              } else {
+                // 没找到默认-1
+                const index = selectOptions.findIndex(op => op.value === data);
+                selectElement.selectedIndex = index;
+                notFind = false;
               }
-            } else {
-              for (let index = 0; index < selectOptions.length; index++) {
-                const v = selectOptions[index].value;
-                if (v == data) {
-                  selectElement.selectedIndex = index;
-                  notFind = false;
-                  continue;
-                }
-              }
-            }
-            if (notFind) selectElement.selectedIndex = -1;
+              if (notFind) selectElement.selectedIndex = -1;
+            });
           });
-
           selectElement.addEventListener("change", () => {
             if (selectElement.multiple) {
               const multipleValue = Array.from(selectElement.options)
@@ -656,7 +661,9 @@ class Aja {
           // hello null :(
           // hello      :)
           if (_data === null) return emptyString;
-          return typeof _data === 'string' ? _data :  JSON.stringify(_data, null, " ");
+          return typeof _data === "string"
+            ? _data
+            : JSON.stringify(_data, null, " ");
         }
       );
     });

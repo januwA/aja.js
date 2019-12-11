@@ -25,8 +25,8 @@ export function tempvarp(value: string) {
  * * 双向绑定
  * @param str
  */
-export function modelp(str: string) {
-  return str === "[(model)]";
+export function modelp(str: string, _modeldirective: string = "[(model)]") {
+  return str === _modeldirective;
 }
 
 export function createRoot(view: string | HTMLElement): HTMLElement | null {

@@ -5,6 +5,7 @@ export interface Options {
     computeds?: Computeds;
     instructionPrefix?: string;
     templateEvent?: string;
+    modeldirective?: string;
 }
 declare class Aja {
     /**
@@ -20,6 +21,10 @@ declare class Aja {
      * <button (click)="setName($event)">click me</button>
      */
     private _templateEvent;
+    /**
+     * * 双向绑定指令
+     */
+    private _modeldirective;
     /**
      * * :if
      */

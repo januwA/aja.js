@@ -16,7 +16,7 @@ export declare function tempvarp(value: string): boolean;
  * * 双向绑定
  * @param str
  */
-export declare function modelp(str: string): boolean;
+export declare function modelp(str: string, _modeldirective?: string): boolean;
 export declare function createRoot(view: string | HTMLElement): HTMLElement | null;
 export declare function createIfCommentData(value: any): string;
 export declare function createForCommentData(obj: any): string;
