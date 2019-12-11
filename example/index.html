@@ -8,29 +8,38 @@
   </head>
 
   <body>
-    <div class="app" [title]="name" :if="name">
-      <h3 :for="el in 10" (click)="onItem(el)">{{ el+1 }}-{{ name }}</h3>
-
-
-      <button (click)="onPush">push</button>
+    <div class="app">
+      <select [(model)]="select" multiple>
+        <option value="a">1</option>
+        <option value="a">11</option>
+        <option>xxx</option>
+        <option value="b">3</option>
+      </select>
+      <p>{{ select }}</p>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          name: "ajanuw"
+          form: {
+            username: "ajanuw"
+          },
+          select: ["a", "b"],
+          data: {
+            name: "ajanuw",
+            array: [1, 2, { obj: "obj" }, [{ x: 10 }, { x: 22 }]]
+          }
         },
         actions: {
           onPush() {
-            this.name = 'xxx'
+            this.name = "xxx";
           },
-          onItem(el) {
-            l(el)
+          onItem(...args) {
           }
         }
       });
-      // console.log(vm.$store);
+      console.log(vm.$store);
     </script>
   </body>
 </html>

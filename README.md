@@ -40,3 +40,13 @@
 ```html
 <p :if="show">hello world</p>
 ```
+
+## 双向绑定
+```html
+<input type="text" [(model)]="form.username" />
+<p>{{ form.username }}</p>
+```
+
+
+## TODO
+- 响应式表单

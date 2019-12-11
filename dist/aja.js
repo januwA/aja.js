@@ -117,74 +117,17 @@
       autorunListeners.push(f);
   };
   class Store {
-      constructor({ state, computeds, actions, context }) {
-          const _that = context ? context : this;
-          // _that.$state = state;
-          for (const k in state) {
-              let v = state[k];
-              if (arrayp(v)) {
-                  // 如果是Array，那么拦截一些原型函数
-                  var aryMethods = [
-                      "push",
-                      "pop",
-                      "shift",
-                      "unshift",
-                      "splice",
-                      "sort",
-                      "reverse"
-                  ];
-                  var arrayAugmentations = Object.create(Array.prototype);
-                  aryMethods.forEach(method => {
-                      let original = Array.prototype[method];
-                      arrayAugmentations[method] = function (...args) {
-                          // 将传递进来的值，重新代理
-                          const _applyArgs = new Store({
-                              state: args,
-                              context: []
-                          });
-                          // 调用原始方法
-                          const r = original.apply(this, _applyArgs);
-                          // 跟新
-                          updateAll();
-                          return r;
-                      };
-                  });
-                  v = v.map(el => {
-                      return new Store({
-                          state: el,
-                          context: {}
-                      });
-                  });
-                  Object.setPrototypeOf(v, arrayAugmentations);
-              }
-              if (Store._isObject(v)) {
-                  if (objectp(v)) {
-                      const newContext = Object.create(v);
-                      v = new Store({
-                          state: v,
-                          context: newContext
-                      });
-                  }
-              }
-              state[k] = v;
-              Object.defineProperty(_that, k, {
-                  get() {
-                      const _r = state[k];
-                      return _r;
-                  },
-                  set(newValue) {
-                      state[k] = newValue;
-                      updateAll();
-                  },
-                  enumerable: true,
-                  configurable: true
-              });
-          }
+      /**
+       *
+       * @param state 需要代理的数据
+       */
+      constructor({ state, computeds, actions }) {
+          Store.proxyObject(state, this);
           if (computeds) {
               for (const k in computeds) {
-                  Object.defineProperty(_that, k, {
+                  Object.defineProperty(this, k, {
                       get() {
-                          return computeds[k].call(_that);
+                          return computeds[k].call(this);
                       },
                       enumerable: true
                   });
@@ -196,18 +139,74 @@
               // 在actions中调用this.m()
               Object.assign(this, actions);
           }
-          if (context)
-              return context;
       }
       /**
-       * 跳过null和空的对象
-       * @param val
+       * * 代理每个属性的 get， set
        */
-      static _isObject(val) {
-          return typeof val === "object" && val !== null;
+      static proxyObject(object, context) {
+          for (const k in object) {
+              let v = object[k];
+              if (arrayp(v)) {
+                  v = Store.proxyArray(v);
+              }
+              if (objectp(v)) {
+                  v = Store.proxyObject(v, {});
+              }
+              object[k] = v;
+              Object.defineProperty(context, k, {
+                  get() {
+                      const _r = object[k];
+                      return _r;
+                  },
+                  set(newValue) {
+                      object[k] = newValue;
+                      updateAll();
+                  },
+                  enumerable: true,
+                  configurable: true
+              });
+          }
+          return context;
       }
-      toString() {
-          return JSON.stringify(this.$state);
+      /**
+       * * 拦截数组的非幕等方, 并循环代理每个元素
+       * @param array
+       */
+      static proxyArray(array) {
+          var aryMethods = [
+              "push",
+              "pop",
+              "shift",
+              "unshift",
+              "splice",
+              "sort",
+              "reverse"
+          ];
+          var arrayAugmentations = Object.create(Array.prototype);
+          aryMethods.forEach(method => {
+              let original = Array.prototype[method];
+              arrayAugmentations[method] = function (...args) {
+                  // 将传递进来的值，重新代理
+                  const _applyArgs = Store.proxyArray(args);
+                  // 调用原始方法
+                  const r = original.apply(this, _applyArgs);
+                  // 跟新
+                  updateAll();
+                  return r;
+              };
+          });
+          // 遍历代理数组每项的值
+          array = array.map(el => {
+              if (objectp(el)) {
+                  return Store.proxyObject(el, {});
+              }
+              if (arrayp(el)) {
+                  return Store.proxyArray(el);
+              }
+              return el;
+          });
+          Object.setPrototypeOf(array, arrayAugmentations);
+          return array;
       }
   }
 
@@ -642,14 +641,61 @@
               }
               // [(model)]="username"
               if (modelp(name)) {
-                  const inputElement = htmlElement;
-                  autorun(() => {
-                      inputElement.value = `${this._getData(value, state)}`;
-                  });
-                  inputElement.addEventListener("input", () => {
-                      this._setDate(value, inputElement.value, state);
-                  });
-                  inputElement.removeAttribute(name);
+                  const nodeName = htmlElement.nodeName;
+                  if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
+                      const inputElement = htmlElement;
+                      autorun(() => {
+                          inputElement.value = `${this._getData(value, state)}`;
+                      });
+                      inputElement.addEventListener("input", () => {
+                          this._setDate(value, inputElement.value, state);
+                      });
+                  }
+                  else if (nodeName === "SELECT") {
+                      // 对比value
+                      const selectElement = htmlElement;
+                      autorun(() => {
+                          const data = this._getData(value, state);
+                          const selectOptions = Array.from(selectElement.options);
+                          let notFind = true;
+                          // 多选参数必须为 array
+                          if (selectElement.multiple && arrayp(data)) {
+                              selectElement.selectedIndex = -1;
+                              for (let index = 0; index < selectOptions.length; index++) {
+                                  const option = selectOptions[index];
+                                  const v = option.value;
+                                  if (data.some(d => d === v)) {
+                                      notFind = false;
+                                      option.selected = true;
+                                  }
+                              }
+                          }
+                          else {
+                              for (let index = 0; index < selectOptions.length; index++) {
+                                  const v = selectOptions[index].value;
+                                  if (v == data) {
+                                      selectElement.selectedIndex = index;
+                                      notFind = false;
+                                      continue;
+                                  }
+                              }
+                          }
+                          if (notFind)
+                              selectElement.selectedIndex = -1;
+                      });
+                      selectElement.addEventListener("change", () => {
+                          if (selectElement.multiple) {
+                              const multipleValue = Array.from(selectElement.options)
+                                  .filter(op => op.selected)
+                                  .map(op => op.value);
+                              this._setDate(value, multipleValue, state);
+                          }
+                          else {
+                              this._setDate(value, selectElement.value, state);
+                          }
+                      });
+                  }
+                  htmlElement.removeAttribute(name);
               }
           }
           return depath;

@@ -1,4 +1,4 @@
-import { objectp, arrayp } from "./utils/util";
+import { objectp, arrayp, dataTag } from "./utils/util";
 
 const l = console.log;
 
@@ -48,87 +48,19 @@ export const autorun = (f: Function) => {
 
 export class Store {
   public $actions!: Actions;
-  private $state!: State;
 
-  constructor({ state, computeds, actions, context }: StoreOptions) {
-    const _that = context ? context : this;
-
-    // _that.$state = state;
-    for (const k in state) {
-      let v = state[k];
-
-      if (arrayp(v)) {
-        // 如果是Array，那么拦截一些原型函数
-        var aryMethods = [
-          "push",
-          "pop",
-          "shift",
-          "unshift",
-          "splice",
-          "sort",
-          "reverse"
-        ];
-        var arrayAugmentations = Object.create(Array.prototype);
-
-        aryMethods.forEach(method => {
-          let original = (Array.prototype as { [k: string]: any })[method];
-          arrayAugmentations[method] = function(...args: any[]) {
-            // 将传递进来的值，重新代理
-            const _applyArgs = new Store({
-              state: args,
-              context: []
-            });
-
-            // 调用原始方法
-            const r = original.apply(this, _applyArgs);
-
-            // 跟新
-            updateAll();
-            return r;
-          };
-        });
-
-        v = (v as any[]).map(el => {
-          return new Store({
-            state: el,
-            context: {}
-          });
-        });
-
-        Object.setPrototypeOf(v, arrayAugmentations);
-      }
-
-      if (Store._isObject(v)) {
-        if (objectp(v)) {
-          const newContext = Object.create(v);
-          v = new Store({
-            state: v,
-            context: newContext
-          });
-        }
-      }
-
-      state[k] = v;
-
-      Object.defineProperty(_that, k, {
-        get() {
-          const _r = state[k];
-          return _r;
-        },
-        set(newValue) {
-          state[k] = newValue;
-          updateAll();
-        },
-        enumerable: true,
-        configurable: true
-      });
-    }
+  /**
+   *
+   * @param state 需要代理的数据
+   */
+  constructor({ state, computeds, actions }: StoreOptions) {
+    Store.proxyObject(state, this);
 
     if (computeds) {
       for (const k in computeds) {
-        Object.defineProperty(_that, k, {
+        Object.defineProperty(this, k, {
           get() {
-            return computeds[k].call(_that);
+            return computeds[k].call(this);
           },
           enumerable: true
         });
@@ -141,42 +73,85 @@ export class Store {
       // 在actions中调用this.m()
       Object.assign(this, actions);
     }
-
-    if (context) return context;
   }
 
   /**
-   * 跳过null和空的对象
-   * @param val
+   * * 代理每个属性的 get， set
    */
-  private static _isObject(val: any): boolean {
-    return typeof val === "object" && val !== null;
+  static proxyObject(object: State, context: any): any {
+    for (const k in object) {
+      let v = object[k];
+
+      if (arrayp(v)) {
+        v = Store.proxyArray(v);
+      }
+
+      if (objectp(v)) {
+        v = Store.proxyObject(v, {});
+      }
+
+      object[k] = v;
+
+      Object.defineProperty(context, k, {
+        get() {
+          const _r = object[k];
+          return _r;
+        },
+        set(newValue) {
+          object[k] = newValue;
+          updateAll();
+        },
+        enumerable: true,
+        configurable: true
+      });
+    }
+
+    return context;
   }
 
-  public toString(): string {
-    return JSON.stringify(this.$state);
+  /**
+   * * 拦截数组的非幕等方, 并循环代理每个元素
+   * @param array
+   */
+  static proxyArray(array: any[]): any[] {
+    var aryMethods = [
+      "push",
+      "pop",
+      "shift",
+      "unshift",
+      "splice",
+      "sort",
+      "reverse"
+    ];
+    var arrayAugmentations = Object.create(Array.prototype);
+
+    aryMethods.forEach(method => {
+      let original = (Array.prototype as { [k: string]: any })[method];
+      arrayAugmentations[method] = function(...args: any[]) {
+        // 将传递进来的值，重新代理
+        const _applyArgs = Store.proxyArray(args);
+
+        // 调用原始方法
+        const r = original.apply(this, _applyArgs);
+
+        // 跟新
+        updateAll();
+        return r;
+      };
+    });
+
+    // 遍历代理数组每项的值
+    array = (array as any[]).map(el => {
+      if (objectp(el)) {
+        return Store.proxyObject(el, {});
+      }
+      if (arrayp(el)) {
+        return Store.proxyArray(el);
+      }
+      return el;
+    });
+
+    Object.setPrototypeOf(array, arrayAugmentations);
+    return array;
   }
-}
-
-function observifyArray(this: any, array: any[]) {
-  var aryMethods = [
-    "push",
-    "pop",
-    "shift",
-    "unshift",
-    "splice",
-    "sort",
-    "reverse"
-  ];
-  var arrayAugmentations = Object.create(Array.prototype);
-
-  aryMethods.forEach(method => {
-    let original = (Array.prototype as { [k: string]: any })[method];
-    arrayAugmentations[method] = function(...args: any[]) {
-      const r = original.apply(this, array);
-      l(args[0], array);
-      return r;
-    };
-  });
-  Object.setPrototypeOf(array, arrayAugmentations);
 }

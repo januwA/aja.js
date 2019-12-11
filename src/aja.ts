@@ -13,9 +13,9 @@ import {
   createForCommentData,
   ourEval,
   modelp,
-  escapeRegExp,
   elementNodep,
-  textNodep
+  textNodep,
+  arrayp
 } from "./utils/util";
 import { Store, autorun, State, Actions, Computeds } from "./store";
 import {
@@ -508,15 +508,59 @@ class Aja {
 
       // [(model)]="username"
       if (modelp(name)) {
-        const inputElement = htmlElement as HTMLInputElement;
-        autorun(() => {
-          inputElement.value = `${this._getData(value, state)}`;
-        });
-        inputElement.addEventListener("input", () => {
-          this._setDate(value, inputElement.value, state);
-        });
+        const nodeName: string = htmlElement.nodeName;
+        if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
+          const inputElement = htmlElement as HTMLInputElement;
+          autorun(() => {
+            inputElement.value = `${this._getData(value, state)}`;
+          });
+          inputElement.addEventListener("input", () => {
+            this._setDate(value, inputElement.value, state);
+          });
+        } else if (nodeName === "SELECT") {
+          // 对比value
+          const selectElement = htmlElement as HTMLSelectElement;
+          autorun(() => {
+            const data = this._getData(value, state);
 
-        inputElement.removeAttribute(name);
+            const selectOptions = Array.from(selectElement.options);
+            let notFind = true;
+            // 多选参数必须为 array
+            if (selectElement.multiple && arrayp(data)) {
+              selectElement.selectedIndex = -1;
+              for (let index = 0; index < selectOptions.length; index++) {
+                const option = selectOptions[index];
+                const v = option.value;
+                if ((data as Array<any>).some(d => d === v)) {
+                  notFind = false;
+                  option.selected = true;
+                }
+              }
+            } else {
+              for (let index = 0; index < selectOptions.length; index++) {
+                const v = selectOptions[index].value;
+                if (v == data) {
+                  selectElement.selectedIndex = index;
+                  notFind = false;
+                  continue;
+                }
+              }
+            }
+            if (notFind) selectElement.selectedIndex = -1;
+          });
+
+          selectElement.addEventListener("change", () => {
+            if (selectElement.multiple) {
+              const multipleValue = Array.from(selectElement.options)
+                .filter(op => op.selected)
+                .map(op => op.value);
+              this._setDate(value, multipleValue, state);
+            } else {
+              this._setDate(value, selectElement.value, state);
+            }
+          });
+        }
+        htmlElement.removeAttribute(name);
       }
     }
     return depath;

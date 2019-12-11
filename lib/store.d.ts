@@ -25,12 +25,18 @@ export interface StoreOptions {
 export declare const autorun: (f: Function) => void;
 export declare class Store {
     $actions: Actions;
-    private $state;
-    constructor({ state, computeds, actions, context }: StoreOptions);
     /**
-     * 跳过null和空的对象
-     * @param val
+     *
+     * @param state 需要代理的数据
      */
-    private static _isObject;
-    toString(): string;
+    constructor({ state, computeds, actions }: StoreOptions);
+    /**
+     * * 代理每个属性的 get， set
+     */
+    static proxyObject(object: State, context: any): any;
+    /**
+     * * 拦截数组的非幕等方, 并循环代理每个元素
+     * @param array
+     */
+    static proxyArray(array: any[]): any[];
 }
