@@ -102,6 +102,16 @@
   function textNodep(node) {
       return node.nodeType === Node.TEXT_NODE;
   }
+  /**
+   * * 将['on']转为[null]
+   * @param checkbox
+   */
+  function getCheckBoxValue(checkbox) {
+      let value = checkbox.value;
+      if (value === "on")
+          value = null;
+      return value;
+  }
 
   /**
    * * 任意一个属性的变化，都会触发所有的监听事件
@@ -644,12 +654,47 @@
                   const nodeName = htmlElement.nodeName;
                   if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
                       const inputElement = htmlElement;
-                      autorun(() => {
-                          inputElement.value = `${this._getData(value, state)}`;
-                      });
-                      inputElement.addEventListener("input", () => {
-                          this._setDate(value, inputElement.value, state);
-                      });
+                      // l(inputElement.type);
+                      if (inputElement.type === "checkbox") {
+                          const data = this._getData(value, state);
+                          // 这个时候的data如果是array, 就对value进行处理
+                          // 不然就当作bool值处理
+                          if (!arrayp(data)) {
+                              autorun(() => {
+                                  const data = this._getData(value, state);
+                                  inputElement.checked = !!data;
+                              });
+                              inputElement.addEventListener("change", () => {
+                                  this._setDate(value, inputElement.checked, state);
+                              });
+                          }
+                          else {
+                              autorun(() => {
+                                  const data = this._getData(value, state);
+                                  let ivalue = getCheckBoxValue(inputElement);
+                                  inputElement.checked = data.some((d) => d === ivalue);
+                              });
+                              inputElement.addEventListener("change", () => {
+                                  const data = this._getData(value, state);
+                                  let ivalue = getCheckBoxValue(inputElement);
+                                  if (inputElement.checked) {
+                                      data.push(ivalue);
+                                  }
+                                  else {
+                                      const newData = Store.proxyArray(data.filter((d) => d !== ivalue));
+                                      this._setDate(value, newData, state);
+                                  }
+                              });
+                          }
+                      }
+                      else {
+                          autorun(() => {
+                              inputElement.value = `${this._getData(value, state)}`;
+                          });
+                          inputElement.addEventListener("input", () => {
+                              this._setDate(value, inputElement.value, state);
+                          });
+                      }
                   }
                   else if (nodeName === "SELECT") {
                       // 对比value
@@ -739,7 +784,7 @@
                   // hello      :)
                   if (_data === null)
                       return emptyString;
-                  return _data;
+                  return JSON.stringify(_data, null, " ");
               });
           });
       }

@@ -161,3 +161,13 @@ export function elementNodep(node: ChildNode | HTMLElement): boolean {
 export function textNodep(node: ChildNode | HTMLElement): boolean {
   return node.nodeType === Node.TEXT_NODE;
 }
+
+/**
+ * * 将['on']转为[null]
+ * @param checkbox
+ */
+export function getCheckBoxValue(checkbox: HTMLInputElement): string | null {
+  let value: string | null = checkbox.value;
+  if (value === "on") value = null;
+  return value;
+}

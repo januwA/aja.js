@@ -9,34 +9,45 @@
 
   <body>
     <div class="app">
-      <select [(model)]="select" multiple>
-        <option value="a">1</option>
-        <option value="a">11</option>
-        <option>xxx</option>
-        <option value="b">3</option>
-      </select>
-      <p>{{ select }}</p>
+      <input type="checkbox" id="checkbox" [(model)]="checked" />
+      <label for="checkbox">{{ checked }}</label>
+      <hr />
+      <div id="example-3">
+        <input
+          type="checkbox"
+          id="jack"
+          value="Jack"
+          [(model)]="checkedNames"
+        />
+        <label for="jack">Jack</label>
+        <input
+          type="checkbox"
+          id="john"
+          value="John"
+          [(model)]="checkedNames"
+        />
+        <label for="john">John</label>
+        <input
+          type="checkbox"
+          id="mike"
+          [(model)]="checkedNames"
+        />
+        <label for="mike">Mike</label>
+        <br />
+        <span>Checked names: {{ checkedNames }}</span>
+      </div>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          form: {
-            username: "ajanuw"
-          },
-          select: ["a", "b"],
-          data: {
-            name: "ajanuw",
-            array: [1, 2, { obj: "obj" }, [{ x: 10 }, { x: 22 }]]
-          }
+          checkedNames: [],
+          checked: [],
         },
         actions: {
-          onPush() {
-            this.name = "xxx";
-          },
-          onItem(...args) {
-          }
+          onPush() {},
+          onItem(...args) {}
         }
       });
       console.log(vm.$store);

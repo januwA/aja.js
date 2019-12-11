@@ -15,7 +15,8 @@ import {
   modelp,
   elementNodep,
   textNodep,
-  arrayp
+  arrayp,
+  getCheckBoxValue
 } from "./utils/util";
 import { Store, autorun, State, Actions, Computeds } from "./store";
 import {
@@ -511,12 +512,46 @@ class Aja {
         const nodeName: string = htmlElement.nodeName;
         if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
           const inputElement = htmlElement as HTMLInputElement;
-          autorun(() => {
-            inputElement.value = `${this._getData(value, state)}`;
-          });
-          inputElement.addEventListener("input", () => {
-            this._setDate(value, inputElement.value, state);
-          });
+          // l(inputElement.type);
+          if (inputElement.type === "checkbox") {
+            const data = this._getData(value, state);
+            // 这个时候的data如果是array, 就对value进行处理
+            // 不然就当作bool值处理
+            if (!arrayp(data)) {
+              autorun(() => {
+                const data = this._getData(value, state);
+                inputElement.checked = !!data;
+              });
+              inputElement.addEventListener("change", () => {
+                this._setDate(value, inputElement.checked, state);
+              });
+            } else {
+              autorun(() => {
+                const data = this._getData(value, state);
+                let ivalue: string | null = getCheckBoxValue(inputElement);
+                inputElement.checked = data.some((d: any) => d === ivalue);
+              });
+              inputElement.addEventListener("change", () => {
+                const data = this._getData(value, state);
+                let ivalue: string | null = getCheckBoxValue(inputElement);
+                if (inputElement.checked) {
+                  data.push(ivalue);
+                } else {
+                  const newData = Store.proxyArray(
+                    data.filter((d: any) => d !== ivalue)
+                  );
+                  this._setDate(value, newData, state);
+                }
+              });
+            }
+          } else {
+            autorun(() => {
+              inputElement.value = `${this._getData(value, state)}`;
+            });
+            inputElement.addEventListener("input", () => {
+              this._setDate(value, inputElement.value, state);
+            });
+          }
         } else if (nodeName === "SELECT") {
           // 对比value
           const selectElement = htmlElement as HTMLSelectElement;
@@ -607,7 +642,7 @@ class Aja {
           // hello null :(
           // hello      :)
           if (_data === null) return emptyString;
-          return _data;
+          return JSON.stringify(_data, null, " ");
         }
       );
     });

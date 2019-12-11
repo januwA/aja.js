@@ -68,3 +68,8 @@ export declare function escapeRegExp(str: string): string;
 export declare function escapeHTML(str: string): string;
 export declare function elementNodep(node: ChildNode | HTMLElement): boolean;
 export declare function textNodep(node: ChildNode | HTMLElement): boolean;
+/**
+ * * 将['on']转为[null]
+ * @param checkbox
+ */
+export declare function getCheckBoxValue(checkbox: HTMLInputElement): string | null;
