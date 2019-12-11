@@ -10,11 +10,12 @@ import {
   parseTemplateEventArgs,
   isBoolString,
   ifp,
-  forp,
   createForCommentData,
   ourEval,
   modelp,
-  escapeRegExp
+  escapeRegExp,
+  elementNodep,
+  textNodep
 } from "./utils/util";
 import { Store, autorun, State, Actions, Computeds } from "./store";
 import {
@@ -82,37 +83,16 @@ class Aja {
       this._instructionPrefix = options.instructionPrefix;
     if (options.templateEvent) this._templateEvent = options.templateEvent;
     this._proxyState(options);
-    this._define(root);
+    this._define(root, this.$store);
   }
 
   /**
    * 扫描绑定
    * @param root
-   * @param contextState
    */
-  private _define(root: HTMLElement, contextState: State | null = null): void {
-    const state: State = contextState ? contextState : this.$store;
-
-    const children = Array.from(root.childNodes);
-    for (let index = 0; index < children.length; index++) {
-      const childNode: ChildNode = children[index];
-      // dom节点
-      if (
-        childNode.nodeType === Node.ELEMENT_NODE ||
-        childNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE
-      ) {
-        const htmlElement: HTMLElement = childNode as HTMLElement;
-
-        //? 这个[depath]有什么用?
-        //? 当绑定了if和for,指令，就没有必要递归下去了
-        let depath = this._bindingAttrs(htmlElement, state);
-
-        // 递归遍历
-        if (depath) this._define(htmlElement);
-      } else if (childNode.nodeType === Node.TEXT_NODE) {
-        this._setTextContent(childNode, state);
-      }
-    }
+  private _define(root: HTMLElement, state: State): void {
+    const depath = this._bindingAttrs(root, state);
+    if (depath) this._bindingChildrenAttrs(Array.from(root.childNodes), state);
   }
 
   private _proxyState(options: Options): void {
@@ -290,9 +270,6 @@ class Aja {
         if (show) {
           commentElement.after(htmlElement);
           depath = true;
-          if (Array.from(htmlElement.childNodes).length) {
-            this._define(htmlElement);
-          }
         } else {
           htmlElement.replaceWith(commentElement);
           depath = false;
@@ -306,66 +283,82 @@ class Aja {
 
   private _forBindHandle(
     htmlElement: HTMLElement,
-    { name, value }: Attr,
+    attrs: Attr[],
     state: State
-  ) {
-    // 解析for指令的值
-    let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
-    if (!varb) return;
+  ): boolean {
+    let depath = true;
+    // 是否有 :for 指令
+    let forAttr = attrs.find(({ name }) => ifp(name, this._forInstruction));
+    if (forAttr) {
+      depath = false;
+      const { name, value } = forAttr;
+      // 解析for指令的值
+      let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
+      if (!varb) return depath;
 
-    // 创建注释节点
-    const commentElement = document.createComment("");
-    htmlElement.replaceWith(commentElement);
-    htmlElement.removeAttribute(this._forInstruction);
-    const fragment = document.createDocumentFragment();
-    let _data;
-    if (isNumber(data)) {
-      _data = +data;
-      for (let _v = 0; _v < _data; _v++) {
-        const forState = {};
-        const item = htmlElement.cloneNode(true);
-        fragment.append(item);
-        Object.defineProperty(forState, varb, {
-          get() {
-            return _v;
-          }
-        });
-
-        this._bindingAttrs(item as HTMLElement, forState);
-        this._define(item as HTMLElement, forState);
-      }
-    } else {
-      const _varb: string[] = varb
-        .trim()
-        .replace(eventStartExp, emptyString)
-        .replace(eventEndExp, emptyString)
-        .split(",")
-        .map(v => v.trim());
-      _data = this._getData(data, state);
-      const _that = this;
-
-      for (const _k in _data) {
-        const forState = {};
-        Object.defineProperties(forState, {
-          [_varb[0]]: {
+      // 创建注释节点
+      const commentElement = document.createComment("");
+      htmlElement.replaceWith(commentElement);
+      htmlElement.removeAttribute(this._forInstruction);
+      const fragment = document.createDocumentFragment();
+      if (isNumber(data)) {
+        const _data = +data;
+        for (let _v = 0; _v < _data; _v++) {
+          const forState = {};
+          Object.defineProperty(forState, varb, {
             get() {
-              return _k;
+              return _v;
             }
-          },
-          [_varb[1]]: {
-            get() {
-              return _that._getData(data, state)[_k];
-            }
+          });
+          const item = htmlElement.cloneNode(true);
+          fragment.append(item);
+          this._define(item as HTMLElement, forState);
+        }
+        // 创建完添加到节点
+        commentElement.after(fragment);
+      } else {
+        const _varb: string[] = varb
+          .trim()
+          .replace(eventStartExp, emptyString)
+          .replace(eventEndExp, emptyString)
+          .split(",")
+          .map(v => v.trim());
+        const _data = this._getData(data, state);
+        const _that = this;
+
+        // 记录for生成的items，下次更新将全部删除
+        const forBuffer: Node[] = [];
+        // 不要直接 in _data, 原型函数能被枚举
+        autorun(() => {
+          for (const forItem of forBuffer) {
+            (forItem as HTMLElement).remove();
           }
+          const _keys = Object.keys(_data);
+          for (const _k in _keys) {
+            const forState = {};
+            Object.defineProperties(forState, {
+              [_varb[0]]: {
+                get() {
+                  return _k;
+                }
+              },
+              [_varb[1]]: {
+                get() {
+                  return _that._getData(data, state)[_k];
+                }
+              }
+            });
+            const item = this._cloneNode(htmlElement, forState);
+            fragment.append(item);
+            forBuffer.push(item);
+            this._define(item as HTMLElement, forState);
+          }
+          commentElement.after(fragment);
         });
-        const item = this._cloneNode(htmlElement, forState);
-        fragment.append(item);
-        this._bindingAttrs(item as HTMLElement, forState);
-        this._define(item as HTMLElement, forState);
       }
+      commentElement.data = createForCommentData(data);
     }
-    commentElement.after(fragment);
-    commentElement.data = createForCommentData(data);
+    return depath;
   }
 
   /**
@@ -475,11 +468,23 @@ class Aja {
     return item;
   }
 
+  /**
+   * * 解析指定HTMLElement的属性
+   * @param htmlElement
+   * @param state
+   */
   private _bindingAttrs(htmlElement: HTMLElement, state: State): boolean {
-    // :if
+    let depath = true;
+
     const attrs: Attr[] = Array.from(htmlElement.attributes);
-    let depath = this._ifBindHandle(htmlElement, attrs, state);
-    if (!depath) return false;
+    if (!attrs.length) return depath;
+
+    // :if
+    depath = this._ifBindHandle(htmlElement, attrs, state);
+
+    // :for
+    depath = this._forBindHandle(htmlElement, attrs, state);
+    if (!depath) return depath;
     // 遍历节点属性
     for (const attr of attrs) {
       const { name, value } = attr;
@@ -501,14 +506,6 @@ class Aja {
         continue;
       }
 
-      // :for
-      if (forp(name, this._forInstruction)) {
-        this._forBindHandle(htmlElement, attr, state);
-
-        // 绑定for的节点没有必要递归下去， 生成的新节点会自动递归
-        depath = false;
-      }
-
       // [(model)]="username"
       if (modelp(name)) {
         const inputElement = htmlElement as HTMLInputElement;
@@ -526,37 +523,49 @@ class Aja {
   }
 
   /**
+   * * 循环解析子节点
+   * @param childNodes
+   * @param state
+   */
+  private _bindingChildrenAttrs(children: ChildNode[], state: State): any {
+    if (!children.length) return null;
+    const childNode: ChildNode = children[0];
+    // dom节点
+    if (elementNodep(childNode)) {
+      this._define(childNode as HTMLElement, state);
+    }
+    if (textNodep(childNode)) {
+      this._setTextContent(childNode, state);
+    }
+    return this._bindingChildrenAttrs(children.slice(1), state);
+  }
+
+  /**
    * * 解析文本节点的插值表达式
    * @param childNode
    * @param state
    */
   private _setTextContent(childNode: ChildNode, state: State): void {
     // 创建一个变量保存源文本
-    const _initTextContent = childNode.textContent || emptyString;
+    let _initTextContent = childNode.textContent || emptyString;
 
     // 文本不包含插值表达式的，那么就跳过
     if (!interpolationExpressionExp.test(_initTextContent)) return;
+    autorun(() => {
+      childNode.textContent = _initTextContent.replace(
+        interpolationExpressionExp,
+        (match, g1) => {
+          // 获取插值表达式里面的文本 {{name}} -> name
+          const key = g1.replace(spaceExp, emptyString);
 
-    _initTextContent.replace(interpolationExpressionExp, (...args) => {
-      // 捕获到的插值表达式 {{name}}
-      const match = args[0];
-
-      // 获取插值表达式里面的文本 {{name}} -> name
-      const key = args[1].replace(spaceExp, emptyString);
-
-      autorun(() => {
-        let _data = this._getData(key, state);
-        // 如果返回null字符，不好看
-        // hello null :(
-        // hello      :)
-        if (_data === null) return emptyString;
-        const newTextContent = _initTextContent.replace(
-          new RegExp(escapeRegExp(match), "g"),
-          _data
-        );
-        childNode.textContent = newTextContent;
-      });
-      return emptyString;
+          let _data = this._getData(key, state);
+          // 如果返回null字符，不好看
+          // hello null :(
+          // hello      :)
+          if (_data === null) return emptyString;
+          return _data;
+        }
+      );
     });
   }
 }

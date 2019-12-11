@@ -26,20 +26,27 @@ export interface Computeds {
 export interface StoreOptions {
   state: State;
   actions?: Actions;
-  computeds: Computeds;
+  computeds?: Computeds;
   context?: any;
+}
+
+/**
+ * * 任意一个属性的变化，都会触发所有的监听事件
+ */
+const autorunListeners: Function[] = [];
+
+function updateAll() {
+  for (const f of autorunListeners) {
+    f();
+  }
 }
 
 export const autorun = (f: Function) => {
   f();
-  Store.autorunListeners.push(f);
+  autorunListeners.push(f);
 };
 
 export class Store {
-  /**
-   * * 任意一个属性的变化，都会触发所有的监听事件
-   */
-  static autorunListeners: Function[] = [];
   public $actions!: Actions;
   private $state!: State;
 
@@ -48,37 +55,84 @@ export class Store {
 
     // _that.$state = state;
     for (const k in state) {
+      let v = state[k];
+
+      if (arrayp(v)) {
+        // 如果是Array，那么拦截一些原型函数
+        var aryMethods = [
+          "push",
+          "pop",
+          "shift",
+          "unshift",
+          "splice",
+          "sort",
+          "reverse"
+        ];
+        var arrayAugmentations = Object.create(Array.prototype);
+
+        aryMethods.forEach(method => {
+          let original = (Array.prototype as { [k: string]: any })[method];
+          arrayAugmentations[method] = function(...args: any[]) {
+            // 将传递进来的值，重新代理
+            const _applyArgs = new Store({
+              state: args,
+              context: []
+            });
+
+            // 调用原始方法
+            const r = original.apply(this, _applyArgs);
+
+            // 跟新
+            updateAll();
+            return r;
+          };
+        });
+
+        v = (v as any[]).map(el => {
+          return new Store({
+            state: el,
+            context: {}
+          });
+        });
+
+        Object.setPrototypeOf(v, arrayAugmentations);
+      }
+
+      if (Store._isObject(v)) {
+        if (objectp(v)) {
+          const newContext = Object.create(v);
+          v = new Store({
+            state: v,
+            context: newContext
+          });
+        }
+      }
+
+      state[k] = v;
+
       Object.defineProperty(_that, k, {
         get() {
-          let value = state[k];
-          if (Store._isObject(state[k])) {
-            value = new Store({
-              state: value,
-              computeds: {},
-              context: arrayp(value) ? [] : {}
-            });
-          }
-          return value;
+          const _r = state[k];
+          return _r;
         },
         set(newValue) {
           state[k] = newValue;
-
-          for (const f of Store.autorunListeners) {
-            f();
-          }
+          updateAll();
         },
         enumerable: true,
         configurable: true
       });
     }
 
-    for (const k in computeds) {
-      Object.defineProperty(_that, k, {
-        get() {
-          return computeds[k].call(_that);
-        },
-        enumerable: true
-      });
+    if (computeds) {
+      for (const k in computeds) {
+        Object.defineProperty(_that, k, {
+          get() {
+            return computeds[k].call(_that);
+          },
+          enumerable: true
+        });
+      }
     }
 
     // 只把actions绑定在store上
@@ -102,4 +156,27 @@ export class Store {
   public toString(): string {
     return JSON.stringify(this.$state);
   }
+}
+
+function observifyArray(this: any, array: any[]) {
+  var aryMethods = [
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "splice",
+    "sort",
+    "reverse"
+  ];
+  var arrayAugmentations = Object.create(Array.prototype);
+
+  aryMethods.forEach(method => {
+    let original = (Array.prototype as { [k: string]: any })[method];
+    arrayAugmentations[method] = function(...args: any[]) {
+      const r = original.apply(this, array);
+      l(args[0], array);
+      return r;
+    };
+  });
+  Object.setPrototypeOf(array, arrayAugmentations);
 }

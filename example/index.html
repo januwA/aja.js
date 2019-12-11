@@ -8,23 +8,29 @@
   </head>
 
   <body>
-    <div class="app">
-      <!-- <input type="text" [(model)]="name" /> -->
-      <!-- <button (click)="push">click me</button> -->
-      <p [innerhtml]="name"></p>
+    <div class="app" [title]="name" :if="name">
+      <h3 :for="el in 10" (click)="onItem(el)">{{ el+1 }}-{{ name }}</h3>
+
+
+      <button (click)="onPush">push</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          name: `<h1>233</h1>`
+          name: "ajanuw"
         },
         actions: {
-          push() {}
+          onPush() {
+            this.name = 'xxx'
+          },
+          onItem(el) {
+            l(el)
+          }
         }
       });
-      console.log(vm.$store);
+      // console.log(vm.$store);
     </script>
   </body>
 </html>

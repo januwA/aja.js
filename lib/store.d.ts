@@ -19,15 +19,18 @@ export interface Computeds {
 export interface StoreOptions {
     state: State;
     actions?: Actions;
-    computeds: Computeds;
+    computeds?: Computeds;
+    context?: any;
 }
 export declare const autorun: (f: Function) => void;
 export declare class Store {
-    /**
-     * * 任意一个属性的变化，都会触发所有的监听事件
-     */
-    static autorunListeners: Function[];
     $actions: Actions;
-    constructor({ state, computeds, actions }: StoreOptions);
-    private _isObject;
+    private $state;
+    constructor({ state, computeds, actions, context }: StoreOptions);
+    /**
+     * 跳过null和空的对象
+     * @param val
+     */
+    private static _isObject;
+    toString(): string;
 }

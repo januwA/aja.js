@@ -150,3 +150,14 @@ export function escapeHTML(str: string) {
     .replace(/>/g, "&gt;")
     .replace(/\s/g, "&nbsp;");
 }
+
+export function elementNodep(node: ChildNode | HTMLElement): boolean {
+  return (
+    node.nodeType === Node.ELEMENT_NODE ||
+    node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+  );
+}
+
+export function textNodep(node: ChildNode | HTMLElement): boolean {
+  return node.nodeType === Node.TEXT_NODE;
+}

@@ -45,9 +45,6 @@
   function ifp(key, ifInstruction) {
       return key === ifInstruction;
   }
-  function forp(key, forInstruction) {
-      return key === forInstruction;
-  }
   function createObject(obj) {
       return obj ? obj : {};
   }
@@ -92,57 +89,106 @@
           throw er;
       }
   }
+  function objectp(data) {
+      return Object.prototype.toString.call(data) === "[object Object]";
+  }
   function arrayp(data) {
       return Object.prototype.toString.call(data) === "[object Array]";
   }
-  /**
-   * 把字符串安全格式化 为正则表达式源码
-   * {{ arr[0] }} -> \{\{ arr\[0\] \}\}
-   * @param str
-   */
-  function escapeRegExp(str) {
-      return str.replace(/([-.*+?^${}()|[\]\/\\])/g, "\\$1");
+  function elementNodep(node) {
+      return (node.nodeType === Node.ELEMENT_NODE ||
+          node.nodeType === Node.DOCUMENT_FRAGMENT_NODE);
   }
-  //# sourceMappingURL=util.js.map
+  function textNodep(node) {
+      return node.nodeType === Node.TEXT_NODE;
+  }
 
+  /**
+   * * 任意一个属性的变化，都会触发所有的监听事件
+   */
+  const autorunListeners = [];
+  function updateAll() {
+      for (const f of autorunListeners) {
+          f();
+      }
+  }
   const autorun = (f) => {
       f();
-      Store.autorunListeners.push(f);
+      autorunListeners.push(f);
   };
   class Store {
       constructor({ state, computeds, actions, context }) {
           const _that = context ? context : this;
           // _that.$state = state;
           for (const k in state) {
+              let v = state[k];
+              if (arrayp(v)) {
+                  // 如果是Array，那么拦截一些原型函数
+                  var aryMethods = [
+                      "push",
+                      "pop",
+                      "shift",
+                      "unshift",
+                      "splice",
+                      "sort",
+                      "reverse"
+                  ];
+                  var arrayAugmentations = Object.create(Array.prototype);
+                  aryMethods.forEach(method => {
+                      let original = Array.prototype[method];
+                      arrayAugmentations[method] = function (...args) {
+                          // 将传递进来的值，重新代理
+                          const _applyArgs = new Store({
+                              state: args,
+                              context: []
+                          });
+                          // 调用原始方法
+                          const r = original.apply(this, _applyArgs);
+                          // 跟新
+                          updateAll();
+                          return r;
+                      };
+                  });
+                  v = v.map(el => {
+                      return new Store({
+                          state: el,
+                          context: {}
+                      });
+                  });
+                  Object.setPrototypeOf(v, arrayAugmentations);
+              }
+              if (Store._isObject(v)) {
+                  if (objectp(v)) {
+                      const newContext = Object.create(v);
+                      v = new Store({
+                          state: v,
+                          context: newContext
+                      });
+                  }
+              }
+              state[k] = v;
               Object.defineProperty(_that, k, {
                   get() {
-                      let value = state[k];
-                      if (Store._isObject(state[k])) {
-                          value = new Store({
-                              state: value,
-                              computeds: {},
-                              context: arrayp(value) ? [] : {}
-                          });
-                      }
-                      return value;
+                      const _r = state[k];
+                      return _r;
                   },
                   set(newValue) {
                       state[k] = newValue;
-                      for (const f of Store.autorunListeners) {
-                          f();
-                      }
+                      updateAll();
                   },
                   enumerable: true,
                   configurable: true
               });
           }
-          for (const k in computeds) {
-              Object.defineProperty(_that, k, {
-                  get() {
-                      return computeds[k].call(_that);
-                  },
-                  enumerable: true
-              });
+          if (computeds) {
+              for (const k in computeds) {
+                  Object.defineProperty(_that, k, {
+                      get() {
+                          return computeds[k].call(_that);
+                      },
+                      enumerable: true
+                  });
+              }
           }
           // 只把actions绑定在store上
           if (actions) {
@@ -164,11 +210,6 @@
           return JSON.stringify(this.$state);
       }
   }
-  /**
-   * * 任意一个属性的变化，都会触发所有的监听事件
-   */
-  Store.autorunListeners = [];
-  //# sourceMappingURL=store.js.map
 
   //* 匹配 {{ name }} {{ obj.age }}
   // export const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
@@ -180,7 +221,6 @@
   const eventStartExp = /^\(/;
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
-  //# sourceMappingURL=exp.js.map
 
   class Aja {
       constructor(view, options) {
@@ -205,7 +245,7 @@
           if (options.templateEvent)
               this._templateEvent = options.templateEvent;
           this._proxyState(options);
-          this._define(root);
+          this._define(root, this.$store);
       }
       /**
        * * :if
@@ -225,28 +265,11 @@
       /**
        * 扫描绑定
        * @param root
-       * @param contextState
        */
-      _define(root, contextState = null) {
-          const state = contextState ? contextState : this.$store;
-          const children = Array.from(root.childNodes);
-          for (let index = 0; index < children.length; index++) {
-              const childNode = children[index];
-              // dom节点
-              if (childNode.nodeType === Node.ELEMENT_NODE ||
-                  childNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-                  const htmlElement = childNode;
-                  //? 这个[depath]有什么用?
-                  //? 当绑定了if和for,指令，就没有必要递归下去了
-                  let depath = this._bindingAttrs(htmlElement, state);
-                  // 递归遍历
-                  if (depath)
-                      this._define(htmlElement);
-              }
-              else if (childNode.nodeType === Node.TEXT_NODE) {
-                  this._setTextContent(childNode, state);
-              }
-          }
+      _define(root, state) {
+          const depath = this._bindingAttrs(root, state);
+          if (depath)
+              this._bindingChildrenAttrs(Array.from(root.childNodes), state);
       }
       _proxyState(options) {
           const state = createObject(options.state);
@@ -411,9 +434,6 @@
                   if (show) {
                       commentElement.after(htmlElement);
                       depath = true;
-                      if (Array.from(htmlElement.childNodes).length) {
-                          this._define(htmlElement);
-                      }
                   }
                   else {
                       htmlElement.replaceWith(commentElement);
@@ -425,63 +445,80 @@
           }
           return depath;
       }
-      _forBindHandle(htmlElement, { name, value }, state) {
-          // 解析for指令的值
-          let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
-          if (!varb)
-              return;
-          // 创建注释节点
-          const commentElement = document.createComment("");
-          htmlElement.replaceWith(commentElement);
-          htmlElement.removeAttribute(this._forInstruction);
-          const fragment = document.createDocumentFragment();
-          let _data;
-          if (isNumber(data)) {
-              _data = +data;
-              for (let _v = 0; _v < _data; _v++) {
-                  const forState = {};
-                  const item = htmlElement.cloneNode(true);
-                  fragment.append(item);
-                  Object.defineProperty(forState, varb, {
-                      get() {
-                          return _v;
-                      }
-                  });
-                  this._bindingAttrs(item, forState);
-                  this._define(item, forState);
-              }
-          }
-          else {
-              const _varb = varb
-                  .trim()
-                  .replace(eventStartExp, emptyString)
-                  .replace(eventEndExp, emptyString)
-                  .split(",")
-                  .map(v => v.trim());
-              _data = this._getData(data, state);
-              const _that = this;
-              for (const _k in _data) {
-                  const forState = {};
-                  Object.defineProperties(forState, {
-                      [_varb[0]]: {
+      _forBindHandle(htmlElement, attrs, state) {
+          let depath = true;
+          // 是否有 :for 指令
+          let forAttr = attrs.find(({ name }) => ifp(name, this._forInstruction));
+          if (forAttr) {
+              depath = false;
+              const { name, value } = forAttr;
+              // 解析for指令的值
+              let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
+              if (!varb)
+                  return depath;
+              // 创建注释节点
+              const commentElement = document.createComment("");
+              htmlElement.replaceWith(commentElement);
+              htmlElement.removeAttribute(this._forInstruction);
+              const fragment = document.createDocumentFragment();
+              if (isNumber(data)) {
+                  const _data = +data;
+                  for (let _v = 0; _v < _data; _v++) {
+                      const forState = {};
+                      Object.defineProperty(forState, varb, {
                           get() {
-                              return _k;
+                              return _v;
                           }
-                      },
-                      [_varb[1]]: {
-                          get() {
-                              return _that._getData(data, state)[_k];
-                          }
-                      }
-                  });
-                  const item = this._cloneNode(htmlElement, forState);
-                  fragment.append(item);
-                  this._bindingAttrs(item, forState);
-                  this._define(item, forState);
+                      });
+                      const item = htmlElement.cloneNode(true);
+                      fragment.append(item);
+                      this._define(item, forState);
+                  }
+                  // 创建完添加到节点
+                  commentElement.after(fragment);
               }
+              else {
+                  const _varb = varb
+                      .trim()
+                      .replace(eventStartExp, emptyString)
+                      .replace(eventEndExp, emptyString)
+                      .split(",")
+                      .map(v => v.trim());
+                  const _data = this._getData(data, state);
+                  const _that = this;
+                  // 记录for生成的items，下次更新将全部删除
+                  const forBuffer = [];
+                  // 不要直接 in _data, 原型函数能被枚举
+                  autorun(() => {
+                      for (const forItem of forBuffer) {
+                          forItem.remove();
+                      }
+                      const _keys = Object.keys(_data);
+                      for (const _k in _keys) {
+                          const forState = {};
+                          Object.defineProperties(forState, {
+                              [_varb[0]]: {
+                                  get() {
+                                      return _k;
+                                  }
+                              },
+                              [_varb[1]]: {
+                                  get() {
+                                      return _that._getData(data, state)[_k];
+                                  }
+                              }
+                          });
+                          const item = this._cloneNode(htmlElement, forState);
+                          fragment.append(item);
+                          forBuffer.push(item);
+                          this._define(item, forState);
+                      }
+                      commentElement.after(fragment);
+                  });
+              }
+              commentElement.data = createForCommentData(data);
           }
-          commentElement.after(fragment);
-          commentElement.data = createForCommentData(data);
+          return depath;
       }
       /**
        * 处理 [title]='xxx' 解析
@@ -569,12 +606,22 @@
           }
           return item;
       }
+      /**
+       * * 解析指定HTMLElement的属性
+       * @param htmlElement
+       * @param state
+       */
       _bindingAttrs(htmlElement, state) {
-          // :if
+          let depath = true;
           const attrs = Array.from(htmlElement.attributes);
-          let depath = this._ifBindHandle(htmlElement, attrs, state);
+          if (!attrs.length)
+              return depath;
+          // :if
+          depath = this._ifBindHandle(htmlElement, attrs, state);
+          // :for
+          depath = this._forBindHandle(htmlElement, attrs, state);
           if (!depath)
-              return false;
+              return depath;
           // 遍历节点属性
           for (const attr of attrs) {
               const { name, value } = attr;
@@ -593,12 +640,6 @@
                   this._eventBindHandle(htmlElement, attr, state);
                   continue;
               }
-              // :for
-              if (forp(name, this._forInstruction)) {
-                  this._forBindHandle(htmlElement, attr, state);
-                  // 绑定for的节点没有必要递归下去， 生成的新节点会自动递归
-                  depath = false;
-              }
               // [(model)]="username"
               if (modelp(name)) {
                   const inputElement = htmlElement;
@@ -614,37 +655,49 @@
           return depath;
       }
       /**
+       * * 循环解析子节点
+       * @param childNodes
+       * @param state
+       */
+      _bindingChildrenAttrs(children, state) {
+          if (!children.length)
+              return null;
+          const childNode = children[0];
+          // dom节点
+          if (elementNodep(childNode)) {
+              this._define(childNode, state);
+          }
+          if (textNodep(childNode)) {
+              this._setTextContent(childNode, state);
+          }
+          return this._bindingChildrenAttrs(children.slice(1), state);
+      }
+      /**
        * * 解析文本节点的插值表达式
        * @param childNode
        * @param state
        */
       _setTextContent(childNode, state) {
           // 创建一个变量保存源文本
-          const _initTextContent = childNode.textContent || emptyString;
+          let _initTextContent = childNode.textContent || emptyString;
           // 文本不包含插值表达式的，那么就跳过
           if (!interpolationExpressionExp.test(_initTextContent))
               return;
-          _initTextContent.replace(interpolationExpressionExp, (...args) => {
-              // 捕获到的插值表达式 {{name}}
-              const match = args[0];
-              // 获取插值表达式里面的文本 {{name}} -> name
-              const key = args[1].replace(spaceExp, emptyString);
-              autorun(() => {
+          autorun(() => {
+              childNode.textContent = _initTextContent.replace(interpolationExpressionExp, (match, g1) => {
+                  // 获取插值表达式里面的文本 {{name}} -> name
+                  const key = g1.replace(spaceExp, emptyString);
                   let _data = this._getData(key, state);
                   // 如果返回null字符，不好看
                   // hello null :(
                   // hello      :)
                   if (_data === null)
                       return emptyString;
-                  const newTextContent = _initTextContent.replace(new RegExp(escapeRegExp(match), "g"), _data);
-                  childNode.textContent = newTextContent;
+                  return _data;
               });
-              return emptyString;
           });
       }
   }
-
-  //# sourceMappingURL=main.js.map
 
   return Aja;
 

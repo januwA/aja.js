@@ -34,7 +34,6 @@ declare class Aja {
     /**
      * 扫描绑定
      * @param root
-     * @param contextState
      */
     private _define;
     private _proxyState;
@@ -50,11 +49,19 @@ declare class Aja {
      */
     private _getData;
     /**
+     * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
+     * @param key
+     * @param newValue
+     * @param state
+     */
+    private _setDate;
+    /**
      * 解析一些奇怪的插值表达式
      * {{ el['age'] }}
      * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
      * @param key
      * @param state
+     * @param setState
      */
     private _parseJsString;
     /**
@@ -70,6 +77,7 @@ declare class Aja {
      * @param attrs
      */
     private _ifBindHandle;
+    private _forBindHandle;
     /**
      * 处理 [title]='xxx' 解析
      * @param htmlElement
@@ -95,7 +103,18 @@ declare class Aja {
      * @param deep
      */
     private _cloneNode;
+    /**
+     * * 解析指定HTMLElement的属性
+     * @param htmlElement
+     * @param state
+     */
     private _bindingAttrs;
+    /**
+     * * 循环解析子节点
+     * @param childNodes
+     * @param state
+     */
+    private _bindingChildrenAttrs;
     /**
      * * 解析文本节点的插值表达式
      * @param childNode
