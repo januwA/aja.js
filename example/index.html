@@ -4,26 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Document</title>
+    <title>Aja</title>
   </head>
 
   <body>
     <div class="app">
-      <input type="text" [(model)]="text" />
-      <p>{{ text }}</p>
-      <button (click)="push">click me</button>
+      <!-- <input type="text" [(model)]="name" /> -->
+      <!-- <button (click)="push">click me</button> -->
+      <p [innerhtml]="name"></p>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          text: []
+          name: `<h1>233</h1>`
         },
         actions: {
-          push() {
-            this.text = 'xxx'
-          }
+          push() {}
         }
       });
       console.log(vm.$store);

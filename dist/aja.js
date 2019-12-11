@@ -95,6 +95,14 @@
   function arrayp(data) {
       return Object.prototype.toString.call(data) === "[object Array]";
   }
+  /**
+   * 把字符串安全格式化 为正则表达式源码
+   * {{ arr[0] }} -> \{\{ arr\[0\] \}\}
+   * @param str
+   */
+  function escapeRegExp(str) {
+      return str.replace(/([-.*+?^${}()|[\]\/\\])/g, "\\$1");
+  }
   //# sourceMappingURL=util.js.map
 
   const autorun = (f) => {
@@ -292,6 +300,36 @@
           return _result;
       }
       /**
+       * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
+       * @param key
+       * @param newValue
+       * @param state
+       */
+      _setDate(key, newValue, state) {
+          if (typeof key !== "string")
+              return null;
+          const keys = key.split(".");
+          const keysSize = keys.length;
+          if (!keysSize)
+              return;
+          const firstKey = keys[0];
+          let _result;
+          if (keysSize === 1 && firstKey in state) {
+              state[firstKey] = newValue;
+              return;
+          }
+          for (let index = 0; index < keysSize - 1; index++) {
+              const k = keys[index];
+              _result = _result ? _result[k] : state[k];
+          }
+          if (_result) {
+              const lastKey = keys[keysSize - 1];
+              _result[lastKey] = newValue;
+              return;
+          }
+          this._parseJsString(key, state, true, newValue);
+      }
+      /**
        * 解析一些奇怪的插值表达式
        * {{ el['age'] }}
        * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
@@ -314,7 +352,7 @@
                   const context = this._getData(varName, state);
                   if (setState) {
                       const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
-                          `= '${newValue}'`;
+                          `='${newValue}'`;
                       ourEval.call(context, `${funBody}`);
                   }
                   else {
@@ -330,34 +368,6 @@
                   throw er;
               }
           }
-      }
-      /**
-       * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
-       * @param key
-       * @param newValue
-       * @param state
-       */
-      _setDate(key, newValue, state) {
-          if (typeof key !== "string")
-              return null;
-          const keys = key.split(".");
-          const keysSize = keys.length;
-          if (!keysSize)
-              return;
-          let _result;
-          if (keysSize === 1) {
-              state[keys[0]] = newValue;
-              return;
-          }
-          for (let index = 0; index < keysSize - 1; index++) {
-              const k = keys[index];
-              _result = _result ? _result[k] : state[k];
-          }
-          if (_result) {
-              _result[keys[keysSize - 1]] = newValue;
-              return;
-          }
-          this._parseJsString(key, state, true, newValue);
       }
       /**
        * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
@@ -493,6 +503,9 @@
                       }
                   }
               }
+              else if (attrName === "innerhtml") {
+                  htmlElement.innerHTML = this._getData(value, state);
+              }
               else {
                   let _value = this._getData(value, state);
                   if (_value === null)
@@ -623,7 +636,7 @@
                   // hello      :)
                   if (_data === null)
                       return emptyString;
-                  const newTextContent = _initTextContent.replace(new RegExp(match, "g"), _data);
+                  const newTextContent = _initTextContent.replace(new RegExp(escapeRegExp(match), "g"), _data);
                   childNode.textContent = newTextContent;
               });
               return emptyString;

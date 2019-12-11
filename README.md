@@ -4,6 +4,7 @@
 ## 属性绑定
 ```html
 <p [title]="title" class="c" [style]="style"></p>
+<p [innerhtml]="'name'"></p>
 ```
 
 ## 事件绑定
@@ -20,7 +21,7 @@
 ```
 
 ## 模板变量
-> 权限最高
+> 权限最高，就近原则
 ```html
 <input type="text" value="hello ajanuw" #input />
 <p>value: {{ input.value }} {{input.type}}</p>

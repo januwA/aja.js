@@ -13,7 +13,8 @@ import {
   forp,
   createForCommentData,
   ourEval,
-  modelp
+  modelp,
+  escapeRegExp
 } from "./utils/util";
 import { Store, autorun, State, Actions, Computeds } from "./store";
 import {
@@ -167,7 +168,38 @@ class Aja {
       // 没救了， eval随便解析返回个值吧!
       _result = this._parseJsString(key, state);
     }
+
     return _result;
+  }
+
+  /**
+   * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
+   * @param key
+   * @param newValue
+   * @param state
+   */
+  private _setDate(key: string, newValue: any, state: State) {
+    if (typeof key !== "string") return null;
+    const keys = key.split(".");
+    const keysSize = keys.length;
+    if (!keysSize) return;
+    const firstKey = keys[0];
+    let _result: any;
+    if (keysSize === 1 && firstKey in state) {
+      state[firstKey] = newValue;
+      return;
+    }
+    for (let index = 0; index < keysSize - 1; index++) {
+      const k = keys[index];
+      _result = _result ? _result[k] : state[k];
+    }
+
+    if (_result) {
+      const lastKey = keys[keysSize - 1];
+      _result[lastKey] = newValue;
+      return;
+    }
+    this._parseJsString(key, state, true, newValue);
   }
 
   /**
@@ -197,7 +229,7 @@ class Aja {
         if (setState) {
           const funBody =
             key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
-            `= '${newValue}'`;
+            `='${newValue}'`;
           ourEval.call(context, `${funBody}`);
         } else {
           const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
@@ -210,36 +242,6 @@ class Aja {
         throw er;
       }
     }
-  }
-
-  /**
-   * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
-   * @param key
-   * @param newValue
-   * @param state
-   */
-  private _setDate(key: string, newValue: any, state: State) {
-    if (typeof key !== "string") return null;
-    const keys = key.split(".");
-    const keysSize = keys.length;
-    if (!keysSize) return;
-    let _result: any;
-
-    if (keysSize === 1) {
-      state[keys[0]] = newValue;
-      return;
-    }
-    for (let index = 0; index < keysSize - 1; index++) {
-      const k = keys[index];
-      _result = _result ? _result[k] : state[k];
-    }
-
-    if (_result) {
-      _result[keys[keysSize - 1]] = newValue;
-      return;
-    }
-
-    this._parseJsString(key, state, true, newValue);
   }
 
   /**
@@ -391,6 +393,8 @@ class Aja {
             htmlElement.style[key] = styles[key];
           }
         }
+      } else if (attrName === "innerhtml") {
+        htmlElement.innerHTML = this._getData(value, state);
       } else {
         let _value = this._getData(value, state);
         if (_value === null) _value = emptyString;
@@ -542,16 +546,14 @@ class Aja {
 
       autorun(() => {
         let _data = this._getData(key, state);
-
         // 如果返回null字符，不好看
         // hello null :(
         // hello      :)
         if (_data === null) return emptyString;
         const newTextContent = _initTextContent.replace(
-          new RegExp(match, "g"),
+          new RegExp(escapeRegExp(match), "g"),
           _data
         );
-
         childNode.textContent = newTextContent;
       });
       return emptyString;

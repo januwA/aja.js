@@ -133,3 +133,20 @@ export function arrayp(data: any) {
 export function nullp(data: any) {
   return Object.prototype.toString.call(data) === "[object Null]";
 }
+
+/**
+ * 把字符串安全格式化 为正则表达式源码
+ * {{ arr[0] }} -> \{\{ arr\[0\] \}\}
+ * @param str
+ */
+export function escapeRegExp(str: string) {
+  return str.replace(/([-.*+?^${}()|[\]\/\\])/g, "\\$1");
+}
+
+export function escapeHTML(str: string) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\s/g, "&nbsp;");
+}
