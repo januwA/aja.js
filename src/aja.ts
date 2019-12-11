@@ -544,7 +544,21 @@ class Aja {
                 }
               });
             }
+          } else if (inputElement.type === "radio") {
+            // 单选按钮
+            autorun(() => {
+              const data = this._getData(value, state);
+              inputElement.checked = data === inputElement.value;
+            });
+
+            inputElement.addEventListener("change", () => {
+              let newData = inputElement.value;
+              if (newData === "on") newData = "";
+              this._setDate(value, newData, state);
+              inputElement.checked = true;
+            });
           } else {
+            // 其它
             autorun(() => {
               inputElement.value = `${this._getData(value, state)}`;
             });
@@ -642,7 +656,7 @@ class Aja {
           // hello null :(
           // hello      :)
           if (_data === null) return emptyString;
-          return JSON.stringify(_data, null, " ");
+          return typeof _data === 'string' ? _data :  JSON.stringify(_data, null, " ");
         }
       );
     });
