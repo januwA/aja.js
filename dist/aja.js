@@ -132,7 +132,7 @@
        * @param state 需要代理的数据
        */
       constructor({ state, computeds, actions }) {
-          Store.proxyObject(state, this);
+          Store.map(state, this);
           if (computeds) {
               for (const k in computeds) {
                   Object.defineProperty(this, k, {
@@ -153,14 +153,14 @@
       /**
        * * 代理每个属性的 get， set
        */
-      static proxyObject(object, context) {
+      static map(object, context) {
           for (const k in object) {
               let v = object[k];
               if (arrayp(v)) {
-                  v = Store.proxyArray(v);
+                  v = Store.list(v);
               }
               if (objectp(v)) {
-                  v = Store.proxyObject(v, {});
+                  v = Store.map(v, {});
               }
               object[k] = v;
               Object.defineProperty(context, k, {
@@ -182,7 +182,7 @@
        * * 拦截数组的非幕等方, 并循环代理每个元素
        * @param array
        */
-      static proxyArray(array) {
+      static list(array) {
           var aryMethods = [
               "push",
               "pop",
@@ -197,7 +197,7 @@
               let original = Array.prototype[method];
               arrayAugmentations[method] = function (...args) {
                   // 将传递进来的值，重新代理
-                  const _applyArgs = Store.proxyArray(args);
+                  const _applyArgs = Store.list(args);
                   // 调用原始方法
                   const r = original.apply(this, _applyArgs);
                   // 跟新
@@ -208,10 +208,10 @@
           // 遍历代理数组每项的值
           array = array.map(el => {
               if (objectp(el)) {
-                  return Store.proxyObject(el, {});
+                  return Store.map(el, {});
               }
               if (arrayp(el)) {
-                  return Store.proxyArray(el);
+                  return Store.list(el);
               }
               return el;
           });
@@ -687,7 +687,7 @@
                                       data.push(ivalue);
                                   }
                                   else {
-                                      const newData = Store.proxyArray(data.filter((d) => d !== ivalue));
+                                      const newData = Store.list(data.filter((d) => d !== ivalue));
                                       this._setDate(value, newData, state);
                                   }
                               });

@@ -544,7 +544,7 @@ class Aja {
                 if (inputElement.checked) {
                   data.push(ivalue);
                 } else {
-                  const newData = Store.proxyArray(
+                  const newData = Store.list(
                     data.filter((d: any) => d !== ivalue)
                   );
                   this._setDate(value, newData, state);

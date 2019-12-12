@@ -54,7 +54,7 @@ export class Store {
    * @param state 需要代理的数据
    */
   constructor({ state, computeds, actions }: StoreOptions) {
-    Store.proxyObject(state, this);
+    Store.map(state, this);
 
     if (computeds) {
       for (const k in computeds) {
@@ -78,16 +78,16 @@ export class Store {
   /**
    * * 代理每个属性的 get， set
    */
-  static proxyObject(object: State, context: any): any {
+  static map<T>(object: State, context: T): T {
     for (const k in object) {
       let v = object[k];
 
       if (arrayp(v)) {
-        v = Store.proxyArray(v);
+        v = Store.list(v);
       }
 
       if (objectp(v)) {
-        v = Store.proxyObject(v, {});
+        v = Store.map(v, {});
       }
 
       object[k] = v;
@@ -113,7 +113,7 @@ export class Store {
    * * 拦截数组的非幕等方, 并循环代理每个元素
    * @param array
    */
-  static proxyArray(array: any[]): any[] {
+  static list<T>(array: T[]): T[] {
     var aryMethods = [
       "push",
       "pop",
@@ -129,7 +129,7 @@ export class Store {
       let original = (Array.prototype as { [k: string]: any })[method];
       arrayAugmentations[method] = function(...args: any[]) {
         // 将传递进来的值，重新代理
-        const _applyArgs = Store.proxyArray(args);
+        const _applyArgs = Store.list(args);
 
         // 调用原始方法
         const r = original.apply(this, _applyArgs);
@@ -143,10 +143,10 @@ export class Store {
     // 遍历代理数组每项的值
     array = (array as any[]).map(el => {
       if (objectp(el)) {
-        return Store.proxyObject(el, {});
+        return Store.map(el, {});
       }
       if (arrayp(el)) {
-        return Store.proxyArray(el);
+        return Store.list(el);
       }
       return el;
     });
