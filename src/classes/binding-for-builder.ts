@@ -130,6 +130,14 @@ export class BindingForBuilder {
             }
           }
         });
+      } else if (this.bindKey) {
+        Object.defineProperties(forState, {
+          [this.bindKey]: {
+            get() {
+              return v;
+            }
+          }
+        });
       }
     }
     return forState;

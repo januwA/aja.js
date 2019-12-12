@@ -80,11 +80,18 @@
           throw er;
       }
   }
+  /**
+   * Object.prototype.toString.call({}) -> "[object Object]"
+   * @param data
+   */
+  function dataTag(data) {
+      return Object.prototype.toString.call(data);
+  }
   function objectp(data) {
-      return Object.prototype.toString.call(data) === "[object Object]";
+      return dataTag(data) === "[object Object]";
   }
   function arrayp(data) {
-      return Object.prototype.toString.call(data) === "[object Array]";
+      return dataTag(data) === "[object Array]";
   }
   /**
    * 把字符串安全格式化 为正则表达式源码
@@ -443,6 +450,15 @@
                       }
                   });
               }
+              else if (this.bindKey) {
+                  Object.defineProperties(forState, {
+                      [this.bindKey]: {
+                          get() {
+                              return v;
+                          }
+                      }
+                  });
+              }
           }
           return forState;
       }
@@ -690,7 +706,9 @@
                   reaction(() => [this._getData(bforb.bindData, state)], states => {
                       const _data = states[0];
                       bforb.clear();
-                      const _keys = Object.keys(_data);
+                      let _keys = _data;
+                      if (arrayp(_data))
+                          _keys = Object.keys(_data);
                       for (const _k in _keys) {
                           const forState = bforb.createForContextState(_k, _data[_k], false);
                           const item = _that._cloneNode(htmlElement, forState);

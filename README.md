@@ -31,8 +31,12 @@
 ```html
 <ul>
     <li :for="item in 10">item {{ item }}</li>
+    
+    <li :for="item in array">item {{ item }}</li>
     <li :for="(index, item) in array">item {{ item }}</li>
+    
     <li :for="(key, value) in object">item {{ item }}</li>
+     <p :for="value in object">{{ value }}</p>
 </ul
 ```
 

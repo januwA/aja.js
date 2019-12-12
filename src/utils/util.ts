@@ -115,15 +115,15 @@ export function dataTag(data: any): string {
 }
 
 export function objectp(data: any) {
-  return Object.prototype.toString.call(data) === "[object Object]";
+  return dataTag(data) === "[object Object]";
 }
 
 export function arrayp(data: any) {
-  return Object.prototype.toString.call(data) === "[object Array]";
+  return dataTag(data) === "[object Array]";
 }
 
 export function nullp(data: any) {
-  return Object.prototype.toString.call(data) === "[object Null]";
+  return dataTag(data) === "[object Null]";
 }
 
 /**

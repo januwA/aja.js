@@ -297,7 +297,8 @@ class Aja {
           states => {
             const _data = states[0];
             bforb.clear();
-            const _keys = Object.keys(_data);
+            let _keys = _data;
+            if (arrayp(_data)) _keys = Object.keys(_data);
             for (const _k in _keys) {
               const forState = bforb.createForContextState(
                 _k,

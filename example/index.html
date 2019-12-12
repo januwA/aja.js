@@ -10,11 +10,7 @@
   <body>
     <div class="app">
       <div>
-        <select v-model="selected">
-          <option :for="(i, option) in options" [value]="option.value">
-            {{ option.text }}
-          </option>
-        </select>
+        <p :for="(k, value) in obj">{{ k }} - {{ value }}</p>
         <span>Selected: {{ selected }}</span>
         <button (click)="change">change</button>
       </div>
@@ -23,14 +19,9 @@
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
-        modeldirective: "v-model",
         state: {
           selected: "A",
-          options: [
-            { text: "One", value: "A" },
-            { text: "Two", value: "B" },
-            { text: "Three", value: "C" }
-          ]
+          obj: [1, 2, "x"]
         },
         actions: {
           change() {
