@@ -3,31 +3,29 @@ import {
   eventp,
   tempvarp,
   createRoot,
-  createIfCommentData,
   createObject,
   emptyString,
-  isNumber,
   parseTemplateEventArgs,
-  isBoolString,
-  ifp,
-  createForCommentData,
+  boolStringp,
   ourEval,
   modelp,
   elementNodep,
   textNodep,
   arrayp,
-  getCheckBoxValue
+  getCheckBoxValue,
+  parseBindingTextContent
 } from "./utils/util";
-import { Store, autorun, State, Actions, Computeds } from "./store";
+import { Store, State, Actions, Computeds, reaction } from "./store";
 import {
   interpolationExpressionExp,
-  spaceExp,
   attrStartExp,
   attrEndExp,
   eventStartExp,
   eventEndExp,
   tempvarExp
 } from "./utils/exp";
+import { BindingIfBuilder } from "./classes/binding-if-builder";
+import { BindingForBuilder } from "./classes/binding-for-builder";
 
 export interface Options {
   state?: State;
@@ -257,116 +255,65 @@ class Aja {
     attrs: Attr[],
     state: State
   ): boolean {
-    let depath = true;
+    let show = true;
 
-    // 是否有 :if 指令
-    let ifAttr = attrs.find(({ name }) => ifp(name, this._ifInstruction));
-    if (ifAttr) {
-      // 创建注释节点做标记
-      const commentElement = document.createComment("");
-
-      // 将注释节点插入到节点上面
-      htmlElement.before(commentElement);
-      autorun(() => {
-        let value = ifAttr!.value.trim();
-        let show = true;
-        if (isBoolString(value)) {
-          show = value === "true";
-        } else {
-          show = this._getData(value, state);
-        }
-        if (show) {
-          commentElement.after(htmlElement);
-          depath = true;
-        } else {
-          htmlElement.replaceWith(commentElement);
-          depath = false;
-        }
-        commentElement.data = createIfCommentData(show);
-      });
+    const bifb = new BindingIfBuilder(htmlElement, this._ifInstruction);
+    if (bifb.hasIfAttr) {
+      const value = bifb.value as string;
+      if (boolStringp(value)) {
+        show = value === "true";
+        bifb.checked(show);
+      } else {
+        reaction(
+          () => [this._getData(value, state)],
+          states => {
+            show = states[0];
+            bifb.checked(show);
+          }
+        );
+      }
       htmlElement.removeAttribute(this._ifInstruction);
     }
-    return depath;
+    return show;
   }
 
-  private _forBindHandle(
-    htmlElement: HTMLElement,
-    attrs: Attr[],
-    state: State
-  ): boolean {
-    let depath = true;
-    // 是否有 :for 指令
-    let forAttr = attrs.find(({ name }) => ifp(name, this._forInstruction));
-    if (forAttr) {
-      depath = false;
-      const { name, value } = forAttr;
-      // 解析for指令的值
-      let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
-      if (!varb) return depath;
-
+  private _forBindHandle(htmlElement: HTMLElement, state: State): boolean {
+    const bforb = new BindingForBuilder(htmlElement, this._forInstruction);
+    if (bforb.hasForAttr) {
       // 创建注释节点
-      const commentElement = document.createComment("");
-      htmlElement.replaceWith(commentElement);
-      htmlElement.removeAttribute(this._forInstruction);
-      const fragment = document.createDocumentFragment();
-      if (isNumber(data)) {
-        const _data = +data;
+      if (bforb.isNumberData) {
+        const _data = +(bforb.bindData as string);
         for (let _v = 0; _v < _data; _v++) {
-          const forState = {};
-          Object.defineProperty(forState, varb, {
-            get() {
-              return _v;
-            }
-          });
+          const forState = bforb.createForContextState(_v);
           const item = htmlElement.cloneNode(true);
-          fragment.append(item);
+          bforb.add(item);
           this._define(item as HTMLElement, forState);
         }
-        // 创建完添加到节点
-        commentElement.after(fragment);
+        bforb.draw(_data);
       } else {
-        const _varb: string[] = varb
-          .trim()
-          .replace(eventStartExp, emptyString)
-          .replace(eventEndExp, emptyString)
-          .split(",")
-          .map(v => v.trim());
-        const _data = this._getData(data, state);
         const _that = this;
-
-        // 记录for生成的items，下次更新将全部删除
-        const forBuffer: Node[] = [];
-        // 不要直接 in _data, 原型函数能被枚举
-        autorun(() => {
-          for (const forItem of forBuffer) {
-            (forItem as HTMLElement).remove();
+        reaction(
+          () => [this._getData(bforb.bindData as string, state)],
+          states => {
+            const _data = states[0];
+            bforb.clear();
+            const _keys = Object.keys(_data);
+            for (const _k in _keys) {
+              const forState = bforb.createForContextState(
+                _k,
+                _data[_k],
+                false
+              );
+              const item = _that._cloneNode(htmlElement, forState);
+              bforb.add(item);
+              _that._define(item as HTMLElement, forState);
+            }
+            bforb.draw(_data);
           }
-          const _keys = Object.keys(_data);
-          for (const _k in _keys) {
-            const forState = {};
-            Object.defineProperties(forState, {
-              [_varb[0]]: {
-                get() {
-                  return _k;
-                }
-              },
-              [_varb[1]]: {
-                get() {
-                  return _that._getData(data, state)[_k];
-                }
-              }
-            });
-            const item = this._cloneNode(htmlElement, forState);
-            fragment.append(item);
-            forBuffer.push(item);
-            this._define(item as HTMLElement, forState);
-          }
-          commentElement.after(fragment);
-        });
+        );
       }
-      commentElement.data = createForCommentData(data);
     }
-    return depath;
+    return !bforb.hasForAttr;
   }
 
   /**
@@ -382,26 +329,34 @@ class Aja {
     let attrName = name
       .replace(attrStartExp, emptyString)
       .replace(attrEndExp, emptyString);
-    autorun(() => {
-      if (attrName === "style") {
-        const styles: CSSStyleDeclaration = this._getData(value, state);
-        for (const key in styles) {
-          // 过滤掉无效的style, 和空值
-          if (
-            Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
-            styles[key]
-          ) {
-            htmlElement.style[key] = styles[key];
+    reaction(
+      () => [this._getData(value, state)],
+      states => {
+        const data = states[0];
+        if (attrName === "style") {
+          const styles: CSSStyleDeclaration = data;
+          for (const key in styles) {
+            if (
+              Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
+              styles[key]
+            ) {
+              reaction(
+                () => [styles[key]],
+                states => {
+                  htmlElement.style[key] = states[0];
+                }
+              );
+            }
           }
+        } else if (attrName === "innerhtml") {
+          htmlElement.innerHTML = data;
+        } else {
+          let _value = data;
+          if (_value === null) _value = emptyString;
+          htmlElement.setAttribute(attrName, _value);
         }
-      } else if (attrName === "innerhtml") {
-        htmlElement.innerHTML = this._getData(value, state);
-      } else {
-        let _value = this._getData(value, state);
-        if (_value === null) _value = emptyString;
-        htmlElement.setAttribute(attrName, _value);
       }
-    });
+    );
     htmlElement.removeAttribute(name);
   }
 
@@ -491,7 +446,7 @@ class Aja {
     depath = this._ifBindHandle(htmlElement, attrs, state);
 
     // :for
-    depath = this._forBindHandle(htmlElement, attrs, state);
+    depath = this._forBindHandle(htmlElement, state);
     if (!depath) return depath;
     // 遍历节点属性
     for (const attr of attrs) {
@@ -525,19 +480,24 @@ class Aja {
             // 这个时候的data如果是array, 就对value进行处理
             // 不然就当作bool值处理
             if (!arrayp(data)) {
-              autorun(() => {
-                const data = this._getData(value, state);
-                inputElement.checked = !!data;
-              });
+              reaction(
+                () => [this._getData(value, state)],
+                states => {
+                  inputElement.checked = !!states[0];
+                }
+              );
               inputElement.addEventListener("change", () => {
                 this._setDate(value, inputElement.checked, state);
               });
             } else {
-              autorun(() => {
-                const data = this._getData(value, state);
-                let ivalue: string | null = getCheckBoxValue(inputElement);
-                inputElement.checked = data.some((d: any) => d === ivalue);
-              });
+              reaction(
+                () => [this._getData(value, state)],
+                states => {
+                  const data = states[0];
+                  let ivalue: string | null = getCheckBoxValue(inputElement);
+                  inputElement.checked = data.some((d: any) => d === ivalue);
+                }
+              );
               inputElement.addEventListener("change", () => {
                 const data = this._getData(value, state);
                 let ivalue: string | null = getCheckBoxValue(inputElement);
@@ -553,10 +513,12 @@ class Aja {
             }
           } else if (inputElement.type === "radio") {
             // 单选按钮
-            autorun(() => {
-              const data = this._getData(value, state);
-              inputElement.checked = data === inputElement.value;
-            });
+            reaction(
+              () => [this._getData(value, state)],
+              states => {
+                inputElement.checked = states[0] === inputElement.value;
+              }
+            );
 
             inputElement.addEventListener("change", () => {
               let newData = inputElement.value;
@@ -566,9 +528,12 @@ class Aja {
             });
           } else {
             // 其它
-            autorun(() => {
-              inputElement.value = `${this._getData(value, state)}`;
-            });
+            reaction(
+              () => [this._getData(value, state)],
+              states => {
+                inputElement.value = `${states[0]}`;
+              }
+            );
             inputElement.addEventListener("input", () => {
               this._setDate(value, inputElement.value, state);
             });
@@ -578,30 +543,34 @@ class Aja {
           const selectElement = htmlElement as HTMLSelectElement;
           // 稍微延迟下，因为内部的模板可能没有解析
           setTimeout(() => {
-            autorun(() => {
-              const data = this._getData(value, state);
-
-              const selectOptions = Array.from(selectElement.options);
-              let notFind = true;
-              // 多选参数必须为 array
-              if (selectElement.multiple && arrayp(data)) {
-                selectElement.selectedIndex = -1;
-                for (let index = 0; index < selectOptions.length; index++) {
-                  const option = selectOptions[index];
-                  const v = option.value;
-                  if ((data as Array<any>).some(d => d === v)) {
-                    notFind = false;
-                    option.selected = true;
+            reaction(
+              () => [this._getData(value, state)],
+              states => {
+                const data = states[0];
+                const selectOptions = Array.from(selectElement.options);
+                let notFind = true;
+                // 多选参数必须为 array
+                if (selectElement.multiple && arrayp(data)) {
+                  selectElement.selectedIndex = -1;
+                  for (let index = 0; index < selectOptions.length; index++) {
+                    const option = selectOptions[index];
+                    const v = option.value;
+                    if ((data as Array<any>).some(d => d === v)) {
+                      notFind = false;
+                      option.selected = true;
+                    }
                   }
+                } else {
+                  // 没找到默认-1
+                  const index = selectOptions.findIndex(
+                    op => op.value === data
+                  );
+                  selectElement.selectedIndex = index;
+                  notFind = false;
                 }
-              } else {
-                // 没找到默认-1
-                const index = selectOptions.findIndex(op => op.value === data);
-                selectElement.selectedIndex = index;
-                notFind = false;
+                if (notFind) selectElement.selectedIndex = -1;
               }
-              if (notFind) selectElement.selectedIndex = -1;
-            });
+            );
           });
           selectElement.addEventListener("change", () => {
             if (selectElement.multiple) {
@@ -645,28 +614,26 @@ class Aja {
    */
   private _setTextContent(childNode: ChildNode, state: State): void {
     // 创建一个变量保存源文本
-    let _initTextContent = childNode.textContent || emptyString;
+    const _bindTextContent = childNode.textContent || emptyString;
 
     // 文本不包含插值表达式的，那么就跳过
-    if (!interpolationExpressionExp.test(_initTextContent)) return;
-    autorun(() => {
-      childNode.textContent = _initTextContent.replace(
-        interpolationExpressionExp,
-        (match, g1) => {
-          // 获取插值表达式里面的文本 {{name}} -> name
-          const key = g1.replace(spaceExp, emptyString);
+    if (!interpolationExpressionExp.test(_bindTextContent)) return;
 
-          let _data = this._getData(key, state);
-          // 如果返回null字符，不好看
-          // hello null :(
-          // hello      :)
-          if (_data === null) return emptyString;
-          return typeof _data === "string"
-            ? _data
-            : JSON.stringify(_data, null, " ");
-        }
-      );
-    });
+    // 获取插值表达式中的变量
+    // 一个文本可能包含[多个]插值表达式
+    let matchs = _bindTextContent.match(interpolationExpressionExp) || [];
+    if (!matchs.length) return;
+    const bindVariables = matchs.map(e => e.replace(/[{}\s]/g, ""));
+    reaction(
+      () => bindVariables!.map(k => this._getData(k, state)),
+      (states: any[]) => {
+        childNode.textContent = parseBindingTextContent(
+          _bindTextContent,
+          matchs,
+          states
+        );
+      }
+    );
   }
 }
 

@@ -36,15 +36,6 @@
           ? document.querySelector(view)
           : view;
   }
-  function createIfCommentData(value) {
-      return `{":if": "${!!value}"}`;
-  }
-  function createForCommentData(obj) {
-      return `{":for": "${obj}"}`;
-  }
-  function ifp(key, ifInstruction) {
-      return key === ifInstruction;
-  }
   function createObject(obj) {
       return obj ? obj : {};
   }
@@ -72,7 +63,7 @@
    * 'false' || 'true'
    * @param str
    */
-  function isBoolString(str) {
+  function boolStringp(str) {
       return str === "true" || str === "false";
   }
   /**
@@ -95,6 +86,14 @@
   function arrayp(data) {
       return Object.prototype.toString.call(data) === "[object Array]";
   }
+  /**
+   * 把字符串安全格式化 为正则表达式源码
+   * {{ arr[0] }} -> \{\{ arr\[0\] \}\}
+   * @param str
+   */
+  function escapeRegExp(str) {
+      return str.replace(/([-.*+?^${}()|[\]\/\\])/g, "\\$1");
+  }
   function elementNodep(node) {
       return (node.nodeType === Node.ELEMENT_NODE ||
           node.nodeType === Node.DOCUMENT_FRAGMENT_NODE);
@@ -112,6 +111,28 @@
           value = null;
       return value;
   }
+  /**
+   * * 解析文本的表达式
+   *
+   * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
+   * @param matchs  ["{{ age }}", "{{ a }}", "{{ a }}"]
+   * @param states [12, "x", "x"]
+   * @returns "12 - x = x"
+   */
+  function parseBindingTextContent(textContent, matchs, states) {
+      if (matchs.length !== states.length)
+          return "[[aja.js: 框架意外的解析错误!!!]]";
+      for (let index = 0; index < matchs.length; index++) {
+          const m = matchs[index];
+          let state = states[index];
+          if (state === null)
+              state = emptyString;
+          state =
+              typeof state === "string" ? state : JSON.stringify(state, null, " ");
+          textContent = textContent.replace(new RegExp(escapeRegExp(m), "g"), state);
+      }
+      return textContent;
+  }
 
   const reactionListeners = [];
   function reactionUpdate(some) {
@@ -122,15 +143,10 @@
           }
       }
   }
-  const autorunListeners = [];
-  function autorunUpdate() {
-      for (const f of autorunListeners) {
-          f();
-      }
-  }
   /**
-   * * 任意一个属性的变化，都会触发所有的监听事件
-   * @param f
+   * * 监听指定属性的变更
+   * @param listenerStateList
+   * @param cb
    *
    * ## Example
    *
@@ -142,8 +158,10 @@
    *    }
    *  });
    *
-   *  autorun(() => {
-   *      l('state change'); // x 3
+   *  reaction(
+   *    () => [store.name],
+   *    state => {
+   *      l(state); // ["ajanuw"]
    *    }
    *  );
    *
@@ -151,10 +169,19 @@
    *  store.name = "ajanuw";
    * ```
    */
-  const autorun = (f) => {
-      f();
-      autorunListeners.push(f);
-  };
+  function reaction(listenerStateList, cb) {
+      cb(listenerStateList());
+      reactionListeners.push({
+          listenerStateList,
+          cb
+      });
+  }
+  const autorunListeners = [];
+  function autorunUpdate() {
+      for (const f of autorunListeners) {
+          f();
+      }
+  }
   class Store {
       /**
        *
@@ -198,6 +225,9 @@
                       return _r;
                   },
                   set(newValue) {
+                      // 用户设置了同样的值， 将跳过
+                      if (newValue === object[k])
+                          return;
                       object[k] = newValue;
                       autorunUpdate();
                       reactionUpdate(object[k]);
@@ -254,13 +284,176 @@
   //* 匹配 {{ name }} {{ obj.age }}
   // export const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
   const interpolationExpressionExp = /{{(.*?)}}/g;
-  //* 匹配空格
-  const spaceExp = /\s/g;
   const attrStartExp = /^\[/;
   const attrEndExp = /\]$/;
   const eventStartExp = /^\(/;
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
+
+  class BindingIfBuilder {
+      constructor(elem, ifInstruction) {
+          this.elem = elem;
+          const attrs = Array.from(elem.attributes);
+          let ifAttr = attrs.find(({ name }) => name === ifInstruction);
+          if (!ifAttr)
+              return;
+          this.ifAttr = ifAttr;
+          this.cm = document.createComment("");
+          elem.before(this.cm);
+      }
+      /**
+       * * 只有存在if指令，其他的方法和属性才生效
+       */
+      get hasIfAttr() {
+          return !!this.ifAttr;
+      }
+      get value() {
+          if (this.hasIfAttr) {
+              return this.ifAttr.value.trim();
+          }
+      }
+      checked(show) {
+          if (!this.cm)
+              return;
+          if (show) {
+              this.cm.after(this.elem);
+          }
+          else {
+              this.elem.replaceWith(this.cm);
+          }
+          this.cm.data = this._createIfCommentData(show);
+      }
+      _createIfCommentData(value) {
+          return `{":if": "${!!value}"}`;
+      }
+  }
+
+  class BindingForBuilder {
+      constructor(elem, forInstruction) {
+          this.elem = elem;
+          this.forInstruction = forInstruction;
+          this.forBuffer = [];
+          const attrs = Array.from(this.elem.attributes) || [];
+          let forAttr = attrs.find(({ name }) => name === this.forInstruction);
+          // 没有for指令，就不构建下去了
+          if (!forAttr)
+              return;
+          this.forAttr = forAttr;
+          this.cm = document.createComment("");
+          this.fragment = document.createDocumentFragment();
+          elem.replaceWith(this.cm);
+          elem.removeAttribute(forInstruction);
+      }
+      get hasForAttr() {
+          return !!this.forAttr;
+      }
+      get forAttrValue() {
+          if (!this.forAttr)
+              return null;
+          let [variable, bindData] = this.forAttr.value
+              .split(/\bin\b/)
+              .map(s => s.trim());
+          const variables = variable
+              .trim()
+              .replace(eventStartExp, emptyString)
+              .replace(eventEndExp, emptyString)
+              .split(",")
+              .map(v => v.trim());
+          return {
+              variable,
+              variables,
+              bindData
+          };
+      }
+      get bindVar() {
+          if (this.hasForAttr) {
+              return this.forAttrValue.variable;
+          }
+      }
+      get bindKey() {
+          if (this.hasForAttr) {
+              return this.forAttrValue.variables[0];
+          }
+      }
+      get bindValue() {
+          if (this.hasForAttr) {
+              return this.forAttrValue.variables[1];
+          }
+      }
+      get bindData() {
+          if (this.hasForAttr) {
+              return this.forAttrValue.bindData;
+          }
+      }
+      get isNumberData() {
+          if (this.hasForAttr) {
+              return isNumber(this.bindData);
+          }
+      }
+      /**
+       * * 添加一个节点
+       * @param item
+       */
+      add(item) {
+          if (this.fragment) {
+              this.fragment.append(item);
+              this.forBuffer.push(item);
+          }
+      }
+      /**
+       * * 将所有节点插入DOM
+       * @param data
+       */
+      draw(data) {
+          if (this.cm && this.fragment) {
+              this.cm.after(this.fragment);
+              this.cm.data = this.createForCommentData(data);
+          }
+      }
+      /**
+       * * 清除所有节点
+       */
+      clear() {
+          for (const forItem of this.forBuffer) {
+              forItem.remove();
+          }
+          this.forBuffer = [];
+      }
+      createForContextState(k, v = null, isNumber = true) {
+          const forState = {};
+          if (isNumber && this.bindVar) {
+              Object.defineProperty(forState, this.bindVar, {
+                  get() {
+                      return k;
+                  }
+              });
+          }
+          else {
+              if (this.bindKey && this.bindValue) {
+                  Object.defineProperties(forState, {
+                      [this.bindKey]: {
+                          get() {
+                              return k;
+                          }
+                      },
+                      [this.bindValue]: {
+                          get() {
+                              return v;
+                          }
+                      }
+                  });
+              }
+          }
+          return forState;
+      }
+      createForCommentData(obj) {
+          let data = obj;
+          if (arrayp(data)) {
+              data = obj.slice(0, 6);
+          }
+          return `{":for": "${data}"}`;
+      }
+  }
 
   class Aja {
       constructor(view, options) {
@@ -460,111 +653,55 @@
        * @param attrs
        */
       _ifBindHandle(htmlElement, attrs, state) {
-          let depath = true;
-          // 是否有 :if 指令
-          let ifAttr = attrs.find(({ name }) => ifp(name, this._ifInstruction));
-          if (ifAttr) {
-              // 创建注释节点做标记
-              const commentElement = document.createComment("");
-              // 将注释节点插入到节点上面
-              htmlElement.before(commentElement);
-              autorun(() => {
-                  let value = ifAttr.value.trim();
-                  let show = true;
-                  if (isBoolString(value)) {
-                      show = value === "true";
-                  }
-                  else {
-                      show = this._getData(value, state);
-                  }
-                  if (show) {
-                      commentElement.after(htmlElement);
-                      depath = true;
-                  }
-                  else {
-                      htmlElement.replaceWith(commentElement);
-                      depath = false;
-                  }
-                  commentElement.data = createIfCommentData(show);
-              });
-              htmlElement.removeAttribute(this._ifInstruction);
-          }
-          return depath;
-      }
-      _forBindHandle(htmlElement, attrs, state) {
-          let depath = true;
-          // 是否有 :for 指令
-          let forAttr = attrs.find(({ name }) => ifp(name, this._forInstruction));
-          if (forAttr) {
-              depath = false;
-              const { name, value } = forAttr;
-              // 解析for指令的值
-              let [varb, data] = value.split(/\bin\b/).map(s => s.trim());
-              if (!varb)
-                  return depath;
-              // 创建注释节点
-              const commentElement = document.createComment("");
-              htmlElement.replaceWith(commentElement);
-              htmlElement.removeAttribute(this._forInstruction);
-              const fragment = document.createDocumentFragment();
-              if (isNumber(data)) {
-                  const _data = +data;
-                  for (let _v = 0; _v < _data; _v++) {
-                      const forState = {};
-                      Object.defineProperty(forState, varb, {
-                          get() {
-                              return _v;
-                          }
-                      });
-                      const item = htmlElement.cloneNode(true);
-                      fragment.append(item);
-                      this._define(item, forState);
-                  }
-                  // 创建完添加到节点
-                  commentElement.after(fragment);
+          let show = true;
+          const bifb = new BindingIfBuilder(htmlElement, this._ifInstruction);
+          if (bifb.hasIfAttr) {
+              const value = bifb.value;
+              if (boolStringp(value)) {
+                  show = value === "true";
+                  bifb.checked(show);
               }
               else {
-                  const _varb = varb
-                      .trim()
-                      .replace(eventStartExp, emptyString)
-                      .replace(eventEndExp, emptyString)
-                      .split(",")
-                      .map(v => v.trim());
-                  const _data = this._getData(data, state);
-                  const _that = this;
-                  // 记录for生成的items，下次更新将全部删除
-                  const forBuffer = [];
-                  // 不要直接 in _data, 原型函数能被枚举
-                  autorun(() => {
-                      for (const forItem of forBuffer) {
-                          forItem.remove();
-                      }
-                      const _keys = Object.keys(_data);
-                      for (const _k in _keys) {
-                          const forState = {};
-                          Object.defineProperties(forState, {
-                              [_varb[0]]: {
-                                  get() {
-                                      return _k;
-                                  }
-                              },
-                              [_varb[1]]: {
-                                  get() {
-                                      return _that._getData(data, state)[_k];
-                                  }
-                              }
-                          });
-                          const item = this._cloneNode(htmlElement, forState);
-                          fragment.append(item);
-                          forBuffer.push(item);
-                          this._define(item, forState);
-                      }
-                      commentElement.after(fragment);
+                  reaction(() => [this._getData(value, state)], states => {
+                      show = states[0];
+                      bifb.checked(show);
                   });
               }
-              commentElement.data = createForCommentData(data);
+              htmlElement.removeAttribute(this._ifInstruction);
           }
-          return depath;
+          return show;
+      }
+      _forBindHandle(htmlElement, state) {
+          const bforb = new BindingForBuilder(htmlElement, this._forInstruction);
+          if (bforb.hasForAttr) {
+              // 创建注释节点
+              if (bforb.isNumberData) {
+                  const _data = +bforb.bindData;
+                  for (let _v = 0; _v < _data; _v++) {
+                      const forState = bforb.createForContextState(_v);
+                      const item = htmlElement.cloneNode(true);
+                      bforb.add(item);
+                      this._define(item, forState);
+                  }
+                  bforb.draw(_data);
+              }
+              else {
+                  const _that = this;
+                  reaction(() => [this._getData(bforb.bindData, state)], states => {
+                      const _data = states[0];
+                      bforb.clear();
+                      const _keys = Object.keys(_data);
+                      for (const _k in _keys) {
+                          const forState = bforb.createForContextState(_k, _data[_k], false);
+                          const item = _that._cloneNode(htmlElement, forState);
+                          bforb.add(item);
+                          _that._define(item, forState);
+                      }
+                      bforb.draw(_data);
+                  });
+              }
+          }
+          return !bforb.hasForAttr;
       }
       /**
        * 处理 [title]='xxx' 解析
@@ -575,22 +712,24 @@
           let attrName = name
               .replace(attrStartExp, emptyString)
               .replace(attrEndExp, emptyString);
-          autorun(() => {
+          reaction(() => [this._getData(value, state)], states => {
+              const data = states[0];
               if (attrName === "style") {
-                  const styles = this._getData(value, state);
+                  const styles = data;
                   for (const key in styles) {
-                      // 过滤掉无效的style, 和空值
                       if (Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
                           styles[key]) {
-                          htmlElement.style[key] = styles[key];
+                          reaction(() => [styles[key]], states => {
+                              htmlElement.style[key] = states[0];
+                          });
                       }
                   }
               }
               else if (attrName === "innerhtml") {
-                  htmlElement.innerHTML = this._getData(value, state);
+                  htmlElement.innerHTML = data;
               }
               else {
-                  let _value = this._getData(value, state);
+                  let _value = data;
                   if (_value === null)
                       _value = emptyString;
                   htmlElement.setAttribute(attrName, _value);
@@ -665,7 +804,7 @@
           // :if
           depath = this._ifBindHandle(htmlElement, attrs, state);
           // :for
-          depath = this._forBindHandle(htmlElement, attrs, state);
+          depath = this._forBindHandle(htmlElement, state);
           if (!depath)
               return depath;
           // 遍历节点属性
@@ -697,17 +836,16 @@
                           // 这个时候的data如果是array, 就对value进行处理
                           // 不然就当作bool值处理
                           if (!arrayp(data)) {
-                              autorun(() => {
-                                  const data = this._getData(value, state);
-                                  inputElement.checked = !!data;
+                              reaction(() => [this._getData(value, state)], states => {
+                                  inputElement.checked = !!states[0];
                               });
                               inputElement.addEventListener("change", () => {
                                   this._setDate(value, inputElement.checked, state);
                               });
                           }
                           else {
-                              autorun(() => {
-                                  const data = this._getData(value, state);
+                              reaction(() => [this._getData(value, state)], states => {
+                                  const data = states[0];
                                   let ivalue = getCheckBoxValue(inputElement);
                                   inputElement.checked = data.some((d) => d === ivalue);
                               });
@@ -726,9 +864,8 @@
                       }
                       else if (inputElement.type === "radio") {
                           // 单选按钮
-                          autorun(() => {
-                              const data = this._getData(value, state);
-                              inputElement.checked = data === inputElement.value;
+                          reaction(() => [this._getData(value, state)], states => {
+                              inputElement.checked = states[0] === inputElement.value;
                           });
                           inputElement.addEventListener("change", () => {
                               let newData = inputElement.value;
@@ -740,8 +877,8 @@
                       }
                       else {
                           // 其它
-                          autorun(() => {
-                              inputElement.value = `${this._getData(value, state)}`;
+                          reaction(() => [this._getData(value, state)], states => {
+                              inputElement.value = `${states[0]}`;
                           });
                           inputElement.addEventListener("input", () => {
                               this._setDate(value, inputElement.value, state);
@@ -753,8 +890,8 @@
                       const selectElement = htmlElement;
                       // 稍微延迟下，因为内部的模板可能没有解析
                       setTimeout(() => {
-                          autorun(() => {
-                              const data = this._getData(value, state);
+                          reaction(() => [this._getData(value, state)], states => {
+                              const data = states[0];
                               const selectOptions = Array.from(selectElement.options);
                               let notFind = true;
                               // 多选参数必须为 array
@@ -821,24 +958,18 @@
        */
       _setTextContent(childNode, state) {
           // 创建一个变量保存源文本
-          let _initTextContent = childNode.textContent || emptyString;
+          const _bindTextContent = childNode.textContent || emptyString;
           // 文本不包含插值表达式的，那么就跳过
-          if (!interpolationExpressionExp.test(_initTextContent))
+          if (!interpolationExpressionExp.test(_bindTextContent))
               return;
-          autorun(() => {
-              childNode.textContent = _initTextContent.replace(interpolationExpressionExp, (match, g1) => {
-                  // 获取插值表达式里面的文本 {{name}} -> name
-                  const key = g1.replace(spaceExp, emptyString);
-                  let _data = this._getData(key, state);
-                  // 如果返回null字符，不好看
-                  // hello null :(
-                  // hello      :)
-                  if (_data === null)
-                      return emptyString;
-                  return typeof _data === "string"
-                      ? _data
-                      : JSON.stringify(_data, null, " ");
-              });
+          // 获取插值表达式中的变量
+          // 一个文本可能包含[多个]插值表达式
+          let matchs = _bindTextContent.match(interpolationExpressionExp) || [];
+          if (!matchs.length)
+              return;
+          const bindVariables = matchs.map(e => e.replace(/[{}\s]/g, ""));
+          reaction(() => bindVariables.map(k => this._getData(k, state)), (states) => {
+              childNode.textContent = parseBindingTextContent(_bindTextContent, matchs, states);
           });
       }
   }

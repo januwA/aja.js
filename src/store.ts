@@ -175,6 +175,8 @@ export class Store {
           return _r;
         },
         set(newValue) {
+          // 用户设置了同样的值， 将跳过
+          if (newValue === object[k]) return;
           object[k] = newValue;
           autorunUpdate();
           reactionUpdate(object[k]);

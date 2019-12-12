@@ -9,14 +9,14 @@
 
   <body>
     <div class="app">
-      <div id="example-6">
-        <select v-model="selected" multiple style="width: 50px;">
-          <option>A</option>
-          <option>B</option>
-          <option>C</option>
+      <div>
+        <select v-model="selected">
+          <option :for="(i, option) in options" [value]="option.value">
+            {{ option.text }}
+          </option>
         </select>
-        <br />
         <span>Selected: {{ selected }}</span>
+        <button (click)="change">change</button>
       </div>
     </div>
     <script src="../dist/aja.js"></script>
@@ -24,16 +24,21 @@
       const l = console.log;
       let vm = new Aja(".app", {
         modeldirective: "v-model",
-        instructionPrefix: "v-",
         state: {
-          selected: []
+          selected: "A",
+          options: [
+            { text: "One", value: "A" },
+            { text: "Two", value: "B" },
+            { text: "Three", value: "C" }
+          ]
         },
         actions: {
-          onPush() {},
-          onItem(...args) {}
+          change() {
+            this.checked = false;
+          }
         }
       });
-      console.log(vm.$store);
+      // console.log(vm.$store);
     </script>
   </body>
 </html>

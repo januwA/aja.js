@@ -18,13 +18,11 @@ export declare function tempvarp(value: string): boolean;
  */
 export declare function modelp(str: string, _modeldirective?: string): boolean;
 export declare function createRoot(view: string | HTMLElement): HTMLElement | null;
-export declare function createIfCommentData(value: any): string;
-export declare function createForCommentData(obj: any): string;
 export declare function ifp(key: string, ifInstruction: string): boolean;
 export declare function forp(key: string, forInstruction: string): boolean;
 export declare function createObject<T>(obj?: T): T;
 export declare const emptyString: string;
-export declare function isNumber(str: string): boolean;
+export declare function isNumber(str: string | number): boolean;
 /**
  * 'name'  "name"
  *
@@ -44,7 +42,7 @@ export declare function parseTemplateEventArgs(str: string): string[];
  * 'false' || 'true'
  * @param str
  */
-export declare function isBoolString(str: string): boolean;
+export declare function boolStringp(str: string): boolean;
 /**
  * * 避免使用全局的eval
  * @param this
@@ -73,3 +71,12 @@ export declare function textNodep(node: ChildNode | HTMLElement): boolean;
  * @param checkbox
  */
 export declare function getCheckBoxValue(checkbox: HTMLInputElement): string | null;
+/**
+ * * 解析文本的表达式
+ *
+ * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
+ * @param matchs  ["{{ age }}", "{{ a }}", "{{ a }}"]
+ * @param states [12, "x", "x"]
+ * @returns "12 - x = x"
+ */
+export declare function parseBindingTextContent(textContent: string, matchs: string[], states: any[]): string;
