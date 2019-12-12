@@ -22,6 +22,66 @@ export interface StoreOptions {
     computeds?: Computeds;
     context?: any;
 }
+export interface ListenerStateListInterface {
+    (): any[];
+}
+export interface CbListInterface {
+    (state: any[]): void;
+}
+export interface ReactionListenersInterface {
+    listenerStateList: ListenerStateListInterface;
+    cb: CbListInterface;
+}
+/**
+ * * 监听指定属性的变更
+ * @param listenerStateList
+ * @param cb
+ *
+ * ## Example
+ *
+ * ```ts
+ * let store = new Store({
+ *    state: {
+ *      name: 22,
+ *      age: 22
+ *    }
+ *  });
+ *
+ *  reaction(
+ *    () => [store.name],
+ *    state => {
+ *      l(state); // ["ajanuw"]
+ *    }
+ *  );
+ *
+ *  store.age = 12;
+ *  store.name = "ajanuw";
+ * ```
+ */
+export declare function reaction(listenerStateList: ListenerStateListInterface, cb: CbListInterface): void;
+/**
+ * * 任意一个属性的变化，都会触发所有的监听事件
+ * @param f
+ *
+ * ## Example
+ *
+ * ```ts
+ * let store = new Store({
+ *    state: {
+ *      name: 22,
+ *      age: 22
+ *    }
+ *  });
+ *
+ *  autorun(() => {
+ *      l('state change'); // x 3
+ *    }
+ *  );
+ *
+ *  store.age = 12;
+ *  store.name = "ajanuw";
+ * ```
+ */
 export declare const autorun: (f: Function) => void;
 export declare class Store {
     $actions: Actions;

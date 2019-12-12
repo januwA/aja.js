@@ -30,17 +30,94 @@ export interface StoreOptions {
   context?: any;
 }
 
-/**
- * * 任意一个属性的变化，都会触发所有的监听事件
- */
-const autorunListeners: Function[] = [];
+export interface ListenerStateListInterface {
+  (): any[];
+}
 
-function updateAll() {
+export interface CbListInterface {
+  (state: any[]): void;
+}
+
+export interface ReactionListenersInterface {
+  listenerStateList: ListenerStateListInterface;
+  cb: CbListInterface;
+}
+
+const reactionListeners: ReactionListenersInterface[] = [];
+function reactionUpdate(some: any) {
+  for (const reactionItem of reactionListeners) {
+    const stateList: any[] = reactionItem.listenerStateList();
+    if (stateList.some(e => e === some)) {
+      reactionItem.cb(stateList);
+    }
+  }
+}
+/**
+ * * 监听指定属性的变更
+ * @param listenerStateList
+ * @param cb
+ *
+ * ## Example
+ *
+ * ```ts
+ * let store = new Store({
+ *    state: {
+ *      name: 22,
+ *      age: 22
+ *    }
+ *  });
+ *
+ *  reaction(
+ *    () => [store.name],
+ *    state => {
+ *      l(state); // ["ajanuw"]
+ *    }
+ *  );
+ *
+ *  store.age = 12;
+ *  store.name = "ajanuw";
+ * ```
+ */
+export function reaction(
+  listenerStateList: ListenerStateListInterface,
+  cb: CbListInterface
+) {
+  cb(listenerStateList());
+  reactionListeners.push({
+    listenerStateList,
+    cb
+  });
+}
+
+const autorunListeners: Function[] = [];
+function autorunUpdate() {
   for (const f of autorunListeners) {
     f();
   }
 }
-
+/**
+ * * 任意一个属性的变化，都会触发所有的监听事件
+ * @param f
+ *
+ * ## Example
+ *
+ * ```ts
+ * let store = new Store({
+ *    state: {
+ *      name: 22,
+ *      age: 22
+ *    }
+ *  });
+ *
+ *  autorun(() => {
+ *      l('state change'); // x 3
+ *    }
+ *  );
+ *
+ *  store.age = 12;
+ *  store.name = "ajanuw";
+ * ```
+ */
 export const autorun = (f: Function) => {
   f();
   autorunListeners.push(f);
@@ -99,7 +176,8 @@ export class Store {
         },
         set(newValue) {
           object[k] = newValue;
-          updateAll();
+          autorunUpdate();
+          reactionUpdate(object[k]);
         },
         enumerable: true,
         configurable: true
@@ -135,7 +213,8 @@ export class Store {
         const r = original.apply(this, _applyArgs);
 
         // 跟新
-        updateAll();
+        autorunUpdate();
+        reactionUpdate(this);
         return r;
       };
     });

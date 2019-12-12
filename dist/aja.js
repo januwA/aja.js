@@ -113,15 +113,44 @@
       return value;
   }
 
-  /**
-   * * 任意一个属性的变化，都会触发所有的监听事件
-   */
+  const reactionListeners = [];
+  function reactionUpdate(some) {
+      for (const reactionItem of reactionListeners) {
+          const stateList = reactionItem.listenerStateList();
+          if (stateList.some(e => e === some)) {
+              reactionItem.cb(stateList);
+          }
+      }
+  }
   const autorunListeners = [];
-  function updateAll() {
+  function autorunUpdate() {
       for (const f of autorunListeners) {
           f();
       }
   }
+  /**
+   * * 任意一个属性的变化，都会触发所有的监听事件
+   * @param f
+   *
+   * ## Example
+   *
+   * ```ts
+   * let store = new Store({
+   *    state: {
+   *      name: 22,
+   *      age: 22
+   *    }
+   *  });
+   *
+   *  autorun(() => {
+   *      l('state change'); // x 3
+   *    }
+   *  );
+   *
+   *  store.age = 12;
+   *  store.name = "ajanuw";
+   * ```
+   */
   const autorun = (f) => {
       f();
       autorunListeners.push(f);
@@ -170,7 +199,8 @@
                   },
                   set(newValue) {
                       object[k] = newValue;
-                      updateAll();
+                      autorunUpdate();
+                      reactionUpdate(object[k]);
                   },
                   enumerable: true,
                   configurable: true
@@ -201,7 +231,8 @@
                   // 调用原始方法
                   const r = original.apply(this, _applyArgs);
                   // 跟新
-                  updateAll();
+                  autorunUpdate();
+                  reactionUpdate(this);
                   return r;
               };
           });
