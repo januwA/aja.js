@@ -9,24 +9,26 @@
 
   <body>
     <div class="app">
-      <p>{{ text }}</p>
-      <button (click)="change($event)">change</button>
+      <p>{{ info.name }}</p>
+      <button (click)="change">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          text: "hello..."
+          info: {}
+        },
+        initState() {
+          this.age = 2;
         },
         actions: {
-          change(e) {
-            l(e);
-            this.text = "x";
+          change() {
+            this.age++;
           }
         }
       });
-      console.log(vm);
+      // console.log(vm);
     </script>
   </body>
 </html>

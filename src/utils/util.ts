@@ -163,29 +163,3 @@ export function getCheckBoxValue(checkbox: HTMLInputElement): string | null {
   if (value === "on") value = null;
   return value;
 }
-
-/**
- * * 解析文本的表达式
- *
- * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
- * @param matchs  ["{{ age }}", "{{ a }}", "{{ a }}"]
- * @param states [12, "x", "x"]
- * @returns "12 - x = x"
- */
-export function parseBindingTextContent(
-  textContent: string,
-  matchs: string[],
-  states: any[]
-): string {
-  if (matchs.length !== states.length)
-    return "[[aja.js: 框架意外的解析错误!!!]]";
-  for (let index = 0; index < matchs.length; index++) {
-    const m = matchs[index];
-    let state = states[index];
-    if (state === null) state = emptyString;
-    state =
-      typeof state === "string" ? state : JSON.stringify(state, null, " ");
-    textContent = textContent.replace(new RegExp(escapeRegExp(m), "g"), state);
-  }
-  return textContent;
-}

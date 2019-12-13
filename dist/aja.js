@@ -118,28 +118,7 @@
           value = null;
       return value;
   }
-  /**
-   * * 解析文本的表达式
-   *
-   * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
-   * @param matchs  ["{{ age }}", "{{ a }}", "{{ a }}"]
-   * @param states [12, "x", "x"]
-   * @returns "12 - x = x"
-   */
-  function parseBindingTextContent(textContent, matchs, states) {
-      if (matchs.length !== states.length)
-          return "[[aja.js: 框架意外的解析错误!!!]]";
-      for (let index = 0; index < matchs.length; index++) {
-          const m = matchs[index];
-          let state = states[index];
-          if (state === null)
-              state = emptyString;
-          state =
-              typeof state === "string" ? state : JSON.stringify(state, null, " ");
-          textContent = textContent.replace(new RegExp(escapeRegExp(m), "g"), state);
-      }
-      return textContent;
-  }
+  //# sourceMappingURL=util.js.map
 
   const reactionListeners = [];
   function reactionUpdate(some) {
@@ -287,6 +266,7 @@
           return array;
       }
   }
+  //# sourceMappingURL=store.js.map
 
   //* 匹配 {{ name }} {{ obj.age }}
   // export const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
@@ -296,6 +276,7 @@
   const eventStartExp = /^\(/;
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
+  //# sourceMappingURL=exp.js.map
 
   class BindingIfBuilder {
       constructor(elem, ifInstruction) {
@@ -334,6 +315,7 @@
           return `{":if": "${!!value}"}`;
       }
   }
+  //# sourceMappingURL=binding-if-builder.js.map
 
   class BindingForBuilder {
       constructor(elem, forInstruction) {
@@ -470,6 +452,59 @@
           return `{":for": "${data}"}`;
       }
   }
+  //# sourceMappingURL=binding-for-builder.js.map
+
+  class BindingTextBuilder {
+      constructor(childNode) {
+          this.childNode = childNode;
+          this._bindTextContent = childNode.textContent || "";
+      }
+      /**
+       * * 是否需要解析
+       */
+      get needParse() {
+          return interpolationExpressionExp.test(this._bindTextContent);
+      }
+      /**
+       * * "{{name}} {{ age }}" -> ["{{name}}", "{{ age }}"]
+       */
+      get matchs() {
+          let matchs = this._bindTextContent.match(interpolationExpressionExp) || [];
+          return matchs;
+      }
+      /**
+       * * ["{{name}}", "{{ age }}"] -> ["name", "age"]
+       */
+      get bindVariables() {
+          return this.matchs.map(e => e.replace(/[{}\s]/g, ""));
+      }
+      draw(states) {
+          this.childNode.textContent = this._parseBindingTextContent(this._bindTextContent, this.matchs, states);
+      }
+      /**
+       * * 解析文本的表达式
+       *
+       * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
+       * @param matchs  ["{{ age }}", "{{ a }}", "{{ a }}"]
+       * @param states [12, "x", "x"]
+       * @returns "12 - x = x"
+       */
+      _parseBindingTextContent(textContent, matchs, states) {
+          if (matchs.length !== states.length)
+              return "[[aja.js: 框架意外的解析错误!!!]]";
+          for (let index = 0; index < matchs.length; index++) {
+              const m = matchs[index];
+              let state = states[index];
+              if (state === null)
+                  state = "";
+              state =
+                  typeof state === "string" ? state : JSON.stringify(state, null, " ");
+              textContent = textContent.replace(new RegExp(escapeRegExp(m), "g"), state);
+          }
+          return textContent;
+      }
+  }
+  //# sourceMappingURL=binding-text-builder.js.map
 
   class Aja {
       constructor(view, options) {
@@ -500,6 +535,8 @@
           if (options.modeldirective)
               this._modeldirective = options.modeldirective;
           this._proxyState(options);
+          if (options.initState)
+              options.initState.call(this.$store);
           this._define(root, this.$store);
       }
       /**
@@ -652,14 +689,25 @@
        * @param args
        * @param e
        * @param state
+       * @param isModel 是否为展开的双向绑定事件  [(model)]="name" (modelChange)="nameChange($event)"
        */
-      _parseArgsToArguments(args, e, state) {
+      _parseArgsToArguments(args, e, state, isModel = false) {
           return args.map(arg => {
               if (!arg)
                   return arg;
               let el = arg.trim();
-              if (el === this._templateEvent)
-                  return e;
+              if (el === this._templateEvent) {
+                  let _result;
+                  if (isModel) {
+                      if (e.target) {
+                          _result = e.target.value;
+                      }
+                  }
+                  else {
+                      _result = e;
+                  }
+                  return _result;
+              }
               return this._getData(el, state);
           });
       }
@@ -693,8 +741,8 @@
               // 创建注释节点
               if (bforb.isNumberData) {
                   const _data = +bforb.bindData;
-                  for (let _v = 0; _v < _data; _v++) {
-                      const forState = bforb.createForContextState(_v);
+                  for (let v = 0; v < _data; v++) {
+                      const forState = bforb.createForContextState(v);
                       const item = htmlElement.cloneNode(true);
                       bforb.add(item);
                       this._define(item, forState);
@@ -706,12 +754,19 @@
                   reaction(() => [this._getData(bforb.bindData, state)], states => {
                       const _data = states[0];
                       bforb.clear();
-                      let _keys = _data;
+                      let keys;
                       if (arrayp(_data))
-                          _keys = Object.keys(_data);
-                      for (const _k in _keys) {
-                          const forState = bforb.createForContextState(_k, _data[_k], false);
-                          const item = _that._cloneNode(htmlElement, forState);
+                          keys = Object.keys(_data);
+                      else
+                          keys = _data;
+                      for (const k in keys) {
+                          const forState = bforb.createForContextState(k, _data[k], false);
+                          // ? [cloneNode]不会克隆事件
+                          // ? 所以我才创建了[_cloneNode]函数
+                          // ? 但是后来发现[cloneNode]莫名其妙的绑定了事件
+                          //
+                          // const item =  _that._cloneNode(htmlElement, forState);
+                          const item = htmlElement.cloneNode(true);
                           bforb.add(item);
                           _that._define(item, forState);
                       }
@@ -727,19 +782,52 @@
        * @param param1
        */
       _attrBindHandle(htmlElement, { name, value }, state) {
-          let attrName = name
+          let [attrName, attrChild] = name
               .replace(attrStartExp, emptyString)
-              .replace(attrEndExp, emptyString);
+              .replace(attrEndExp, emptyString)
+              .split(".");
           reaction(() => [this._getData(value, state)], states => {
               const data = states[0];
               if (attrName === "style") {
-                  const styles = data;
-                  for (const key in styles) {
-                      if (Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
-                          styles[key]) {
-                          reaction(() => [styles[key]], states => {
-                              htmlElement.style[key] = states[0];
-                          });
+                  if (attrChild && attrChild in htmlElement.style) {
+                      htmlElement.style[attrChild] = data;
+                  }
+                  else {
+                      const styles = data;
+                      for (const key in styles) {
+                          if (Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
+                              styles[key]) {
+                              reaction(() => [styles[key]], states => {
+                                  htmlElement.style[key] = states[0];
+                              });
+                          }
+                      }
+                  }
+              }
+              else if (attrName === "class") {
+                  let _value = data;
+                  if (_value === null)
+                      _value = emptyString;
+                  if (!attrChild) {
+                      if (objectp(_value)) {
+                          for (const klass in _value) {
+                              reaction(() => [_value[klass]], states => {
+                                  if (states[0]) {
+                                      htmlElement.classList.add(klass);
+                                  }
+                                  else {
+                                      htmlElement.classList.remove(klass);
+                                  }
+                              });
+                          }
+                      }
+                      else {
+                          htmlElement.setAttribute(attrName, _value);
+                      }
+                  }
+                  else {
+                      if (_value) {
+                          htmlElement.classList.add(attrChild);
                       }
                   }
               }
@@ -761,7 +849,7 @@
        * @param param1
        */
       _eventBindHandle(htmlElement, { name, value }, state) {
-          const eventName = name
+          let eventName = name
               .replace(eventStartExp, emptyString)
               .replace(eventEndExp, emptyString);
           // 函数名
@@ -774,11 +862,14 @@
               funcName = value.substr(0, index);
               args = parseTemplateEventArgs(value);
           }
+          const modelChangep = eventName === "modelchange";
+          if (modelChangep)
+              eventName = "input";
           htmlElement.addEventListener(eventName, e => {
               //? 每次点击都需解析参数?
               //! 如果只解析一次，那么模板变量需要提前声明, 并且模板变量不会更新!
               if (this.$actions && funcName in this.$actions) {
-                  this.$actions[funcName].apply(this.$store, this._parseArgsToArguments(args, e, state));
+                  this.$actions[funcName].apply(this.$store, this._parseArgsToArguments(args, e, state, modelChangep));
               }
           });
           htmlElement.removeAttribute(name);
@@ -952,15 +1043,14 @@
           return depath;
       }
       /**
-       * * 循环解析子节点
+       * * 递归解析子节点
        * @param childNodes
        * @param state
        */
       _bindingChildrenAttrs(children, state) {
           if (!children.length)
-              return null;
+              return;
           const childNode = children[0];
-          // dom节点
           if (elementNodep(childNode)) {
               this._define(childNode, state);
           }
@@ -975,22 +1065,16 @@
        * @param state
        */
       _setTextContent(childNode, state) {
-          // 创建一个变量保存源文本
-          const _bindTextContent = childNode.textContent || emptyString;
-          // 文本不包含插值表达式的，那么就跳过
-          if (!interpolationExpressionExp.test(_bindTextContent))
+          const btextb = new BindingTextBuilder(childNode);
+          if (!btextb.needParse)
               return;
-          // 获取插值表达式中的变量
-          // 一个文本可能包含[多个]插值表达式
-          let matchs = _bindTextContent.match(interpolationExpressionExp) || [];
-          if (!matchs.length)
-              return;
-          const bindVariables = matchs.map(e => e.replace(/[{}\s]/g, ""));
-          reaction(() => bindVariables.map(k => this._getData(k, state)), (states) => {
-              childNode.textContent = parseBindingTextContent(_bindTextContent, matchs, states);
+          reaction(() => btextb.bindVariables.map(k => this._getData(k, state)), (states) => {
+              btextb.draw(states);
           });
       }
   }
+
+  //# sourceMappingURL=main.js.map
 
   return Aja;
 

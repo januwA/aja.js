@@ -13,11 +13,10 @@ import {
   textNodep,
   arrayp,
   getCheckBoxValue,
-  parseBindingTextContent
+  objectp
 } from "./utils/util";
 import { Store, State, Actions, Computeds, reaction } from "./store";
 import {
-  interpolationExpressionExp,
   attrStartExp,
   attrEndExp,
   eventStartExp,
@@ -26,6 +25,7 @@ import {
 } from "./utils/exp";
 import { BindingIfBuilder } from "./classes/binding-if-builder";
 import { BindingForBuilder } from "./classes/binding-for-builder";
+import { BindingTextBuilder } from "./classes/binding-text-builder";
 
 export interface Options {
   state?: State;
@@ -34,6 +34,7 @@ export interface Options {
   instructionPrefix?: string;
   templateEvent?: string;
   modeldirective?: string;
+  initState?: Function;
 }
 
 const l = console.log;
@@ -89,6 +90,7 @@ class Aja {
     if (options.templateEvent) this._templateEvent = options.templateEvent;
     if (options.modeldirective) this._modeldirective = options.modeldirective;
     this._proxyState(options);
+    if (options.initState) options.initState.call(this.$store);
     this._define(root, this.$store);
   }
 
@@ -235,12 +237,28 @@ class Aja {
    * @param args
    * @param e
    * @param state
+   * @param isModel 是否为展开的双向绑定事件  [(model)]="name" (modelChange)="nameChange($event)"
    */
-  private _parseArgsToArguments(args: string[], e: Event, state: State) {
+  private _parseArgsToArguments(
+    args: string[],
+    e: Event,
+    state: State,
+    isModel = false
+  ) {
     return args.map(arg => {
       if (!arg) return arg;
       let el = arg.trim();
-      if (el === this._templateEvent) return e;
+      if (el === this._templateEvent) {
+        let _result;
+        if (isModel) {
+          if (e.target) {
+            _result = (e.target as HTMLInputElement).value;
+          }
+        } else {
+          _result = e;
+        }
+        return _result;
+      }
       return this._getData(el, state);
     });
   }
@@ -283,8 +301,8 @@ class Aja {
       // 创建注释节点
       if (bforb.isNumberData) {
         const _data = +(bforb.bindData as string);
-        for (let _v = 0; _v < _data; _v++) {
-          const forState = bforb.createForContextState(_v);
+        for (let v = 0; v < _data; v++) {
+          const forState = bforb.createForContextState(v);
           const item = htmlElement.cloneNode(true);
           bforb.add(item);
           this._define(item as HTMLElement, forState);
@@ -297,15 +315,18 @@ class Aja {
           states => {
             const _data = states[0];
             bforb.clear();
-            let _keys = _data;
-            if (arrayp(_data)) _keys = Object.keys(_data);
-            for (const _k in _keys) {
-              const forState = bforb.createForContextState(
-                _k,
-                _data[_k],
-                false
-              );
-              const item = _that._cloneNode(htmlElement, forState);
+            let keys;
+            if (arrayp(_data)) keys = Object.keys(_data);
+            else keys = _data;
+            for (const k in keys) {
+              const forState = bforb.createForContextState(k, _data[k], false);
+
+              // ? [cloneNode]不会克隆事件
+              // ? 所以我才创建了[_cloneNode]函数
+              // ? 但是后来发现[cloneNode]莫名其妙的绑定了事件
+              //
+              // const item =  _that._cloneNode(htmlElement, forState);
+              const item = htmlElement.cloneNode(true);
               bforb.add(item);
               _that._define(item as HTMLElement, forState);
             }
@@ -327,26 +348,56 @@ class Aja {
     { name, value }: Attr,
     state: State
   ): void {
-    let attrName = name
+    let [attrName, attrChild] = name
       .replace(attrStartExp, emptyString)
-      .replace(attrEndExp, emptyString);
+      .replace(attrEndExp, emptyString)
+      .split(".");
     reaction(
       () => [this._getData(value, state)],
       states => {
         const data = states[0];
         if (attrName === "style") {
-          const styles: CSSStyleDeclaration = data;
-          for (const key in styles) {
-            if (
-              Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
-              styles[key]
-            ) {
-              reaction(
-                () => [styles[key]],
-                states => {
-                  htmlElement.style[key] = states[0];
-                }
-              );
+          if (attrChild && attrChild in htmlElement.style) {
+            (htmlElement.style as { [k: string]: any })[attrChild] = data;
+          } else {
+            const styles: CSSStyleDeclaration = data;
+            for (const key in styles) {
+              if (
+                Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
+                styles[key]
+              ) {
+                reaction(
+                  () => [styles[key]],
+                  states => {
+                    htmlElement.style[key] = states[0];
+                  }
+                );
+              }
+            }
+          }
+        } else if (attrName === "class") {
+          let _value = data;
+          if (_value === null) _value = emptyString;
+          if (!attrChild) {
+            if (objectp(_value)) {
+              for (const klass in _value) {
+                reaction(
+                  () => [_value[klass]],
+                  states => {
+                    if (states[0]) {
+                      htmlElement.classList.add(klass);
+                    } else {
+                      htmlElement.classList.remove(klass);
+                    }
+                  }
+                );
+              }
+            } else {
+              htmlElement.setAttribute(attrName, _value);
+            }
+          } else {
+            if (_value) {
+              htmlElement.classList.add(attrChild);
             }
           }
         } else if (attrName === "innerhtml") {
@@ -371,7 +422,7 @@ class Aja {
     { name, value }: Attr,
     state: State
   ): void {
-    const eventName = name
+    let eventName = name
       .replace(eventStartExp, emptyString)
       .replace(eventEndExp, emptyString);
     // 函数名
@@ -384,14 +435,15 @@ class Aja {
       funcName = value.substr(0, index);
       args = parseTemplateEventArgs(value);
     }
-
+    const modelChangep: boolean = eventName === "modelchange";
+    if (modelChangep) eventName = "input";
     htmlElement.addEventListener(eventName, e => {
       //? 每次点击都需解析参数?
       //! 如果只解析一次，那么模板变量需要提前声明, 并且模板变量不会更新!
       if (this.$actions && funcName in this.$actions) {
         this.$actions[funcName].apply(
           this.$store,
-          this._parseArgsToArguments(args, e, state)
+          this._parseArgsToArguments(args, e, state, modelChangep)
         );
       }
     });
@@ -591,14 +643,13 @@ class Aja {
   }
 
   /**
-   * * 循环解析子节点
+   * * 递归解析子节点
    * @param childNodes
    * @param state
    */
   private _bindingChildrenAttrs(children: ChildNode[], state: State): any {
-    if (!children.length) return null;
+    if (!children.length) return;
     const childNode: ChildNode = children[0];
-    // dom节点
     if (elementNodep(childNode)) {
       this._define(childNode as HTMLElement, state);
     }
@@ -614,25 +665,12 @@ class Aja {
    * @param state
    */
   private _setTextContent(childNode: ChildNode, state: State): void {
-    // 创建一个变量保存源文本
-    const _bindTextContent = childNode.textContent || emptyString;
-
-    // 文本不包含插值表达式的，那么就跳过
-    if (!interpolationExpressionExp.test(_bindTextContent)) return;
-
-    // 获取插值表达式中的变量
-    // 一个文本可能包含[多个]插值表达式
-    let matchs = _bindTextContent.match(interpolationExpressionExp) || [];
-    if (!matchs.length) return;
-    const bindVariables = matchs.map(e => e.replace(/[{}\s]/g, ""));
+    const btextb = new BindingTextBuilder(childNode);
+    if (!btextb.needParse) return;
     reaction(
-      () => bindVariables!.map(k => this._getData(k, state)),
+      () => btextb.bindVariables!.map(k => this._getData(k, state)),
       (states: any[]) => {
-        childNode.textContent = parseBindingTextContent(
-          _bindTextContent,
-          matchs,
-          states
-        );
+        btextb.draw(states);
       }
     );
   }

@@ -35,6 +35,40 @@
 <p [innerhtml]="'name'"></p>
 ```
 
+## 绑定class
+```html
+<!-- [text-red] -->
+<p class="a" [class]="'text-red'">x</p>
+
+<!-- [a text-red p-2] -->
+<p class="a" [class.text-red]="true" [class.p-2]="true">x</p>
+
+<!-- a text-red p-2 -->
+<p class="a" [class]="classes">x</p>
+state: {
+  classes: {
+    'text-red': true,
+    'p-2': true,
+    'm-2': false,
+  }
+}
+```
+
+## 绑定style
+```html
+<p style="font-family: Consolas;" [style.color]="'red'" [style.font-size]="size">x</p>
+<p style="font-family: Consolas;" [style]="styles">x</p> </div>
+state: {
+  size: "5rem",
+  styles: {
+    color: "red",
+    padding: "1rem",
+    backgroundColor: "#e5e5ef75",
+    display: "inline-block"
+  }
+}
+```
+
 ## 事件绑定
 ```html
 <button (click)="setTitle()">设置 title</button>
@@ -43,12 +77,12 @@
 
 ## 插值表达式
 ```
-<p>我叫{{ name }}, 今年{{ obj.age * 10 }}岁</p>
+<p>{{ name }}, {{ obj.age * 10 }}</p>
 
 {{ v ? 1 : 2 }}
 ```
 
-## 模板变量
+## 模板引用变量
 > 权限最高，就近原则
 ```html
 <input type="text" value="hello ajanuw" #input />
@@ -135,6 +169,62 @@
 <span>Selected: {{ selected }}</span>
 ```
 
+## 展开双向绑定
+```html
+<div class="app">
+  <input [(model)]="name" (modelChange)="nameChange($event)" />
+  {{ name }}
+</div>
+
+<script>
+  new Aja(".app", {
+    state: {
+      name: "ajanuw"
+    },
+    actions: {
+      nameChange(v) {
+        this.name = v.toUpperCase();
+      },
+    }
+  });
+</script>
+```
+
+## 钩子: initState
+> [this]被指向了[vm.$store]
+
+- 不要在[initState]设置新state，应为不会被代理
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <body>
+    <div class="app">
+      <p>{{ age }}</p>
+      <button (click)="change">change</button>
+    </div>
+    <script>
+      const l = console.log;
+      let vm = new Aja(".app", {
+        state: {
+          age: null
+        },
+        initState() {
+          this.age = 2;
+        },
+        actions: {
+          change() {
+            this.age++;
+          }
+        }
+      });
+      // console.log(vm);
+    </script>
+  </body>
+</html>
+```
+
 
 ## TODO
 - 响应式表单
+- 管道
