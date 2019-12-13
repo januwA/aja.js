@@ -9,22 +9,25 @@
 
   <body>
     <div class="app">
-      <p>{{ info.name }}</p>
+      <template :if="show" id="a">
+        <h1>hello {{ name }}</h1>
+        <p>233</p>
+      </template>
       <button (click)="change">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
+      // l( document.querySelector('#a').innerHTML )
       let vm = new Aja(".app", {
         state: {
-          info: {}
+          name: 'ajanuw',
+          show: true
         },
-        initState() {
-          this.age = 2;
-        },
+        initState() {},
         actions: {
           change() {
-            this.age++;
+            this.show = !this.show;
           }
         }
       });

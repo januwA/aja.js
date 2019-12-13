@@ -13,7 +13,8 @@ import {
   textNodep,
   arrayp,
   getCheckBoxValue,
-  objectp
+  objectp,
+  templatep
 } from "./utils/util";
 import { Store, State, Actions, Computeds, reaction } from "./store";
 import {
@@ -100,7 +101,9 @@ class Aja {
    */
   private _define(root: HTMLElement, state: State): void {
     const depath = this._bindingAttrs(root, state);
-    if (depath) this._bindingChildrenAttrs(Array.from(root.childNodes), state);
+    if (depath) {
+      this._bindingChildrenAttrs(Array.from(root.childNodes), state);
+    }
   }
 
   private _proxyState(options: Options): void {
@@ -265,32 +268,37 @@ class Aja {
 
   /**
    * 处理 :if 解析
-   * @param htmlElement
+   * @param node
    * @param attrs
    */
   private _ifBindHandle(
-    htmlElement: HTMLElement,
+    node: HTMLElement,
     attrs: Attr[],
     state: State
   ): boolean {
     let show = true;
-
-    const bifb = new BindingIfBuilder(htmlElement, this._ifInstruction);
+    const that = this;
+    const bifb = new BindingIfBuilder(node, this._ifInstruction);
     if (bifb.hasIfAttr) {
       const value = bifb.value as string;
       if (boolStringp(value)) {
         show = value === "true";
-        bifb.checked(show);
+        bifb.checked(show, clone => {
+          l(clone);
+          if (clone) this._define(clone, state);
+        });
       } else {
         reaction(
           () => [this._getData(value, state)],
           states => {
             show = states[0];
-            bifb.checked(show);
+            bifb.checked(show, clone => {
+              if (clone) this._define(clone, state);
+            });
           }
         );
       }
-      htmlElement.removeAttribute(this._ifInstruction);
+      node.removeAttribute(this._ifInstruction);
     }
     return show;
   }
@@ -492,7 +500,7 @@ class Aja {
   private _bindingAttrs(htmlElement: HTMLElement, state: State): boolean {
     let depath = true;
 
-    const attrs: Attr[] = Array.from(htmlElement.attributes);
+    const attrs: Attr[] = Array.from(htmlElement.attributes || []);
     if (!attrs.length) return depath;
 
     // :if
@@ -649,12 +657,12 @@ class Aja {
    */
   private _bindingChildrenAttrs(children: ChildNode[], state: State): any {
     if (!children.length) return;
-    const childNode: ChildNode = children[0];
-    if (elementNodep(childNode)) {
-      this._define(childNode as HTMLElement, state);
+    let node: ChildNode = children[0];
+    if (elementNodep(node)) {
+      this._define(node as HTMLElement, state);
     }
-    if (textNodep(childNode)) {
-      this._setTextContent(childNode, state);
+    if (textNodep(node)) {
+      this._setTextContent(node, state);
     }
     return this._bindingChildrenAttrs(children.slice(1), state);
   }

@@ -118,6 +118,13 @@
           value = null;
       return value;
   }
+  /**
+   * * <template> 模板节点
+   * @param node
+   */
+  function templatep(node) {
+      return node.nodeName === "TEMPLATE";
+  }
   //# sourceMappingURL=util.js.map
 
   const reactionListeners = [];
@@ -279,15 +286,16 @@
   //# sourceMappingURL=exp.js.map
 
   class BindingIfBuilder {
-      constructor(elem, ifInstruction) {
-          this.elem = elem;
-          const attrs = Array.from(elem.attributes);
+      constructor(node, ifInstruction) {
+          this.node = node;
+          this.cloneChildren = [];
+          const attrs = Array.from(node.attributes);
           let ifAttr = attrs.find(({ name }) => name === ifInstruction);
           if (!ifAttr)
               return;
           this.ifAttr = ifAttr;
-          this.cm = document.createComment("");
-          elem.before(this.cm);
+          this.commentNode = document.createComment("");
+          node.before(this.commentNode);
       }
       /**
        * * 只有存在if指令，其他的方法和属性才生效
@@ -300,22 +308,45 @@
               return this.ifAttr.value.trim();
           }
       }
-      checked(show) {
-          if (!this.cm)
+      /**
+       * * 这里使用了回调把template标签给渲染了
+       * @param show
+       * @param cb
+       */
+      checked(show, cb) {
+          if (!this.commentNode)
               return;
           if (show) {
-              this.cm.after(this.elem);
+              if (templatep(this.node)) {
+                  let clone = document.importNode(this.node.content, true);
+                  this.cloneChildren.push(...Array.from(clone.children));
+                  cb(clone);
+                  // 先把template节点替换为注释节点
+                  this.node.replaceWith(this.commentNode);
+                  // 再把fgm节点注释节点下面插
+                  this.commentNode.after(clone);
+              }
+              else {
+                  this.commentNode.after(this.node);
+              }
           }
           else {
-              this.elem.replaceWith(this.cm);
+              if (templatep(this.node)) {
+                  for (const item of this.cloneChildren) {
+                      item.remove();
+                  }
+                  this.cloneChildren = [];
+              }
+              else {
+                  this.node.replaceWith(this.commentNode);
+              }
           }
-          this.cm.data = this._createIfCommentData(show);
+          this.commentNode.data = this._createIfCommentData(show);
       }
       _createIfCommentData(value) {
           return `{":if": "${!!value}"}`;
       }
   }
-  //# sourceMappingURL=binding-if-builder.js.map
 
   class BindingForBuilder {
       constructor(elem, forInstruction) {
@@ -506,6 +537,7 @@
   }
   //# sourceMappingURL=binding-text-builder.js.map
 
+  const l = console.log;
   class Aja {
       constructor(view, options) {
           /**
@@ -560,8 +592,9 @@
        */
       _define(root, state) {
           const depath = this._bindingAttrs(root, state);
-          if (depath)
+          if (depath) {
               this._bindingChildrenAttrs(Array.from(root.childNodes), state);
+          }
       }
       _proxyState(options) {
           const state = createObject(options.state);
@@ -713,25 +746,32 @@
       }
       /**
        * 处理 :if 解析
-       * @param htmlElement
+       * @param node
        * @param attrs
        */
-      _ifBindHandle(htmlElement, attrs, state) {
+      _ifBindHandle(node, attrs, state) {
           let show = true;
-          const bifb = new BindingIfBuilder(htmlElement, this._ifInstruction);
+          const bifb = new BindingIfBuilder(node, this._ifInstruction);
           if (bifb.hasIfAttr) {
               const value = bifb.value;
               if (boolStringp(value)) {
                   show = value === "true";
-                  bifb.checked(show);
+                  bifb.checked(show, clone => {
+                      l(clone);
+                      if (clone)
+                          this._define(clone, state);
+                  });
               }
               else {
                   reaction(() => [this._getData(value, state)], states => {
                       show = states[0];
-                      bifb.checked(show);
+                      bifb.checked(show, clone => {
+                          if (clone)
+                              this._define(clone, state);
+                      });
                   });
               }
-              htmlElement.removeAttribute(this._ifInstruction);
+              node.removeAttribute(this._ifInstruction);
           }
           return show;
       }
@@ -907,7 +947,7 @@
        */
       _bindingAttrs(htmlElement, state) {
           let depath = true;
-          const attrs = Array.from(htmlElement.attributes);
+          const attrs = Array.from(htmlElement.attributes || []);
           if (!attrs.length)
               return depath;
           // :if
@@ -1050,12 +1090,12 @@
       _bindingChildrenAttrs(children, state) {
           if (!children.length)
               return;
-          const childNode = children[0];
-          if (elementNodep(childNode)) {
-              this._define(childNode, state);
+          let node = children[0];
+          if (elementNodep(node)) {
+              this._define(node, state);
           }
-          if (textNodep(childNode)) {
-              this._setTextContent(childNode, state);
+          if (textNodep(node)) {
+              this._setTextContent(node, state);
           }
           return this._bindingChildrenAttrs(children.slice(1), state);
       }
@@ -1073,6 +1113,7 @@
           });
       }
   }
+  //# sourceMappingURL=aja.js.map
 
   //# sourceMappingURL=main.js.map
 

@@ -163,3 +163,11 @@ export function getCheckBoxValue(checkbox: HTMLInputElement): string | null {
   if (value === "on") value = null;
   return value;
 }
+
+/**
+ * * <template> 模板节点
+ * @param node 
+ */
+export function templatep(node: HTMLElement): boolean {
+  return node.nodeName === "TEMPLATE";
+}

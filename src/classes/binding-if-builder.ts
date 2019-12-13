@@ -1,18 +1,21 @@
+import { templatep } from "../utils/util";
+import { State } from "../../lib/store";
+
 export class BindingIfBuilder {
   /**
    * * 一个注释节点
    */
-  cm: Comment | undefined;
+  commentNode: Comment | undefined;
 
   ifAttr: Attr | undefined;
 
-  constructor(public elem: HTMLElement, ifInstruction: string) {
-    const attrs = Array.from(elem.attributes);
+  constructor(public node: HTMLElement, ifInstruction: string) {
+    const attrs = Array.from(node.attributes);
     let ifAttr = attrs.find(({ name }) => name === ifInstruction);
     if (!ifAttr) return;
     this.ifAttr = ifAttr;
-    this.cm = document.createComment("");
-    elem.before(this.cm);
+    this.commentNode = document.createComment("");
+    node.before(this.commentNode);
   }
 
   /**
@@ -28,14 +31,43 @@ export class BindingIfBuilder {
     }
   }
 
-  checked(show: boolean) {
-    if (!this.cm) return;
+  cloneChildren: any[] = [];
+
+  /**
+   * * 这里使用了回调把template标签给渲染了
+   * @param show
+   * @param cb
+   */
+  checked(show: boolean, cb: { (clone: any): void }) {
+    if (!this.commentNode) return;
     if (show) {
-      this.cm.after(this.elem);
+      if (templatep(this.node)) {
+        let clone = document.importNode(
+          (this.node as HTMLTemplateElement).content,
+          true
+        );
+        this.cloneChildren.push(...Array.from(clone.children));
+        cb(clone);
+
+        // 先把template节点替换为注释节点
+        this.node.replaceWith(this.commentNode);
+
+        // 再把fgm节点注释节点下面插
+        this.commentNode.after(clone);
+      } else {
+        this.commentNode.after(this.node);
+      }
     } else {
-      this.elem.replaceWith(this.cm);
+      if (templatep(this.node)) {
+        for (const item of this.cloneChildren) {
+          item.remove();
+        }
+        this.cloneChildren = [];
+      } else {
+        this.node.replaceWith(this.commentNode);
+      }
     }
-    this.cm.data = this._createIfCommentData(show);
+    this.commentNode.data = this._createIfCommentData(show);
   }
 
   private _createIfCommentData(value: any): string {
