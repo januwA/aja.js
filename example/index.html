@@ -9,27 +9,24 @@
 
   <body>
     <div class="app">
-      <div>
-        <p :for="(k, value) in obj">{{ k }} - {{ value }}</p>
-        <span>Selected: {{ selected }}</span>
-        <button (click)="change">change</button>
-      </div>
+      <p>{{ text }}</p>
+      <button (click)="change($event)">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          selected: "A",
-          obj: [1, 2, "x"]
+          text: "hello..."
         },
         actions: {
-          change() {
-            this.checked = false;
+          change(e) {
+            l(e);
+            this.text = "x";
           }
         }
       });
-      // console.log(vm.$store);
+      console.log(vm);
     </script>
   </body>
 </html>
