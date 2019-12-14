@@ -93,7 +93,7 @@ export declare class Store {
     /**
      * * 代理每个属性的 get， set
      */
-    static map<T>(object: State, context: T): T;
+    static map(object: State, context?: {}): {};
     /**
      * * 拦截数组的非幕等方, 并循环代理每个元素
      * @param array

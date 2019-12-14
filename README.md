@@ -1,4 +1,4 @@
-...
+...造轮子
 
 ## 基本
 ```html
@@ -258,6 +258,43 @@ let vm = new Aja(".app", {
     name: "ajanuw",
   },
 });
+</script>
+```
+
+## ajaModel
+> 待优化
+
+| 状态             | 为真时的 CSS 类 | 为假时的 CSS 类 |
+| ---------------- | --------------- | --------------- |
+| 控件被访问过。   | aja-touched     | aja-untouched   |
+| 控件的值变化了。 | aja-dirty       | aja-pristine    |
+| 控件的值有效。   | aja-valid       | aja-invalid     |
+
+```html
+<style>
+  [hidden] {
+    display: none;
+  }
+  .aja-invalid {
+    border-color: red;
+  }
+</style>
+
+<input required type="text" [(model)]="name" #nameModel="ajaModel" />
+<div [hidden]="nameModel.valid || nameModel.pristine">Name is required</div>
+<button (click)="asd(nameModel)">change</button>
+<script>
+  const l = console.log;
+  let vm = new Aja(".app", {
+    state: {
+      name: ""
+    },
+    actions: {
+      asd(m) {
+        l(m)
+      }
+    }
+  });
 </script>
 ```
 

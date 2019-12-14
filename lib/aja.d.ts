@@ -52,7 +52,7 @@ declare class Aja {
     private _define;
     /**
      * * 解析指定HTMLElement的属性
-     * @param htmlElement
+     * @param node
      * @param state
      */
     private _parseBindAttrs;
@@ -107,7 +107,7 @@ declare class Aja {
     private _parseBindFor;
     /**
      * 处理 [title]='xxx' 解析
-     * @param htmlElement
+     * @param node
      * @param param1
      */
     private _attrBindHandle;
@@ -119,7 +119,7 @@ declare class Aja {
     private _eventBindHandle;
     /**
      * * 处理模板变量 #input 解析
-     * @param htmlElement
+     * @param node
      * @param param1
      */
     private _tempvarBindHandle;

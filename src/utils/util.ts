@@ -199,3 +199,16 @@ export function hasForAttr(
     return attrs.find(({ name }) => name === forInstruction);
   }
 }
+
+/**
+ * 查找一个节点是否包含[(model)]指令
+ */
+export function hasModelAttr(
+  node: HTMLElement,
+  modelAttr: string
+): Attr | undefined {
+  if (node.attributes && node.attributes.length) {
+    const attrs = Array.from(node.attributes);
+    return attrs.find(({ name }) => name === modelAttr);
+  }
+}

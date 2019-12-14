@@ -14,7 +14,6 @@ import {
   arrayp,
   getCheckBoxValue,
   objectp,
-  escapeRegExp,
   isNumber
 } from "./utils/util";
 import { Store, State, Actions, Computeds, reaction } from "./store";
@@ -28,6 +27,7 @@ import {
 import { BindingIfBuilder } from "./classes/binding-if-builder";
 import { BindingForBuilder } from "./classes/binding-for-builder";
 import { BindingTextBuilder } from "./classes/binding-text-builder";
+import { AjaModel } from "./classes/aja-model";
 
 export interface Pipe {
   (...value: any[]): any;
@@ -55,7 +55,7 @@ class Aja {
    * * 模板变量保存的DOM
    */
   private _templateVariables: {
-    [key: string]: ChildNode | Element | HTMLElement;
+    [key: string]: ChildNode | Element | HTMLElement | AjaModel;
   } = {};
 
   /**
@@ -157,41 +157,41 @@ class Aja {
 
   /**
    * * 解析指定HTMLElement的属性
-   * @param htmlElement
+   * @param node
    * @param state
    */
-  private _parseBindAttrs(
-    htmlElement: HTMLElement,
-    attrs: Attr[],
-    state: State
-  ) {
+  private _parseBindAttrs(node: HTMLElement, attrs: Attr[], state: State) {
     for (const attr of attrs) {
       const { name, value } = attr;
       // #input #username
       if (tempvarp(name)) {
-        this._tempvarBindHandle(htmlElement, attr);
+        this._tempvarBindHandle(node, attr);
         continue;
       }
 
       // [title]='xxx'
       if (attrp(name)) {
-        this._attrBindHandle(htmlElement, attr, state);
+        this._attrBindHandle(node, attr, state);
         continue;
       }
 
       // (click)="echo('hello',$event)"
       if (eventp(name)) {
-        this._eventBindHandle(htmlElement, attr, state);
+        this._eventBindHandle(node, attr, state);
         continue;
       }
 
       // [(model)]="username"
       if (modelp(name, this._modeldirective)) {
-        const nodeName: string = htmlElement.nodeName;
+        const nodeName: string = node.nodeName;
+        node.classList.add(
+          AjaModel.classes.untouched,
+          AjaModel.classes.pristine,
+          AjaModel.classes.valid
+        );
         if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
-          const inputElement = htmlElement as HTMLInputElement;
-          // l(inputElement.type);
-          if (inputElement.type === "checkbox") {
+          const inputNode = node as HTMLInputElement;
+          if (inputNode.type === "checkbox") {
             const data = this._getData(value, state);
             // 这个时候的data如果是array, 就对value进行处理
             // 不然就当作bool值处理
@@ -199,25 +199,25 @@ class Aja {
               reaction(
                 () => [this._getData(value, state)],
                 states => {
-                  inputElement.checked = !!states[0];
+                  inputNode.checked = !!states[0];
                 }
               );
-              inputElement.addEventListener("change", () => {
-                this._setDate(value, inputElement.checked, state);
+              inputNode.addEventListener("change", () => {
+                this._setDate(value, inputNode.checked, state);
               });
             } else {
               reaction(
                 () => [this._getData(value, state)],
                 states => {
                   const data = states[0];
-                  let ivalue: string | null = getCheckBoxValue(inputElement);
-                  inputElement.checked = data.some((d: any) => d === ivalue);
+                  let ivalue: string | null = getCheckBoxValue(inputNode);
+                  inputNode.checked = data.some((d: any) => d === ivalue);
                 }
               );
-              inputElement.addEventListener("change", () => {
+              inputNode.addEventListener("change", () => {
                 const data = this._getData(value, state);
-                let ivalue: string | null = getCheckBoxValue(inputElement);
-                if (inputElement.checked) {
+                let ivalue: string | null = getCheckBoxValue(inputNode);
+                if (inputNode.checked) {
                   data.push(ivalue);
                 } else {
                   const newData = Store.list(
@@ -227,36 +227,63 @@ class Aja {
                 }
               });
             }
-          } else if (inputElement.type === "radio") {
+          } else if (inputNode.type === "radio") {
             // 单选按钮
             reaction(
               () => [this._getData(value, state)],
               states => {
-                inputElement.checked = states[0] === inputElement.value;
+                inputNode.checked = states[0] === inputNode.value;
               }
             );
 
-            inputElement.addEventListener("change", () => {
-              let newData = inputElement.value;
+            inputNode.addEventListener("change", () => {
+              let newData = inputNode.value;
               if (newData === "on") newData = "";
               this._setDate(value, newData, state);
-              inputElement.checked = true;
+              inputNode.checked = true;
             });
           } else {
             // 其它
             reaction(
               () => [this._getData(value, state)],
               states => {
-                inputElement.value = `${states[0]}`;
+                const value = states[0];
+                if (inputNode.required && !value) {
+                  // 控件的值无效
+                  inputNode.classList.replace(
+                    AjaModel.classes.valid,
+                    AjaModel.classes.invalid
+                  );
+                } else {
+                  // 控件的值有效
+                  inputNode.classList.replace(
+                    AjaModel.classes.invalid,
+                    AjaModel.classes.valid
+                  );
+                }
+                inputNode.value = value;
               }
             );
-            inputElement.addEventListener("input", () => {
-              this._setDate(value, inputElement.value, state);
+            // 值发生变化了
+            inputNode.addEventListener("input", () => {
+              this._setDate(value, inputNode.value, state);
+              inputNode.classList.replace(
+                AjaModel.classes.pristine,
+                AjaModel.classes.dirty
+              );
+            });
+
+            // 控件被访问了
+            inputNode.addEventListener("blur", () => {
+              inputNode.classList.replace(
+                AjaModel.classes.untouched,
+                AjaModel.classes.touched
+              );
             });
           }
         } else if (nodeName === "SELECT") {
           // 对比value
-          const selectElement = htmlElement as HTMLSelectElement;
+          const selectElement = node as HTMLSelectElement;
           // 稍微延迟下，因为内部的模板可能没有解析
           setTimeout(() => {
             reaction(
@@ -299,7 +326,8 @@ class Aja {
             }
           });
         }
-        htmlElement.removeAttribute(name);
+
+        node.removeAttribute(name);
       }
     }
   }
@@ -325,16 +353,17 @@ class Aja {
   private _getData(key: string, state: State): any {
     if (typeof key !== "string") return null;
     // 优先解析管道
-    const [bindKey, ...pipes] = key.split("|").map(e => e.trim());
-
+    const [bindKey, ...pipes] = key.split(/\b\|\b/).map(e => e.trim());
     // 在解析绑定的变量
     const bindKeys = bindKey.split(".");
     let _result: any;
     const firstKey = bindKeys[0];
+
     // 模板变量
-    //? 如果连第一个key都不存在，那么就别找了，找下去也会找错值
-    if (firstKey in this._templateVariables) {
-      for (const k of bindKeys) {
+    if (firstKey.toLowerCase() in this._templateVariables) {
+      // 绑定的模板变量，全是小写
+      const lowerKeys = bindKeys.map(k => k.toLowerCase());
+      for (const k of lowerKeys) {
         _result = _result ? _result[k] : this._templateVariables[k];
       }
     }
@@ -550,11 +579,11 @@ class Aja {
 
   /**
    * 处理 [title]='xxx' 解析
-   * @param htmlElement
+   * @param node
    * @param param1
    */
   private _attrBindHandle(
-    htmlElement: HTMLElement,
+    node: HTMLElement,
     { name, value }: Attr,
     state: State
   ): void {
@@ -567,19 +596,19 @@ class Aja {
       states => {
         const data = states[0];
         if (attrName === "style") {
-          if (attrChild && attrChild in htmlElement.style) {
-            (htmlElement.style as { [k: string]: any })[attrChild] = data;
+          if (attrChild && attrChild in node.style) {
+            (node.style as { [k: string]: any })[attrChild] = data;
           } else {
             const styles: CSSStyleDeclaration = data;
             for (const key in styles) {
               if (
-                Object.getOwnPropertyDescriptor(htmlElement.style, key) &&
+                Object.getOwnPropertyDescriptor(node.style, key) &&
                 styles[key]
               ) {
                 reaction(
                   () => [styles[key]],
                   states => {
-                    htmlElement.style[key] = states[0];
+                    node.style[key] = states[0];
                   }
                 );
               }
@@ -595,31 +624,35 @@ class Aja {
                   () => [_value[klass]],
                   states => {
                     if (states[0]) {
-                      htmlElement.classList.add(klass);
+                      node.classList.add(klass);
                     } else {
-                      htmlElement.classList.remove(klass);
+                      node.classList.remove(klass);
                     }
                   }
                 );
               }
             } else {
-              htmlElement.setAttribute(attrName, _value);
+              node.setAttribute(attrName, _value);
             }
           } else {
             if (_value) {
-              htmlElement.classList.add(attrChild);
+              node.classList.add(attrChild);
             }
           }
         } else if (attrName === "innerhtml") {
-          htmlElement.innerHTML = data;
+          node.innerHTML = data;
         } else {
           let _value = data;
           if (_value === null) _value = emptyString;
-          htmlElement.setAttribute(attrName, _value);
+          if (_value) {
+            node.setAttribute(attrName, _value);
+          } else {
+            if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
+          }
         }
       }
     );
-    htmlElement.removeAttribute(name);
+    node.removeAttribute(name);
   }
 
   /**
@@ -662,14 +695,18 @@ class Aja {
 
   /**
    * * 处理模板变量 #input 解析
-   * @param htmlElement
+   * @param node
    * @param param1
    */
-  private _tempvarBindHandle(htmlElement: HTMLElement, { name }: Attr): void {
-    this._templateVariables[
-      name.replace(tempvarExp, emptyString)
-    ] = htmlElement;
-    htmlElement.removeAttribute(name);
+  private _tempvarBindHandle(node: HTMLElement, { name, value }: Attr): void {
+    const _key = name.replace(tempvarExp, emptyString);
+    if (value === "ajaModel") {
+      // 表单元素才绑定 ajaModel
+      this._templateVariables[_key] = new AjaModel(node as HTMLInputElement);
+    } else {
+      this._templateVariables[_key] = node;
+    }
+    node.removeAttribute(name);
   }
 
   /**

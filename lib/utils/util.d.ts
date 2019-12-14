@@ -85,3 +85,7 @@ export declare function hasIfAttr(node: HTMLElement, ifInstruction: string): Att
  * 查找一个节点是否包含:if指令
  */
 export declare function hasForAttr(node: HTMLElement, forInstruction: string): Attr | undefined;
+/**
+ * 查找一个节点是否包含[(model)]指令
+ */
+export declare function hasModelAttr(node: HTMLElement, modelAttr: string): Attr | undefined;

@@ -155,7 +155,7 @@ export class Store {
   /**
    * * 代理每个属性的 get， set
    */
-  static map<T>(object: State, context: T): T {
+  static map(object: State, context = {}): {} {
     for (const k in object) {
       let v = object[k];
 
