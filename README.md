@@ -232,7 +232,34 @@ state: {
 </html>
 ```
 
+## pipe
+```html
+<p>{{ name | uppercase }}</p>
+<p>{{ name | lowercase }}</p>
+<p>{{ name | capitalize | hello }}</p>
+<p>{{ name | slice:1:3 }}</p>
+<hr>
+<ul>
+  <li :for="el in 4">{{ name | slice:0:el }}</li>
+</ul>
+
+<script>
+let vm = new Aja(".app", {
+  pipes: {
+    hello(s) {
+      return "hello " + s;
+    },
+    slice(v, start, end) {
+      return v.slice(start, end);
+    }
+  },
+  state: {
+    name: "ajanuw",
+  },
+});
+</script>
+```
+
 
 ## TODO
 - 响应式表单
-- 管道

@@ -478,51 +478,29 @@
   class BindingTextBuilder {
       constructor(childNode) {
           this.childNode = childNode;
-          this._bindTextContent = childNode.textContent || "";
+          this.text = childNode.textContent || "";
       }
       /**
        * * 是否需要解析
        */
       get needParse() {
-          return interpolationExpressionExp.test(this._bindTextContent);
+          return interpolationExpressionExp.test(this.text);
       }
       /**
        * * "{{name}} {{ age }}" -> ["{{name}}", "{{ age }}"]
        */
       get matchs() {
-          let matchs = this._bindTextContent.match(interpolationExpressionExp) || [];
+          let matchs = this.text.match(interpolationExpressionExp) || [];
           return matchs;
       }
       /**
-       * * ["{{name}}", "{{ age }}"] -> ["name", "age"]
+       * * ["{{name | uppercase }}", "{{ age }}"] -> [["name", "uppercase"], ["age"]]
        */
       get bindVariables() {
-          return this.matchs.map(e => e.replace(/[{}\s]/g, ""));
-      }
-      draw(states) {
-          this.childNode.textContent = this._parseBindingTextContent(this._bindTextContent, this.matchs, states);
-      }
-      /**
-       * * 解析文本的表达式
-       *
-       * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
-       * @param matchs  ["{{ age }}", "{{ a }}", "{{ a }}"]
-       * @param states [12, "x", "x"]
-       * @returns "12 - x = x"
-       */
-      _parseBindingTextContent(textContent, matchs, states) {
-          if (matchs.length !== states.length)
-              return "[[aja.js: 框架意外的解析错误!!!]]";
-          for (let index = 0; index < matchs.length; index++) {
-              const m = matchs[index];
-              let state = states[index];
-              if (state === null)
-                  state = "";
-              state =
-                  typeof state === "string" ? state : JSON.stringify(state, null, " ");
-              textContent = textContent.replace(new RegExp(escapeRegExp(m), "g"), state);
-          }
-          return textContent;
+          let vs = this.matchs
+              .map(e => e.replace(/[{}\s]/g, ""))
+              .map(e => e.split("|"));
+          return vs;
       }
   }
 
@@ -545,6 +523,29 @@
            * * 双向绑定指令
            */
           this._modeldirective = "[(model)]";
+          this._pipes = {
+              /**
+               * * 全部大写
+               * @param value
+               */
+              uppercase(value) {
+                  return value.toUpperCase();
+              },
+              /**
+               * * 全部小写
+               * @param value
+               */
+              lowercase(value) {
+                  return value.toLowerCase();
+              },
+              /**
+               * * 首字母小写
+               * @param str
+               */
+              capitalize(str) {
+                  return str.charAt(0).toUpperCase() + str.substring(1);
+              }
+          };
           const root = createRoot(view);
           if (root === null)
               return;
@@ -554,6 +555,8 @@
               this._templateEvent = options.templateEvent;
           if (options.modeldirective)
               this._modeldirective = options.modeldirective;
+          if (options.pipes)
+              this._pipes = Object.assign(this._pipes, options.pipes);
           this._proxyState(options);
           if (options.initState)
               options.initState.call(this.$store);
@@ -1087,9 +1090,45 @@
           const btextb = new BindingTextBuilder(childNode);
           if (!btextb.needParse)
               return;
-          reaction(() => btextb.bindVariables.map(k => this._getData(k, state)), (states) => {
-              btextb.draw(states);
+          reaction(() => btextb.bindVariables.map(k => this._getData(k[0], state)), (states) => {
+              childNode.textContent = this._parseBindingTextContent(btextb, states, state);
           });
+      }
+      /**
+       * * 解析文本的表达式
+       *
+       * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
+       * @param states [12, "x", "x"]
+       * @returns "12 - x = x"
+       */
+      _parseBindingTextContent(btextb, states, contextState) {
+          if (btextb.matchs.length !== states.length)
+              return "[[aja.js: 框架意外的解析错误!!!]]";
+          let result = btextb.text;
+          for (let index = 0; index < btextb.matchs.length; index++) {
+              const m = btextb.matchs[index];
+              const pipes = btextb.bindVariables[index].slice(1);
+              let state = states[index];
+              if (pipes.length) {
+                  pipes.forEach(pipe => {
+                      const [p, ...pipeArgs] = pipe.split(":");
+                      if (p in this._pipes) {
+                          const parsePipeArgs = pipeArgs.map(arg => {
+                              if (isNumber(arg))
+                                  return arg;
+                              return this._getData(arg, contextState);
+                          });
+                          state = this._pipes[p](state, ...parsePipeArgs);
+                      }
+                  });
+              }
+              if (state === null)
+                  state = "";
+              state =
+                  typeof state === "string" ? state : JSON.stringify(state, null, " ");
+              result = result.replace(new RegExp(escapeRegExp(m), "g"), state);
+          }
+          return result;
       }
   }
 

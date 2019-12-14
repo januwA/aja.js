@@ -1,4 +1,10 @@
 import { State, Actions, Computeds } from "./store";
+export interface Pipe {
+    (...value: any[]): any;
+}
+export interface Pipes {
+    [pipeName: string]: Pipe;
+}
 export interface Options {
     state?: State;
     actions?: Actions;
@@ -7,6 +13,7 @@ export interface Options {
     templateEvent?: string;
     modeldirective?: string;
     initState?: Function;
+    pipes?: Pipes;
 }
 declare class Aja {
     /**
@@ -36,6 +43,7 @@ declare class Aja {
     private get _forInstruction();
     $store: State;
     get $actions(): any;
+    private _pipes;
     constructor(view: string | HTMLElement, options: Options);
     /**
      * 扫描绑定
@@ -134,5 +142,13 @@ declare class Aja {
      * @param state
      */
     private _setTextContent;
+    /**
+     * * 解析文本的表达式
+     *
+     * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
+     * @param states [12, "x", "x"]
+     * @returns "12 - x = x"
+     */
+    private _parseBindingTextContent;
 }
 export default Aja;

@@ -13,7 +13,9 @@ import {
   textNodep,
   arrayp,
   getCheckBoxValue,
-  objectp
+  objectp,
+  escapeRegExp,
+  isNumber
 } from "./utils/util";
 import { Store, State, Actions, Computeds, reaction } from "./store";
 import {
@@ -27,6 +29,14 @@ import { BindingIfBuilder } from "./classes/binding-if-builder";
 import { BindingForBuilder } from "./classes/binding-for-builder";
 import { BindingTextBuilder } from "./classes/binding-text-builder";
 
+export interface Pipe {
+  (...value: any[]): any;
+}
+
+export interface Pipes {
+  [pipeName: string]: Pipe;
+}
+
 export interface Options {
   state?: State;
   actions?: Actions;
@@ -35,6 +45,7 @@ export interface Options {
   templateEvent?: string;
   modeldirective?: string;
   initState?: Function;
+  pipes?: Pipes;
 }
 
 const l = console.log;
@@ -82,6 +93,31 @@ class Aja {
     return this.$store.$actions;
   }
 
+  private _pipes: Pipes = {
+    /**
+     * * 全部大写
+     * @param value
+     */
+    uppercase(value: string) {
+      return value.toUpperCase();
+    },
+
+    /**
+     * * 全部小写
+     * @param value
+     */
+    lowercase(value: string) {
+      return value.toLowerCase();
+    },
+    /**
+     * * 首字母小写
+     * @param str
+     */
+    capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.substring(1);
+    }
+  };
+
   constructor(view: string | HTMLElement, options: Options) {
     const root = createRoot(view);
     if (root === null) return;
@@ -89,6 +125,7 @@ class Aja {
       this._instructionPrefix = options.instructionPrefix;
     if (options.templateEvent) this._templateEvent = options.templateEvent;
     if (options.modeldirective) this._modeldirective = options.modeldirective;
+    if (options.pipes) this._pipes = Object.assign(this._pipes, options.pipes);
     this._proxyState(options);
     if (options.initState) options.initState.call(this.$store);
     this._define(root, this.$store);
@@ -666,11 +703,54 @@ class Aja {
     const btextb = new BindingTextBuilder(childNode);
     if (!btextb.needParse) return;
     reaction(
-      () => btextb.bindVariables!.map(k => this._getData(k, state)),
+      () => btextb.bindVariables!.map(k => this._getData(k[0], state)),
       (states: any[]) => {
-        btextb.draw(states);
+        childNode.textContent = this._parseBindingTextContent(
+          btextb,
+          states,
+          state
+        );
       }
     );
+  }
+
+  /**
+   * * 解析文本的表达式
+   *
+   * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
+   * @param states [12, "x", "x"]
+   * @returns "12 - x = x"
+   */
+  private _parseBindingTextContent(
+    btextb: BindingTextBuilder,
+    states: any[],
+    contextState: State
+  ): string {
+    if (btextb.matchs.length !== states.length)
+      return "[[aja.js: 框架意外的解析错误!!!]]";
+    let result = btextb.text;
+    for (let index = 0; index < btextb.matchs.length; index++) {
+      const m = btextb.matchs[index];
+      const pipes = btextb.bindVariables[index].slice(1);
+      let state = states[index];
+      if (pipes.length) {
+        pipes.forEach(pipe => {
+          const [p, ...pipeArgs] = pipe.split(":");
+          if (p in this._pipes) {
+            const parsePipeArgs = pipeArgs.map(arg => {
+              if (isNumber(arg)) return arg;
+              return this._getData(arg, contextState);
+            });
+            state = this._pipes[p](state, ...parsePipeArgs);
+          }
+        });
+      }
+      if (state === null) state = "";
+      state =
+        typeof state === "string" ? state : JSON.stringify(state, null, " ");
+      result = result.replace(new RegExp(escapeRegExp(m), "g"), state);
+    }
+    return result;
   }
 }
 
