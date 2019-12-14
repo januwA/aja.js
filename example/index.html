@@ -9,11 +9,13 @@
 
   <body>
     <div class="app">
+      <p [title]="name | slice:0:3 | hello">hello</p>
+
       <p>{{ name | uppercase }}</p>
       <p>{{ name | lowercase }}</p>
       <p>{{ name | capitalize | hello }}</p>
       <p>{{ name | slice:1:3 }}</p>
-      <hr>
+      <hr />
       <ul>
         <li :for="el in 4">{{ name | slice:0:el }}</li>
       </ul>
@@ -36,7 +38,6 @@
           name: "ajanuw",
           show: false
         },
-        initState() {},
         actions: {
           asd(i) {
             l(i);

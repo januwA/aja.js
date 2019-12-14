@@ -234,6 +234,7 @@ state: {
 
 ## pipe
 ```html
+<p [title]="name | slice:0:3 | hello">hello</p>
 <p>{{ name | uppercase }}</p>
 <p>{{ name | lowercase }}</p>
 <p>{{ name | capitalize | hello }}</p>

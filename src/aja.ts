@@ -324,13 +324,17 @@ class Aja {
    */
   private _getData(key: string, state: State): any {
     if (typeof key !== "string") return null;
-    const keys = key.split(".");
+    // 优先解析管道
+    const [bindKey, ...pipes] = key.split("|").map(e => e.trim());
+
+    // 在解析绑定的变量
+    const bindKeys = bindKey.split(".");
     let _result: any;
-    const firstKey = keys[0];
+    const firstKey = bindKeys[0];
     // 模板变量
     //? 如果连第一个key都不存在，那么就别找了，找下去也会找错值
     if (firstKey in this._templateVariables) {
-      for (const k of keys) {
+      for (const k of bindKeys) {
         _result = _result ? _result[k] : this._templateVariables[k];
       }
     }
@@ -338,7 +342,7 @@ class Aja {
     // state
     if (_result === undefined) {
       if (firstKey in state) {
-        for (const k of keys) {
+        for (const k of bindKeys) {
           _result = _result ? _result[k] : state[k];
         }
       }
@@ -347,7 +351,7 @@ class Aja {
     // this.$store
     if (_result === undefined && state !== this.$store) {
       if (firstKey in this.$store) {
-        for (const k of keys) {
+        for (const k of bindKeys) {
           _result = _result ? _result[k] : this.$store[k];
         }
       }
@@ -355,9 +359,22 @@ class Aja {
 
     if (_result === undefined) {
       // 没救了， eval随便解析返回个值吧!
-      _result = this._parseJsString(key, state);
+      _result = this._parseJsString(bindKey, state);
     }
 
+    // 开始管道加工
+    if (pipes.length) {
+      pipes.forEach(pipe => {
+        const [p, ...pipeArgs] = pipe.split(":");
+        if (p in this._pipes) {
+          const parsePipeArgs = pipeArgs.map(arg => {
+            if (isNumber(arg)) return arg;
+            return this._getData(arg, state);
+          });
+          _result = this._pipes[p](_result, ...parsePipeArgs);
+        }
+      });
+    }
     return _result;
   }
 
@@ -703,54 +720,11 @@ class Aja {
     const btextb = new BindingTextBuilder(childNode);
     if (!btextb.needParse) return;
     reaction(
-      () => btextb.bindVariables!.map(k => this._getData(k[0], state)),
+      () => btextb.bindVariables!.map(k => this._getData(k, state)),
       (states: any[]) => {
-        childNode.textContent = this._parseBindingTextContent(
-          btextb,
-          states,
-          state
-        );
+        btextb.draw(states);
       }
     );
-  }
-
-  /**
-   * * 解析文本的表达式
-   *
-   * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
-   * @param states [12, "x", "x"]
-   * @returns "12 - x = x"
-   */
-  private _parseBindingTextContent(
-    btextb: BindingTextBuilder,
-    states: any[],
-    contextState: State
-  ): string {
-    if (btextb.matchs.length !== states.length)
-      return "[[aja.js: 框架意外的解析错误!!!]]";
-    let result = btextb.text;
-    for (let index = 0; index < btextb.matchs.length; index++) {
-      const m = btextb.matchs[index];
-      const pipes = btextb.bindVariables[index].slice(1);
-      let state = states[index];
-      if (pipes.length) {
-        pipes.forEach(pipe => {
-          const [p, ...pipeArgs] = pipe.split(":");
-          if (p in this._pipes) {
-            const parsePipeArgs = pipeArgs.map(arg => {
-              if (isNumber(arg)) return arg;
-              return this._getData(arg, contextState);
-            });
-            state = this._pipes[p](state, ...parsePipeArgs);
-          }
-        });
-      }
-      if (state === null) state = "";
-      state =
-        typeof state === "string" ? state : JSON.stringify(state, null, " ");
-      result = result.replace(new RegExp(escapeRegExp(m), "g"), state);
-    }
-    return result;
   }
 }
 

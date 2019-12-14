@@ -142,13 +142,5 @@ declare class Aja {
      * @param state
      */
     private _setTextContent;
-    /**
-     * * 解析文本的表达式
-     *
-     * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
-     * @param states [12, "x", "x"]
-     * @returns "12 - x = x"
-     */
-    private _parseBindingTextContent;
 }
 export default Aja;
