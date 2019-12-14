@@ -144,10 +144,12 @@ export function escapeHTML(str: string) {
 }
 
 export function elementNodep(node: ChildNode | HTMLElement): boolean {
-  return (
-    node.nodeType === Node.ELEMENT_NODE ||
-    node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
-  );
+  return node.nodeType === Node.ELEMENT_NODE;
+}
+
+// 模板节点 template
+export function fragmentNodep(node: ChildNode | HTMLElement): boolean {
+  return node.nodeType === Node.DOCUMENT_FRAGMENT_NODE;
 }
 
 export function textNodep(node: ChildNode | HTMLElement): boolean {
@@ -166,8 +168,34 @@ export function getCheckBoxValue(checkbox: HTMLInputElement): string | null {
 
 /**
  * * <template> 模板节点
- * @param node 
+ * @param node
  */
 export function templatep(node: HTMLElement): boolean {
   return node.nodeName === "TEMPLATE";
+}
+
+/**
+ * 查找一个节点是否包含:if指令
+ */
+export function hasIfAttr(
+  node: HTMLElement,
+  ifInstruction: string
+): Attr | undefined {
+  if (node.attributes && node.attributes.length) {
+    const attrs = Array.from(node.attributes);
+    return attrs.find(({ name }) => name === ifInstruction);
+  }
+}
+
+/**
+ * 查找一个节点是否包含:if指令
+ */
+export function hasForAttr(
+  node: HTMLElement,
+  forInstruction: string
+): Attr | undefined {
+  if (node.attributes && node.attributes.length) {
+    const attrs = Array.from(node.attributes);
+    return attrs.find(({ name }) => name === forInstruction);
+  }
 }

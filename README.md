@@ -107,6 +107,14 @@ state: {
 <p :if="show">hello world</p>
 ```
 
+## if和for的使用
+> 不要把:if和:for同时绑定在一个节点上
+```html
+<div :if="show">
+  <p :for="el in 10">hello</p>
+</div>
+```
+
 ## 双向绑定
 ```html
 // input
@@ -144,18 +152,18 @@ state: {
 
 // 选择框，单选
 <select [(model)]="selected">
-<option disabled value="">请选择</option>
-<option>A</option>
-<option>B</option>
-<option>C</option>
+  <option disabled value="">请选择</option>
+  <option>A</option>
+  <option>B</option>
+  <option>C</option>
 </select>
 <span>Selected: {{ selected }}</span>
 
 // 选择框，多选
 <select [(model)]="selected" multiple style="width: 50px;">
-<option>A</option>
-<option>B</option>
-<option>C</option>
+  <option>A</option>
+  <option>B</option>
+  <option>C</option>
 </select>
 <br />
 <span>Selected: {{ selected }}</span>

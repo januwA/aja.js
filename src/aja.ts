@@ -13,8 +13,7 @@ import {
   textNodep,
   arrayp,
   getCheckBoxValue,
-  objectp,
-  templatep
+  objectp
 } from "./utils/util";
 import { Store, State, Actions, Computeds, reaction } from "./store";
 import {
@@ -100,9 +99,171 @@ class Aja {
    * @param root
    */
   private _define(root: HTMLElement, state: State): void {
-    const depath = this._bindingAttrs(root, state);
-    if (depath) {
-      this._bindingChildrenAttrs(Array.from(root.childNodes), state);
+    let depath = true;
+
+    // 没有attrs就不解析了
+    if (root.attributes && root.attributes.length) {
+      // 优先解析if -> for -> 其它属性
+      depath = this._parseBindIf(root, state);
+      if (depath) depath = this._parseBindFor(root, state);
+      if (depath) {
+        const attrs: Attr[] = Array.from(root.attributes);
+        this._parseBindAttrs(root, attrs, state);
+      }
+    }
+
+    const children = Array.from(root.childNodes);
+    if (depath && children.length) {
+      this._bindingChildrenAttrs(children, state);
+    }
+  }
+
+  /**
+   * * 解析指定HTMLElement的属性
+   * @param htmlElement
+   * @param state
+   */
+  private _parseBindAttrs(
+    htmlElement: HTMLElement,
+    attrs: Attr[],
+    state: State
+  ) {
+    for (const attr of attrs) {
+      const { name, value } = attr;
+      // #input #username
+      if (tempvarp(name)) {
+        this._tempvarBindHandle(htmlElement, attr);
+        continue;
+      }
+
+      // [title]='xxx'
+      if (attrp(name)) {
+        this._attrBindHandle(htmlElement, attr, state);
+        continue;
+      }
+
+      // (click)="echo('hello',$event)"
+      if (eventp(name)) {
+        this._eventBindHandle(htmlElement, attr, state);
+        continue;
+      }
+
+      // [(model)]="username"
+      if (modelp(name, this._modeldirective)) {
+        const nodeName: string = htmlElement.nodeName;
+        if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
+          const inputElement = htmlElement as HTMLInputElement;
+          // l(inputElement.type);
+          if (inputElement.type === "checkbox") {
+            const data = this._getData(value, state);
+            // 这个时候的data如果是array, 就对value进行处理
+            // 不然就当作bool值处理
+            if (!arrayp(data)) {
+              reaction(
+                () => [this._getData(value, state)],
+                states => {
+                  inputElement.checked = !!states[0];
+                }
+              );
+              inputElement.addEventListener("change", () => {
+                this._setDate(value, inputElement.checked, state);
+              });
+            } else {
+              reaction(
+                () => [this._getData(value, state)],
+                states => {
+                  const data = states[0];
+                  let ivalue: string | null = getCheckBoxValue(inputElement);
+                  inputElement.checked = data.some((d: any) => d === ivalue);
+                }
+              );
+              inputElement.addEventListener("change", () => {
+                const data = this._getData(value, state);
+                let ivalue: string | null = getCheckBoxValue(inputElement);
+                if (inputElement.checked) {
+                  data.push(ivalue);
+                } else {
+                  const newData = Store.list(
+                    data.filter((d: any) => d !== ivalue)
+                  );
+                  this._setDate(value, newData, state);
+                }
+              });
+            }
+          } else if (inputElement.type === "radio") {
+            // 单选按钮
+            reaction(
+              () => [this._getData(value, state)],
+              states => {
+                inputElement.checked = states[0] === inputElement.value;
+              }
+            );
+
+            inputElement.addEventListener("change", () => {
+              let newData = inputElement.value;
+              if (newData === "on") newData = "";
+              this._setDate(value, newData, state);
+              inputElement.checked = true;
+            });
+          } else {
+            // 其它
+            reaction(
+              () => [this._getData(value, state)],
+              states => {
+                inputElement.value = `${states[0]}`;
+              }
+            );
+            inputElement.addEventListener("input", () => {
+              this._setDate(value, inputElement.value, state);
+            });
+          }
+        } else if (nodeName === "SELECT") {
+          // 对比value
+          const selectElement = htmlElement as HTMLSelectElement;
+          // 稍微延迟下，因为内部的模板可能没有解析
+          setTimeout(() => {
+            reaction(
+              () => [this._getData(value, state)],
+              states => {
+                const data = states[0];
+                const selectOptions = Array.from(selectElement.options);
+                let notFind = true;
+                // 多选参数必须为 array
+                if (selectElement.multiple && arrayp(data)) {
+                  selectElement.selectedIndex = -1;
+                  for (let index = 0; index < selectOptions.length; index++) {
+                    const option = selectOptions[index];
+                    const v = option.value;
+                    if ((data as Array<any>).some(d => d === v)) {
+                      notFind = false;
+                      option.selected = true;
+                    }
+                  }
+                } else {
+                  // 没找到默认-1
+                  const index = selectOptions.findIndex(
+                    op => op.value === data
+                  );
+                  selectElement.selectedIndex = index;
+                  notFind = false;
+                }
+                if (notFind) selectElement.selectedIndex = -1;
+              }
+            );
+          });
+          selectElement.addEventListener("change", () => {
+            if (selectElement.multiple) {
+              const multipleValue = Array.from(selectElement.options)
+                .filter(op => op.selected)
+                .map(op => op.value);
+              this._setDate(value, multipleValue, state);
+            } else {
+              this._setDate(value, selectElement.value, state);
+            }
+          });
+        }
+        htmlElement.removeAttribute(name);
+      }
     }
   }
 
@@ -267,52 +428,46 @@ class Aja {
   }
 
   /**
-   * 处理 :if 解析
+   * 解析一个节点上是否绑定了:if指令, 并更具指令的值来解析节点
    * @param node
    * @param attrs
    */
-  private _ifBindHandle(
-    node: HTMLElement,
-    attrs: Attr[],
-    state: State
-  ): boolean {
+  private _parseBindIf(node: HTMLElement, state: State): boolean {
     let show = true;
-    const that = this;
     const bifb = new BindingIfBuilder(node, this._ifInstruction);
     if (bifb.hasIfAttr) {
       const value = bifb.value as string;
       if (boolStringp(value)) {
         show = value === "true";
-        bifb.checked(show, clone => {
-          l(clone);
-          if (clone) this._define(clone, state);
-        });
+        bifb.checked(show);
       } else {
         reaction(
           () => [this._getData(value, state)],
           states => {
             show = states[0];
-            bifb.checked(show, clone => {
-              if (clone) this._define(clone, state);
-            });
+            bifb.checked(show);
           }
         );
       }
-      node.removeAttribute(this._ifInstruction);
     }
     return show;
   }
 
-  private _forBindHandle(htmlElement: HTMLElement, state: State): boolean {
-    const bforb = new BindingForBuilder(htmlElement, this._forInstruction);
+  /**
+   * 解析节点上绑定的for指令
+   * 如果节点绑定了for指令，这个节点将不会继续被解析
+   * @param node
+   * @param state
+   */
+  private _parseBindFor(node: HTMLElement, state: State): boolean {
+    const bforb = new BindingForBuilder(node, this._forInstruction);
     if (bforb.hasForAttr) {
       // 创建注释节点
       if (bforb.isNumberData) {
         const _data = +(bforb.bindData as string);
         for (let v = 0; v < _data; v++) {
           const forState = bforb.createForContextState(v);
-          const item = htmlElement.cloneNode(true);
-          bforb.add(item);
+          const item = bforb.createItem();
           this._define(item as HTMLElement, forState);
         }
         bforb.draw(_data);
@@ -328,14 +483,7 @@ class Aja {
             else keys = _data;
             for (const k in keys) {
               const forState = bforb.createForContextState(k, _data[k], false);
-
-              // ? [cloneNode]不会克隆事件
-              // ? 所以我才创建了[_cloneNode]函数
-              // ? 但是后来发现[cloneNode]莫名其妙的绑定了事件
-              //
-              // const item =  _that._cloneNode(htmlElement, forState);
-              const item = htmlElement.cloneNode(true);
-              bforb.add(item);
+              const item = bforb.createItem();
               _that._define(item as HTMLElement, forState);
             }
             bforb.draw(_data);
@@ -490,164 +638,6 @@ class Aja {
       }
     }
     return item;
-  }
-
-  /**
-   * * 解析指定HTMLElement的属性
-   * @param htmlElement
-   * @param state
-   */
-  private _bindingAttrs(htmlElement: HTMLElement, state: State): boolean {
-    let depath = true;
-
-    const attrs: Attr[] = Array.from(htmlElement.attributes || []);
-    if (!attrs.length) return depath;
-
-    // :if
-    depath = this._ifBindHandle(htmlElement, attrs, state);
-
-    // :for
-    depath = this._forBindHandle(htmlElement, state);
-    if (!depath) return depath;
-    // 遍历节点属性
-    for (const attr of attrs) {
-      const { name, value } = attr;
-      // #input #username
-      if (tempvarp(name)) {
-        this._tempvarBindHandle(htmlElement, attr);
-        continue;
-      }
-
-      // [title]='xxx'
-      if (attrp(name)) {
-        this._attrBindHandle(htmlElement, attr, state);
-        continue;
-      }
-
-      // (click)="echo('hello',$event)"
-      if (eventp(name)) {
-        this._eventBindHandle(htmlElement, attr, state);
-        continue;
-      }
-
-      // [(model)]="username"
-      if (modelp(name, this._modeldirective)) {
-        const nodeName: string = htmlElement.nodeName;
-        if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
-          const inputElement = htmlElement as HTMLInputElement;
-          // l(inputElement.type);
-          if (inputElement.type === "checkbox") {
-            const data = this._getData(value, state);
-            // 这个时候的data如果是array, 就对value进行处理
-            // 不然就当作bool值处理
-            if (!arrayp(data)) {
-              reaction(
-                () => [this._getData(value, state)],
-                states => {
-                  inputElement.checked = !!states[0];
-                }
-              );
-              inputElement.addEventListener("change", () => {
-                this._setDate(value, inputElement.checked, state);
-              });
-            } else {
-              reaction(
-                () => [this._getData(value, state)],
-                states => {
-                  const data = states[0];
-                  let ivalue: string | null = getCheckBoxValue(inputElement);
-                  inputElement.checked = data.some((d: any) => d === ivalue);
-                }
-              );
-              inputElement.addEventListener("change", () => {
-                const data = this._getData(value, state);
-                let ivalue: string | null = getCheckBoxValue(inputElement);
-                if (inputElement.checked) {
-                  data.push(ivalue);
-                } else {
-                  const newData = Store.list(
-                    data.filter((d: any) => d !== ivalue)
-                  );
-                  this._setDate(value, newData, state);
-                }
-              });
-            }
-          } else if (inputElement.type === "radio") {
-            // 单选按钮
-            reaction(
-              () => [this._getData(value, state)],
-              states => {
-                inputElement.checked = states[0] === inputElement.value;
-              }
-            );
-
-            inputElement.addEventListener("change", () => {
-              let newData = inputElement.value;
-              if (newData === "on") newData = "";
-              this._setDate(value, newData, state);
-              inputElement.checked = true;
-            });
-          } else {
-            // 其它
-            reaction(
-              () => [this._getData(value, state)],
-              states => {
-                inputElement.value = `${states[0]}`;
-              }
-            );
-            inputElement.addEventListener("input", () => {
-              this._setDate(value, inputElement.value, state);
-            });
-          }
-        } else if (nodeName === "SELECT") {
-          // 对比value
-          const selectElement = htmlElement as HTMLSelectElement;
-          // 稍微延迟下，因为内部的模板可能没有解析
-          setTimeout(() => {
-            reaction(
-              () => [this._getData(value, state)],
-              states => {
-                const data = states[0];
-                const selectOptions = Array.from(selectElement.options);
-                let notFind = true;
-                // 多选参数必须为 array
-                if (selectElement.multiple && arrayp(data)) {
-                  selectElement.selectedIndex = -1;
-                  for (let index = 0; index < selectOptions.length; index++) {
-                    const option = selectOptions[index];
-                    const v = option.value;
-                    if ((data as Array<any>).some(d => d === v)) {
-                      notFind = false;
-                      option.selected = true;
-                    }
-                  }
-                } else {
-                  // 没找到默认-1
-                  const index = selectOptions.findIndex(
-                    op => op.value === data
-                  );
-                  selectElement.selectedIndex = index;
-                  notFind = false;
-                }
-                if (notFind) selectElement.selectedIndex = -1;
-              }
-            );
-          });
-          selectElement.addEventListener("change", () => {
-            if (selectElement.multiple) {
-              const multipleValue = Array.from(selectElement.options)
-                .filter(op => op.selected)
-                .map(op => op.value);
-              this._setDate(value, multipleValue, state);
-            } else {
-              this._setDate(value, selectElement.value, state);
-            }
-          });
-        }
-        htmlElement.removeAttribute(name);
-      }
-    }
-    return depath;
   }
 
   /**

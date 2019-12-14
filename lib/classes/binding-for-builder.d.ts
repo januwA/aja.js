@@ -1,14 +1,14 @@
 export declare class BindingForBuilder {
-    elem: HTMLElement;
+    node: HTMLElement;
     forInstruction: string;
     /**
      * * 一个注释节点
      */
-    private cm;
+    private commentNode;
     private fragment;
     private forBuffer;
     private forAttr;
-    constructor(elem: HTMLElement, forInstruction: string);
+    constructor(node: HTMLElement, forInstruction: string);
     get hasForAttr(): boolean;
     private get forAttrValue();
     get bindVar(): string | undefined;
@@ -32,4 +32,5 @@ export declare class BindingForBuilder {
     clear(): void;
     createForContextState(k: any, v?: any, isNumber?: boolean): {};
     private createForCommentData;
+    createItem(): Node;
 }

@@ -6,6 +6,7 @@ export interface Options {
     instructionPrefix?: string;
     templateEvent?: string;
     modeldirective?: string;
+    initState?: Function;
 }
 declare class Aja {
     /**
@@ -41,6 +42,12 @@ declare class Aja {
      * @param root
      */
     private _define;
+    /**
+     * * 解析指定HTMLElement的属性
+     * @param htmlElement
+     * @param state
+     */
+    private _parseBindAttrs;
     private _proxyState;
     /**
      * * 1. 优先寻找模板变量
@@ -74,15 +81,22 @@ declare class Aja {
      * @param args
      * @param e
      * @param state
+     * @param isModel 是否为展开的双向绑定事件  [(model)]="name" (modelChange)="nameChange($event)"
      */
     private _parseArgsToArguments;
     /**
-     * 处理 :if 解析
-     * @param htmlElement
+     * 解析一个节点上是否绑定了:if指令, 并更具指令的值来解析节点
+     * @param node
      * @param attrs
      */
-    private _ifBindHandle;
-    private _forBindHandle;
+    private _parseBindIf;
+    /**
+     * 解析节点上绑定的for指令
+     * 如果节点绑定了for指令，这个节点将不会继续被解析
+     * @param node
+     * @param state
+     */
+    private _parseBindFor;
     /**
      * 处理 [title]='xxx' 解析
      * @param htmlElement
@@ -109,13 +123,7 @@ declare class Aja {
      */
     private _cloneNode;
     /**
-     * * 解析指定HTMLElement的属性
-     * @param htmlElement
-     * @param state
-     */
-    private _bindingAttrs;
-    /**
-     * * 循环解析子节点
+     * * 递归解析子节点
      * @param childNodes
      * @param state
      */

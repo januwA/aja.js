@@ -1,27 +1,26 @@
-import { arrayp, emptyString, isNumber } from "../utils/util";
+import { arrayp, emptyString, isNumber, hasForAttr } from "../utils/util";
 import { eventStartExp, eventEndExp } from "../utils/exp";
 
 export class BindingForBuilder {
   /**
    * * 一个注释节点
    */
-  private cm: Comment | undefined;
+  private commentNode: Comment | undefined;
 
   private fragment: DocumentFragment | undefined;
   private forBuffer: Node[] = [];
 
   private forAttr: Attr | undefined;
 
-  constructor(public elem: HTMLElement, public forInstruction: string) {
-    const attrs: Attr[] = Array.from(this.elem.attributes) || [];
-    let forAttr = attrs.find(({ name }) => name === this.forInstruction);
+  constructor(public node: HTMLElement, public forInstruction: string) {
+    let forAttr = hasForAttr(node, forInstruction);
     // 没有for指令，就不构建下去了
     if (!forAttr) return;
     this.forAttr = forAttr;
-    this.cm = document.createComment("");
+    this.commentNode = document.createComment("");
     this.fragment = document.createDocumentFragment();
-    elem.replaceWith(this.cm);
-    elem.removeAttribute(forInstruction);
+    node.replaceWith(this.commentNode);
+    node.removeAttribute(forInstruction);
   }
 
   get hasForAttr() {
@@ -92,9 +91,9 @@ export class BindingForBuilder {
    * @param data
    */
   draw(data: any) {
-    if (this.cm && this.fragment) {
-      this.cm.after(this.fragment);
-      this.cm.data = this.createForCommentData(data);
+    if (this.commentNode && this.fragment) {
+      this.commentNode.after(this.fragment);
+      this.commentNode.data = this.createForCommentData(data);
     }
   }
 
@@ -149,5 +148,11 @@ export class BindingForBuilder {
       data = obj.slice(0, 6);
     }
     return `{":for": "${data}"}`;
+  }
+
+  createItem() {
+    const item = this.node.cloneNode(true);
+    this.add(item);
+    return item;
   }
 }

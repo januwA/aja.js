@@ -9,10 +9,7 @@
 
   <body>
     <div class="app">
-      <template :if="show" id="a">
-        <h1>hello {{ name }}</h1>
-        <p>233</p>
-      </template>
+      <p :for="el in 10" (click)="asd(el)">hello</p>
       <button (click)="change">change</button>
     </div>
     <script src="../dist/aja.js"></script>
@@ -21,13 +18,13 @@
       // l( document.querySelector('#a').innerHTML )
       let vm = new Aja(".app", {
         state: {
-          name: 'ajanuw',
-          show: true
+          name: "ajanuw",
+          show: false
         },
         initState() {},
         actions: {
-          change() {
-            this.show = !this.show;
+          asd(i) {
+            l(i);
           }
         }
       });

@@ -65,6 +65,7 @@ export declare function nullp(data: any): boolean;
 export declare function escapeRegExp(str: string): string;
 export declare function escapeHTML(str: string): string;
 export declare function elementNodep(node: ChildNode | HTMLElement): boolean;
+export declare function fragmentNodep(node: ChildNode | HTMLElement): boolean;
 export declare function textNodep(node: ChildNode | HTMLElement): boolean;
 /**
  * * 将['on']转为[null]
@@ -72,11 +73,15 @@ export declare function textNodep(node: ChildNode | HTMLElement): boolean;
  */
 export declare function getCheckBoxValue(checkbox: HTMLInputElement): string | null;
 /**
- * * 解析文本的表达式
- *
- * @param textContent  "{{ age }} - {{ a }} = {{ a }}""
- * @param matchs  ["{{ age }}", "{{ a }}", "{{ a }}"]
- * @param states [12, "x", "x"]
- * @returns "12 - x = x"
+ * * <template> 模板节点
+ * @param node
  */
-export declare function parseBindingTextContent(textContent: string, matchs: string[], states: any[]): string;
+export declare function templatep(node: HTMLElement): boolean;
+/**
+ * 查找一个节点是否包含:if指令
+ */
+export declare function hasIfAttr(node: HTMLElement, ifInstruction: string): Attr | undefined;
+/**
+ * 查找一个节点是否包含:if指令
+ */
+export declare function hasForAttr(node: HTMLElement, forInstruction: string): Attr | undefined;

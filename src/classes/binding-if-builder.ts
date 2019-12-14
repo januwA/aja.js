@@ -1,5 +1,4 @@
-import { templatep } from "../utils/util";
-import { State } from "../../lib/store";
+import { hasIfAttr, templatep } from "../utils/util";
 
 export class BindingIfBuilder {
   /**
@@ -10,12 +9,12 @@ export class BindingIfBuilder {
   ifAttr: Attr | undefined;
 
   constructor(public node: HTMLElement, ifInstruction: string) {
-    const attrs = Array.from(node.attributes);
-    let ifAttr = attrs.find(({ name }) => name === ifInstruction);
+    let ifAttr = hasIfAttr(node, ifInstruction);
     if (!ifAttr) return;
     this.ifAttr = ifAttr;
     this.commentNode = document.createComment("");
-    node.before(this.commentNode);
+    this.node.before(this.commentNode);
+    this.node.removeAttribute(ifInstruction);
   }
 
   /**
@@ -31,41 +30,17 @@ export class BindingIfBuilder {
     }
   }
 
-  cloneChildren: any[] = [];
-
   /**
    * * 这里使用了回调把template标签给渲染了
    * @param show
    * @param cb
    */
-  checked(show: boolean, cb: { (clone: any): void }) {
+  checked(show: boolean) {
     if (!this.commentNode) return;
     if (show) {
-      if (templatep(this.node)) {
-        let clone = document.importNode(
-          (this.node as HTMLTemplateElement).content,
-          true
-        );
-        this.cloneChildren.push(...Array.from(clone.children));
-        cb(clone);
-
-        // 先把template节点替换为注释节点
-        this.node.replaceWith(this.commentNode);
-
-        // 再把fgm节点注释节点下面插
-        this.commentNode.after(clone);
-      } else {
-        this.commentNode.after(this.node);
-      }
+      this.commentNode.after(this.node);
     } else {
-      if (templatep(this.node)) {
-        for (const item of this.cloneChildren) {
-          item.remove();
-        }
-        this.cloneChildren = [];
-      } else {
-        this.node.replaceWith(this.commentNode);
-      }
+      this.node.replaceWith(this.commentNode);
     }
     this.commentNode.data = this._createIfCommentData(show);
   }
