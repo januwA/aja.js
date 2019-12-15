@@ -1,4 +1,5 @@
-import { objectp, arrayp, dataTag } from "./utils/util";
+import { arrayp, objectp } from "./utils/p";
+import { toArray } from "./utils/util";
 
 const l = console.log;
 
@@ -47,6 +48,7 @@ const reactionListeners: ReactionListenersInterface[] = [];
 function reactionUpdate(some: any) {
   for (const reactionItem of reactionListeners) {
     const stateList: any[] = reactionItem.listenerStateList();
+    l(some, stateList[0], stateList.some(e => e === some));
     if (stateList.some(e => e === some)) {
       reactionItem.cb(stateList);
     }
@@ -157,25 +159,21 @@ export class Store {
    */
   static map(object: State, context = {}): {} {
     for (const k in object) {
-      let v = object[k];
-
-      if (arrayp(v)) {
-        v = Store.list(v);
-      }
-
-      if (objectp(v)) {
-        v = Store.map(v, {});
-      }
-
-      object[k] = v;
-
       Object.defineProperty(context, k, {
         get() {
-          const _r = object[k];
-          return _r;
+          let v = object[k];
+
+          if (arrayp(v)) {
+            v = Store.list(v);
+          }
+
+          if (objectp(v)) {
+            v = Store.map(v);
+          }
+          return v;
         },
         set(newValue) {
-          // 用户设置了同样的值， 将跳过
+          // 设置了同样的值， 将跳过
           if (newValue === object[k]) return;
           object[k] = newValue;
           autorunUpdate();
@@ -193,8 +191,8 @@ export class Store {
    * * 拦截数组的非幕等方, 并循环代理每个元素
    * @param array
    */
-  static list<T>(array: T[]): T[] {
-    var aryMethods = [
+  static list(array: any[]): any[] {
+    const resriteMethods = [
       "push",
       "pop",
       "shift",
@@ -203,28 +201,30 @@ export class Store {
       "sort",
       "reverse"
     ];
-    var arrayAugmentations = Object.create(Array.prototype);
 
-    aryMethods.forEach(method => {
-      let original = (Array.prototype as { [k: string]: any })[method];
-      arrayAugmentations[method] = function(...args: any[]) {
-        // 将传递进来的值，重新代理
-        const _applyArgs = Store.list(args);
+    const proto = Object.create(Array.prototype);
 
-        // 调用原始方法
-        const r = original.apply(this, _applyArgs);
-
-        // 跟新
-        autorunUpdate();
-        reactionUpdate(this);
-        return r;
-      };
+    resriteMethods.forEach(m => {
+      const original = (proto as { [k: string]: any })[m];
+      Object.defineProperty(proto, m, {
+        value: function(...args: any[]) {
+          const r = original.apply(this, args);
+          // 跟新
+          autorunUpdate();
+          reactionUpdate(this);
+          return r;
+        },
+        writable: true, // value才能被赋值运算符改变 =
+        configurable: true, // 能改变，删除
+        enumerable: false // 可被枚举 for(let i in o)
+      });
     });
+    Object.setPrototypeOf(array, proto);
 
     // 遍历代理数组每项的值
     array = (array as any[]).map(el => {
       if (objectp(el)) {
-        return Store.map(el, {});
+        return Store.map(el);
       }
       if (arrayp(el)) {
         return Store.list(el);
@@ -232,7 +232,6 @@ export class Store {
       return el;
     });
 
-    Object.setPrototypeOf(array, arrayAugmentations);
     return array;
   }
 }

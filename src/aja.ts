@@ -1,22 +1,13 @@
 import {
-  attrp,
-  eventp,
-  tempvarp,
   createRoot,
   createObject,
   emptyString,
   parseTemplateEventArgs,
-  boolStringp,
   ourEval,
-  modelp,
-  elementNodep,
-  textNodep,
-  arrayp,
-  getCheckBoxValue,
-  objectp,
-  isNumber
+  hasModelAttr,
+  parsePipe
 } from "./utils/util";
-import { Store, State, Actions, Computeds, reaction } from "./store";
+import { Store, State, Actions, Computeds, reaction, autorun } from "./store";
 import {
   attrStartExp,
   attrEndExp,
@@ -28,13 +19,29 @@ import { BindingIfBuilder } from "./classes/binding-if-builder";
 import { BindingForBuilder } from "./classes/binding-for-builder";
 import { BindingTextBuilder } from "./classes/binding-text-builder";
 import { AjaModel } from "./classes/aja-model";
+import {
+  eventp,
+  tempvarp,
+  objectp,
+  boolStringp,
+  arrayp,
+  attrp,
+  elementNodep,
+  textNodep,
+  inputp,
+  textareap,
+  checkboxp,
+  radiop,
+  selectp
+} from "./utils/p";
+import { BindingModelBuilder } from "./classes/binding-model-builder";
+import { Pipes, pipes, usePipes } from "./pipes/pipes";
 
-export interface Pipe {
-  (...value: any[]): any;
+export interface GetDataCallBack {
+  (key: string): any;
 }
-
-export interface Pipes {
-  [pipeName: string]: Pipe;
+export interface SetDataCallBack {
+  (newData: any): void;
 }
 
 export interface Options {
@@ -93,39 +100,15 @@ class Aja {
     return this.$store.$actions;
   }
 
-  private _pipes: Pipes = {
-    /**
-     * * 全部大写
-     * @param value
-     */
-    uppercase(value: string) {
-      return value.toUpperCase();
-    },
-
-    /**
-     * * 全部小写
-     * @param value
-     */
-    lowercase(value: string) {
-      return value.toLowerCase();
-    },
-    /**
-     * * 首字母小写
-     * @param str
-     */
-    capitalize(str) {
-      return str.charAt(0).toUpperCase() + str.substring(1);
-    }
-  };
-
   constructor(view: string | HTMLElement, options: Options) {
     const root = createRoot(view);
     if (root === null) return;
     if (options.instructionPrefix)
-      this._instructionPrefix = options.instructionPrefix;
+      this._instructionPrefix = options.instructionPrefix.toLowerCase();
     if (options.templateEvent) this._templateEvent = options.templateEvent;
-    if (options.modeldirective) this._modeldirective = options.modeldirective;
-    if (options.pipes) this._pipes = Object.assign(this._pipes, options.pipes);
+    if (options.modeldirective)
+      this._modeldirective = options.modeldirective.toLowerCase();
+    if (options.pipes) Object.assign(pipes, options.pipes);
     this._proxyState(options);
     if (options.initState) options.initState.call(this.$store);
     this._define(root, this.$store);
@@ -180,154 +163,63 @@ class Aja {
         this._eventBindHandle(node, attr, state);
         continue;
       }
+    }
 
-      // [(model)]="username"
-      if (modelp(name, this._modeldirective)) {
-        const nodeName: string = node.nodeName;
-        node.classList.add(
-          AjaModel.classes.untouched,
-          AjaModel.classes.pristine,
-          AjaModel.classes.valid
-        );
-        if (nodeName === "INPUT" || nodeName === "TEXTAREA") {
-          const inputNode = node as HTMLInputElement;
-          if (inputNode.type === "checkbox") {
-            const data = this._getData(value, state);
-            // 这个时候的data如果是array, 就对value进行处理
-            // 不然就当作bool值处理
-            if (!arrayp(data)) {
-              reaction(
-                () => [this._getData(value, state)],
-                states => {
-                  inputNode.checked = !!states[0];
-                }
-              );
-              inputNode.addEventListener("change", () => {
-                this._setDate(value, inputNode.checked, state);
-              });
-            } else {
-              reaction(
-                () => [this._getData(value, state)],
-                states => {
-                  const data = states[0];
-                  let ivalue: string | null = getCheckBoxValue(inputNode);
-                  inputNode.checked = data.some((d: any) => d === ivalue);
-                }
-              );
-              inputNode.addEventListener("change", () => {
-                const data = this._getData(value, state);
-                let ivalue: string | null = getCheckBoxValue(inputNode);
-                if (inputNode.checked) {
-                  data.push(ivalue);
-                } else {
-                  const newData = Store.list(
-                    data.filter((d: any) => d !== ivalue)
-                  );
-                  this._setDate(value, newData, state);
-                }
-              });
+    // 其它属性解析完，在解析双向绑定
+    const modelAttr = hasModelAttr(node, this._modeldirective);
+    if (modelAttr) {
+      const model = new BindingModelBuilder(node, modelAttr);
+      const { value } = modelAttr;
+      if (inputp(node) || textareap(node)) {
+        if (model.checkbox && checkboxp(model.checkbox)) {
+          const data = this._getData(value, state);
+          // 这个时候的data如果是array, 就对value进行处理
+          // 不然就当作bool值处理
+          const isArrayData = arrayp(data);
+          reaction(
+            () => [this._getData(value, state)],
+            states => {
+              model.checkboxSetup(states, isArrayData);
             }
-          } else if (inputNode.type === "radio") {
-            // 单选按钮
-            reaction(
-              () => [this._getData(value, state)],
-              states => {
-                inputNode.checked = states[0] === inputNode.value;
-              }
-            );
-
-            inputNode.addEventListener("change", () => {
-              let newData = inputNode.value;
-              if (newData === "on") newData = "";
-              this._setDate(value, newData, state);
-              inputNode.checked = true;
-            });
-          } else {
-            // 其它
-            reaction(
-              () => [this._getData(value, state)],
-              states => {
-                const value = states[0];
-                if (inputNode.required && !value) {
-                  // 控件的值无效
-                  inputNode.classList.replace(
-                    AjaModel.classes.valid,
-                    AjaModel.classes.invalid
-                  );
-                } else {
-                  // 控件的值有效
-                  inputNode.classList.replace(
-                    AjaModel.classes.invalid,
-                    AjaModel.classes.valid
-                  );
-                }
-                inputNode.value = value;
-              }
-            );
-            // 值发生变化了
-            inputNode.addEventListener("input", () => {
-              this._setDate(value, inputNode.value, state);
-              inputNode.classList.replace(
-                AjaModel.classes.pristine,
-                AjaModel.classes.dirty
-              );
-            });
-
-            // 控件被访问了
-            inputNode.addEventListener("blur", () => {
-              inputNode.classList.replace(
-                AjaModel.classes.untouched,
-                AjaModel.classes.touched
-              );
-            });
-          }
-        } else if (nodeName === "SELECT") {
-          // 对比value
-          const selectElement = node as HTMLSelectElement;
-          // 稍微延迟下，因为内部的模板可能没有解析
-          setTimeout(() => {
-            reaction(
-              () => [this._getData(value, state)],
-              states => {
-                const data = states[0];
-                const selectOptions = Array.from(selectElement.options);
-                let notFind = true;
-                // 多选参数必须为 array
-                if (selectElement.multiple && arrayp(data)) {
-                  selectElement.selectedIndex = -1;
-                  for (let index = 0; index < selectOptions.length; index++) {
-                    const option = selectOptions[index];
-                    const v = option.value;
-                    if ((data as Array<any>).some(d => d === v)) {
-                      notFind = false;
-                      option.selected = true;
-                    }
-                  }
-                } else {
-                  // 没找到默认-1
-                  const index = selectOptions.findIndex(
-                    op => op.value === data
-                  );
-                  selectElement.selectedIndex = index;
-                  notFind = false;
-                }
-                if (notFind) selectElement.selectedIndex = -1;
-              }
-            );
+          );
+          model.checkboxChangeListener(isArrayData, data, newValue => {
+            this._setDate(value, newValue, state);
           });
-          selectElement.addEventListener("change", () => {
-            if (selectElement.multiple) {
-              const multipleValue = Array.from(selectElement.options)
-                .filter(op => op.selected)
-                .map(op => op.value);
-              this._setDate(value, multipleValue, state);
-            } else {
-              this._setDate(value, selectElement.value, state);
+        } else if (model.radio && radiop(model.radio)) {
+          // 单选按钮
+          reaction(
+            () => [this._getData(value, state)],
+            states => {
+              model.radioSetup(states);
             }
+          );
+          model.radioChangeListener(newValue => {
+            this._setDate(value, newValue, state);
+          });
+        } else {
+          // 其它
+          reaction(
+            () => [this._getData(value, state)],
+            states => {
+              model.inputSetup(states);
+            }
+          );
+          model.inputChangeListener(newValue => {
+            this._setDate(value, newValue, state);
           });
         }
-
-        node.removeAttribute(name);
+      } else if (selectp(node)) {
+        setTimeout(() => {
+          reaction(
+            () => [this._getData(value, state)],
+            states => {
+              model.selectSetup(states);
+            }
+          );
+        });
+        model.selectChangeListener(newValue => {
+          this._setDate(value, newValue, state);
+        });
       }
     }
   }
@@ -352,8 +244,8 @@ class Aja {
    */
   private _getData(key: string, state: State): any {
     if (typeof key !== "string") return null;
-    // 优先解析管道
-    const [bindKey, ...pipes] = key.split(/\b\|\b/).map(e => e.trim());
+    // 抽掉所有空格，再把管道排除
+    const [bindKey, pipeList] = parsePipe(key);
     // 在解析绑定的变量
     const bindKeys = bindKey.split(".");
     let _result: any;
@@ -391,19 +283,6 @@ class Aja {
       _result = this._parseJsString(bindKey, state);
     }
 
-    // 开始管道加工
-    if (pipes.length) {
-      pipes.forEach(pipe => {
-        const [p, ...pipeArgs] = pipe.split(":");
-        if (p in this._pipes) {
-          const parsePipeArgs = pipeArgs.map(arg => {
-            if (isNumber(arg)) return arg;
-            return this._getData(arg, state);
-          });
-          _result = this._pipes[p](_result, ...parsePipeArgs);
-        }
-      });
-    }
     return _result;
   }
 
@@ -528,6 +407,8 @@ class Aja {
           () => [this._getData(value, state)],
           states => {
             show = states[0];
+            const pipeList = parsePipe(value)[1];
+            show = usePipes(show, pipeList, key => this._getData(key, state));
             bifb.checked(show);
           }
         );
@@ -543,38 +424,50 @@ class Aja {
    * @param state
    */
   private _parseBindFor(node: HTMLElement, state: State): boolean {
-    const bforb = new BindingForBuilder(node, this._forInstruction);
-    if (bforb.hasForAttr) {
+    const forBuilder = new BindingForBuilder(node, this._forInstruction);
+    if (forBuilder.hasForAttr) {
       // 创建注释节点
-      if (bforb.isNumberData) {
-        const _data = +(bforb.bindData as string);
+      if (forBuilder.isNumberData) {
+        let _data = +(forBuilder.bindData as string);
+
+        _data = usePipes(_data, forBuilder.pipes, key =>
+          this._getData(key, state)
+        );
+
         for (let v = 0; v < _data; v++) {
-          const forState = bforb.createForContextState(v);
-          const item = bforb.createItem();
+          const forState = forBuilder.createForContextState(v);
+          const item = forBuilder.createItem();
           this._define(item as HTMLElement, forState);
         }
-        bforb.draw(_data);
+        forBuilder.draw(_data);
       } else {
         const _that = this;
         reaction(
-          () => [this._getData(bforb.bindData as string, state)],
+          () => [this._getData(forBuilder.bindData as string, state)],
           states => {
-            const _data = states[0];
-            bforb.clear();
+            let _data = states[0];
+            _data = usePipes(_data, forBuilder.pipes, key =>
+              this._getData(key, state)
+            );
+            forBuilder.clear();
             let keys;
             if (arrayp(_data)) keys = Object.keys(_data);
             else keys = _data;
             for (const k in keys) {
-              const forState = bforb.createForContextState(k, _data[k], false);
-              const item = bforb.createItem();
+              const forState = forBuilder.createForContextState(
+                k,
+                _data[k],
+                false
+              );
+              const item = forBuilder.createItem();
               _that._define(item as HTMLElement, forState);
             }
-            bforb.draw(_data);
+            forBuilder.draw(_data);
           }
         );
       }
     }
-    return !bforb.hasForAttr;
+    return !forBuilder.hasForAttr;
   }
 
   /**
@@ -754,14 +647,11 @@ class Aja {
    * @param state
    */
   private _setTextContent(childNode: ChildNode, state: State): void {
-    const btextb = new BindingTextBuilder(childNode);
-    if (!btextb.needParse) return;
-    reaction(
-      () => btextb.bindVariables!.map(k => this._getData(k, state)),
-      (states: any[]) => {
-        btextb.draw(states);
-      }
-    );
+    const textBuilder = new BindingTextBuilder(childNode);
+    if (!textBuilder.needParse) return;
+    autorun(() => {
+      textBuilder.setText(key => this._getData(key, state));
+    });
   }
 }
 

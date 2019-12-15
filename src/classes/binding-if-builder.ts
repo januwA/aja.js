@@ -33,7 +33,6 @@ export class BindingIfBuilder {
   /**
    * * 这里使用了回调把template标签给渲染了
    * @param show
-   * @param cb
    */
   checked(show: boolean) {
     if (!this.commentNode) return;

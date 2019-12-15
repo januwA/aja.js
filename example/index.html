@@ -17,24 +17,38 @@
 
   <body>
     <div class="app">
-      <input required type="text" [(model)]="name" #nameModel="ajaModel" />
-      <div [hidden]="nameModel.valid || nameModel.pristine">
-        Name is required
-      </div>
-
-      <button (click)="asd(nameModel)">change</button>
+      <p :for="el in 3 | inc:3">hello</p>
+      <p [title]="name | uppercase ">{{ info | json }}</p>
+      <button (click)="asd()">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
+        pipes: {
+          inc(v, n = 1) {
+            return +v + +n;
+          }
+        },
         state: {
-          name: ""
+          name: "ajanuw",
+          info: [
+            {
+              name: "a",
+              select: true
+            },
+            {
+              name: "b",
+              select: true
+            },
+            {
+              name: "c",
+              select: true
+            }
+          ]
         },
         actions: {
-          asd(m) {
-            l(m);
-          }
+          asd(m) {}
         }
       });
       // console.log(vm);

@@ -3,6 +3,7 @@ import { Store } from "../store";
 export class AjaModel {
   static classes = {
     // 控件被访问过
+    // 一般就是监听blur事件
     touched: "aja-touched", // true
     untouched: "aja-untouched", // false
 

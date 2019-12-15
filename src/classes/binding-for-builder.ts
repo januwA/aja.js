@@ -1,5 +1,6 @@
-import { arrayp, emptyString, isNumber, hasForAttr } from "../utils/util";
+import { emptyString, hasForAttr, parsePipe } from "../utils/util";
 import { eventStartExp, eventEndExp } from "../utils/exp";
+import { numberp, arrayp } from "../utils/p";
 
 export class BindingForBuilder {
   /**
@@ -10,7 +11,7 @@ export class BindingForBuilder {
   private fragment: DocumentFragment | undefined;
   private forBuffer: Node[] = [];
 
-  private forAttr: Attr | undefined;
+  forAttr: Attr | undefined;
 
   constructor(public node: HTMLElement, public forInstruction: string) {
     let forAttr = hasForAttr(node, forInstruction);
@@ -31,6 +32,7 @@ export class BindingForBuilder {
     variable: string;
     variables: string[];
     bindData: string;
+    pipes: string[];
   } | null {
     if (!this.forAttr) return null;
     let [variable, bindData] = this.forAttr.value
@@ -42,10 +44,12 @@ export class BindingForBuilder {
       .replace(eventEndExp, emptyString)
       .split(",")
       .map(v => v.trim());
+    const p = parsePipe(bindData);
     return {
       variable,
       variables,
-      bindData
+      bindData: p[0],
+      pipes: p[1]
     };
   }
 
@@ -71,7 +75,14 @@ export class BindingForBuilder {
   }
   get isNumberData(): boolean | undefined {
     if (this.hasForAttr) {
-      return isNumber(this.bindData as string);
+      return numberp(this.bindData as string);
+    }
+  }
+  get pipes(): string[] {
+    if (this.hasForAttr) {
+      return this.forAttrValue?.pipes || [];
+    } else {
+      return [];
     }
   }
 
