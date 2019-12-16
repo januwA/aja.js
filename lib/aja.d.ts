@@ -1,9 +1,10 @@
 import { State, Actions, Computeds } from "./store";
-export interface Pipe {
-    (...value: any[]): any;
+import { Pipes } from "./pipes/pipes";
+export interface GetDataCallBack {
+    (key: string): any;
 }
-export interface Pipes {
-    [pipeName: string]: Pipe;
+export interface SetDataCallBack {
+    (newData: any): void;
 }
 export interface Options {
     state?: State;
@@ -43,7 +44,6 @@ declare class Aja {
     private get _forInstruction();
     $store: State;
     get $actions(): any;
-    private _pipes;
     constructor(view: string | HTMLElement, options: Options);
     /**
      * 扫描绑定
@@ -93,7 +93,7 @@ declare class Aja {
      */
     private _parseArgsToArguments;
     /**
-     * 解析一个节点上是否绑定了:if指令, 并更具指令的值来解析节点
+     * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点
      * @param node
      * @param attrs
      */

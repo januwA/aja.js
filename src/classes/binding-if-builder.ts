@@ -1,4 +1,4 @@
-import { hasIfAttr, templatep } from "../utils/util";
+import { hasIfAttr } from "../utils/util";
 
 export class BindingIfBuilder {
   /**
@@ -34,10 +34,11 @@ export class BindingIfBuilder {
    * * 这里使用了回调把template标签给渲染了
    * @param show
    */
-  checked(show: boolean) {
+  checked(show: boolean, cb?: () => void) {
     if (!this.commentNode) return;
     if (show) {
       this.commentNode.after(this.node);
+      if (cb) cb();
     } else {
       this.node.replaceWith(this.commentNode);
     }

@@ -4,6 +4,22 @@
   (global = global || self, global.Aja = factory());
 }(this, (function () { 'use strict';
 
+  //* 匹配 {{ name }} {{ obj.age }}
+  // export const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
+  const interpolationExpressionExp = /{{(.*?)}}/g;
+  //* 匹配空格
+  const spaceExp = /\s/g;
+  const attrStartExp = /^\[/;
+  const attrEndExp = /\]$/;
+  const eventStartExp = /^\(/;
+  const eventEndExp = /\)$/;
+  const tempvarExp = /^#/;
+  const parsePipesExp = /(?<![\|])\|(?![\|])/;
+
+  const objectTag = "[object Object]";
+  const arrayTag = "[object Array]";
+  const strString = "string";
+
   function createRoot(view) {
       return typeof view === "string"
           ? document.querySelector(view)
@@ -103,11 +119,88 @@
    */
   function parsePipe(key) {
       const [bindKey, ...pipes] = key
-          .replace(/[\s]/g, "")
-          .split(/(?<![\|])\|(?![\|])/);
+          .replace(spaceExp, emptyString)
+          .split(parsePipesExp);
       return [bindKey, pipes];
   }
-  //# sourceMappingURL=util.js.map
+  const emptyp = function (value) {
+      return JSON.stringify(value).length === 2 ? true : false;
+  };
+  function _equal(obj, other, equalp = false) {
+      function Equal(obj, other, equalp) {
+          let objTag = dataTag(obj);
+          let otherTag = dataTag(other);
+          if (objTag !== objectTag &&
+              objTag !== arrayTag &&
+              otherTag !== objectTag &&
+              otherTag !== arrayTag) {
+              if (equalp && typeof obj === strString && typeof other === strString) {
+                  return obj.toLocaleUpperCase() === other.toLocaleUpperCase();
+              }
+              return obj === other;
+          }
+          if (objTag !== otherTag)
+              return false; // 集合类型不一样
+          // if (
+          //   Object.getOwnPropertyNames(obj).length !==
+          //   Object.getOwnPropertyNames(other).length
+          // )
+          if (Object.keys(obj).length !== Object.keys(other).length)
+              return false; // 集合元素数量不一样
+          if (emptyp(obj) && emptyp(other))
+              return true; // 类型一样的空集合，永远相等。
+          let data = (function () {
+              let data = Object.getOwnPropertyNames(obj);
+              if (objTag === arrayTag) {
+                  data.pop();
+                  return data;
+              }
+              else {
+                  return data;
+              }
+          })();
+          for (const i in data) {
+              const k = data[i];
+              if (k in other) {
+                  // 元素是否相交
+                  let obj_value = obj[k];
+                  let other_value = other[k];
+                  let obj_item_tag = dataTag(obj_value);
+                  let other_item_tag = dataTag(other_value);
+                  if (obj_item_tag === other_item_tag) {
+                      if (obj_item_tag === objectTag ||
+                          obj_item_tag === arrayTag ||
+                          other_item_tag === objectTag ||
+                          other_item_tag === arrayTag) {
+                          return Equal(obj_value, other_value, equalp);
+                      }
+                      else {
+                          if (obj_value === other_value) ;
+                          else {
+                              return false;
+                          }
+                      }
+                  }
+                  else {
+                      return false;
+                  }
+              }
+              else {
+                  return false;
+              }
+          }
+          return true;
+      }
+      return Equal(obj, other, equalp);
+  }
+  /**
+   * * 不忽略大小写
+   * @param obj
+   * @param other
+   */
+  function equal(obj, other) {
+      return _equal(obj, other, false);
+  }
 
   /**
    * * 谓词
@@ -173,15 +266,15 @@
   function radiop(node) {
       return node.type === "radio";
   }
-  //# sourceMappingURL=p.js.map
 
   const l = console.log;
   const reactionListeners = [];
   function reactionUpdate(some) {
       for (const reactionItem of reactionListeners) {
           const stateList = reactionItem.listenerStateList();
-          l(some, stateList[0], stateList.some(e => e === some));
-          if (stateList.some(e => e === some)) {
+          // equal 深比较
+          l(some, stateList[0]);
+          if (stateList.some(e => equal(e, some))) {
               reactionItem.cb(stateList);
           }
       }
@@ -294,7 +387,7 @@
                   },
                   set(newValue) {
                       // 设置了同样的值， 将跳过
-                      if (newValue === object[k])
+                      if (equal(newValue, object[k]))
                           return;
                       object[k] = newValue;
                       autorunUpdate();
@@ -308,9 +401,9 @@
       }
       /**
        * * 拦截数组的非幕等方, 并循环代理每个元素
-       * @param array
+       * @param list
        */
-      static list(array) {
+      static list(list) {
           const resriteMethods = [
               "push",
               "pop",
@@ -325,10 +418,10 @@
               const original = proto[m];
               Object.defineProperty(proto, m, {
                   value: function (...args) {
-                      const r = original.apply(this, args);
+                      const r = original.apply(list, args);
                       // 跟新
                       autorunUpdate();
-                      reactionUpdate(this);
+                      reactionUpdate(list);
                       return r;
                   },
                   writable: true,
@@ -336,9 +429,8 @@
                   enumerable: false // 可被枚举 for(let i in o)
               });
           });
-          Object.setPrototypeOf(array, proto);
           // 遍历代理数组每项的值
-          array = array.map(el => {
+          const newList = list.map(el => {
               if (objectp(el)) {
                   return Store.map(el);
               }
@@ -347,22 +439,10 @@
               }
               return el;
           });
-          return array;
+          Object.setPrototypeOf(newList, proto);
+          return newList;
       }
   }
-  //# sourceMappingURL=store.js.map
-
-  //* 匹配 {{ name }} {{ obj.age }}
-  // export const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
-  const interpolationExpressionExp = /{{(.*?)}}/g;
-  //* 匹配空格
-  const spaceExp = /\s/g;
-  const attrStartExp = /^\[/;
-  const attrEndExp = /\]$/;
-  const eventStartExp = /^\(/;
-  const eventEndExp = /\)$/;
-  const tempvarExp = /^#/;
-  //# sourceMappingURL=exp.js.map
 
   class BindingIfBuilder {
       constructor(node, ifInstruction) {
@@ -390,11 +470,13 @@
        * * 这里使用了回调把template标签给渲染了
        * @param show
        */
-      checked(show) {
+      checked(show, cb) {
           if (!this.commentNode)
               return;
           if (show) {
               this.commentNode.after(this.node);
+              if (cb)
+                  cb();
           }
           else {
               this.node.replaceWith(this.commentNode);
@@ -405,7 +487,6 @@
           return `{":if": "${!!value}"}`;
       }
   }
-  //# sourceMappingURL=binding-if-builder.js.map
 
   class BindingForBuilder {
       constructor(node, forInstruction) {
@@ -428,8 +509,8 @@
       get forAttrValue() {
           if (!this.forAttr)
               return null;
-          let [variable, bindData] = this.forAttr.value
-              .split(/\bin\b/)
+          let [variable, bindKey] = this.forAttr.value
+              .split(/\bin|of\b/)
               .map(s => s.trim());
           const variables = variable
               .trim()
@@ -437,7 +518,7 @@
               .replace(eventEndExp, emptyString)
               .split(",")
               .map(v => v.trim());
-          const p = parsePipe(bindData);
+          const p = parsePipe(bindKey);
           return {
               variable,
               variables,
@@ -557,7 +638,6 @@
           return item;
       }
   }
-  //# sourceMappingURL=binding-for-builder.js.map
 
   const pipes = {
       /**
@@ -612,7 +692,6 @@
       }
       return _result;
   }
-  //# sourceMappingURL=pipes.js.map
 
   class BindingTextBuilder {
       constructor(node) {
@@ -638,7 +717,6 @@
           }
       }
   }
-  //# sourceMappingURL=binding-text-builder.js.map
 
   class AjaModel {
       constructor(node) {
@@ -722,7 +800,6 @@
       valid: "aja-valid",
       invalid: "aja-invalid" // false
   };
-  //# sourceMappingURL=aja-model.js.map
 
   class BindingModelBuilder {
       constructor(node, modelAttr) {
@@ -888,8 +965,8 @@
           this.node.classList.replace(AjaModel.classes.untouched, AjaModel.classes.touched);
       }
   }
-  //# sourceMappingURL=binding-model-builder.js.map
 
+  const l$1 = console.log;
   class Aja {
       constructor(view, options) {
           /**
@@ -953,7 +1030,7 @@
               if (depath)
                   depath = this._parseBindFor(root, state);
               if (depath) {
-                  const attrs = Array.from(root.attributes);
+                  const attrs = toArray(root.attributes);
                   this._parseBindAttrs(root, attrs, state);
               }
           }
@@ -969,7 +1046,7 @@
        */
       _parseBindAttrs(node, attrs, state) {
           for (const attr of attrs) {
-              const { name, value } = attr;
+              const { name } = attr;
               // #input #username
               if (tempvarp(name)) {
                   this._tempvarBindHandle(node, attr);
@@ -1188,25 +1265,27 @@
           });
       }
       /**
-       * 解析一个节点上是否绑定了:if指令, 并更具指令的值来解析节点
+       * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点
        * @param node
        * @param attrs
        */
       _parseBindIf(node, state) {
           let show = true;
-          const bifb = new BindingIfBuilder(node, this._ifInstruction);
-          if (bifb.hasIfAttr) {
-              const value = bifb.value;
+          const ifBuilder = new BindingIfBuilder(node, this._ifInstruction);
+          if (ifBuilder.hasIfAttr) {
+              const value = ifBuilder.value;
               if (boolStringp(value)) {
                   show = value === "true";
-                  bifb.checked(show);
+                  ifBuilder.checked(show);
               }
               else {
-                  reaction(() => [this._getData(value, state)], states => {
+                  const [bindKey, pipeList] = parsePipe(value);
+                  reaction(() => [this._getData(bindKey, state)], states => {
                       show = states[0];
-                      const pipeList = parsePipe(value)[1];
                       show = usePipes(show, pipeList, key => this._getData(key, state));
-                      bifb.checked(show);
+                      ifBuilder.checked(show, () => {
+                          this._define(node, state);
+                      });
                   });
               }
           }
@@ -1221,7 +1300,6 @@
       _parseBindFor(node, state) {
           const forBuilder = new BindingForBuilder(node, this._forInstruction);
           if (forBuilder.hasForAttr) {
-              // 创建注释节点
               if (forBuilder.isNumberData) {
                   let _data = +forBuilder.bindData;
                   _data = usePipes(_data, forBuilder.pipes, key => this._getData(key, state));
@@ -1260,69 +1338,129 @@
        * @param param1
        */
       _attrBindHandle(node, { name, value }, state) {
+          // [style.coloe] => [style, coloe]
           let [attrName, attrChild] = name
               .replace(attrStartExp, emptyString)
               .replace(attrEndExp, emptyString)
               .split(".");
-          reaction(() => [this._getData(value, state)], states => {
-              const data = states[0];
-              if (attrName === "style") {
-                  if (attrChild && attrChild in node.style) {
-                      node.style[attrChild] = data;
-                  }
-                  else {
-                      const styles = data;
-                      for (const key in styles) {
-                          if (Object.getOwnPropertyDescriptor(node.style, key) &&
-                              styles[key]) {
-                              reaction(() => [styles[key]], states => {
-                                  node.style[key] = states[0];
-                              });
+          const [bindKey, pipeList] = parsePipe(value);
+          // reaction(
+          //   () => [this._getData(bindKey, state)],
+          //   states => {
+          //     let data = states[0];
+          //     data = usePipes(data, pipeList, arg => this._getData(arg, state));
+          //     let _value = data;
+          //     switch (attrName) {
+          //       case "style":
+          //         if (attrChild && attrChild in node.style) {
+          //           (node.style as { [k: string]: any })[attrChild] = data;
+          //         } else {
+          //           const styles: CSSStyleDeclaration = data;
+          //           for (const key in styles) {
+          //             if (
+          //               Object.getOwnPropertyDescriptor(node.style, key) &&
+          //               styles[key]
+          //             ) {
+          //               reaction(
+          //                 () => [styles[key]],
+          //                 states => {
+          //                   node.style[key] = states[0];
+          //                 }
+          //               );
+          //             }
+          //           }
+          //         }
+          //         break;
+          //       case "class":
+          //         if (_value === null) _value = emptyString;
+          //         if (!attrChild) {
+          //           if (objectp(_value)) {
+          //             for (const klass in _value) {
+          //               if (_value[klass]) node.classList.add(klass);
+          //               else node.classList.remove(klass);
+          //             }
+          //           } else {
+          //             node.setAttribute("class", _value);
+          //           }
+          //         } else {
+          //           if (_value) node.classList.add(attrChild);
+          //         }
+          //         break;
+          //       case "html":
+          //         if (data !== node.innerHTML) node.innerHTML = data;
+          //         break;
+          //       default:
+          //         if (_value === null) _value = emptyString;
+          //         if (_value) {
+          //           if (node.getAttribute(attrName) !== _value) {
+          //             node.setAttribute(attrName, _value);
+          //           }
+          //         } else {
+          //           if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
+          //         }
+          //         break;
+          //     }
+          //   }
+          // );
+          autorun(() => {
+              let data = this._getData(bindKey, state);
+              data = usePipes(data, pipeList, arg => this._getData(arg, state));
+              let _value = data;
+              switch (attrName) {
+                  case "style":
+                      l$1(data);
+                      if (attrChild && attrChild in node.style) {
+                          node.style[attrChild] = data;
+                      }
+                      else {
+                          const styles = data;
+                          for (const key in styles) {
+                              if (Object.getOwnPropertyDescriptor(node.style, key) &&
+                                  styles[key]) {
+                                  if (styles[key] !== node.style[key])
+                                      node.style[key] = styles[key];
+                              }
                           }
                       }
-                  }
-              }
-              else if (attrName === "class") {
-                  let _value = data;
-                  if (_value === null)
-                      _value = emptyString;
-                  if (!attrChild) {
-                      if (objectp(_value)) {
-                          for (const klass in _value) {
-                              reaction(() => [_value[klass]], states => {
-                                  if (states[0]) {
+                      break;
+                  case "class":
+                      if (_value === null)
+                          _value = emptyString;
+                      if (!attrChild) {
+                          if (objectp(_value)) {
+                              for (const klass in _value) {
+                                  if (_value[klass])
                                       node.classList.add(klass);
-                                  }
-                                  else {
+                                  else
                                       node.classList.remove(klass);
-                                  }
-                              });
+                              }
+                          }
+                          else {
+                              node.setAttribute("class", _value);
                           }
                       }
                       else {
-                          node.setAttribute(attrName, _value);
+                          if (_value)
+                              node.classList.add(attrChild);
                       }
-                  }
-                  else {
+                      break;
+                  case "html":
+                      if (data !== node.innerHTML)
+                          node.innerHTML = data;
+                      break;
+                  default:
+                      if (_value === null)
+                          _value = emptyString;
                       if (_value) {
-                          node.classList.add(attrChild);
+                          if (node.getAttribute(attrName) !== _value) {
+                              node.setAttribute(attrName, _value);
+                          }
                       }
-                  }
-              }
-              else if (attrName === "innerhtml") {
-                  node.innerHTML = data;
-              }
-              else {
-                  let _value = data;
-                  if (_value === null)
-                      _value = emptyString;
-                  if (_value) {
-                      node.setAttribute(attrName, _value);
-                  }
-                  else {
-                      if (node.hasAttribute(attrName))
-                          node.removeAttribute(attrName);
-                  }
+                      else {
+                          if (node.hasAttribute(attrName))
+                              node.removeAttribute(attrName);
+                      }
+                      break;
               }
           });
           node.removeAttribute(name);
@@ -1422,8 +1560,6 @@
           });
       }
   }
-
-  //# sourceMappingURL=main.js.map
 
   return Aja;
 

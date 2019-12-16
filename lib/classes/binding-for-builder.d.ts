@@ -7,7 +7,7 @@ export declare class BindingForBuilder {
     private commentNode;
     private fragment;
     private forBuffer;
-    private forAttr;
+    forAttr: Attr | undefined;
     constructor(node: HTMLElement, forInstruction: string);
     get hasForAttr(): boolean;
     private get forAttrValue();
@@ -16,6 +16,7 @@ export declare class BindingForBuilder {
     get bindValue(): string | undefined;
     get bindData(): string | undefined;
     get isNumberData(): boolean | undefined;
+    get pipes(): string[];
     /**
      * * 添加一个节点
      * @param item

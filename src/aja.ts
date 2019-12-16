@@ -5,7 +5,10 @@ import {
   parseTemplateEventArgs,
   ourEval,
   hasModelAttr,
-  parsePipe
+  parsePipe,
+  toArray,
+  equalp,
+  equal
 } from "./utils/util";
 import { Store, State, Actions, Computeds, reaction, autorun } from "./store";
 import {
@@ -127,7 +130,7 @@ class Aja {
       depath = this._parseBindIf(root, state);
       if (depath) depath = this._parseBindFor(root, state);
       if (depath) {
-        const attrs: Attr[] = Array.from(root.attributes);
+        const attrs: Attr[] = toArray(root.attributes);
         this._parseBindAttrs(root, attrs, state);
       }
     }
@@ -145,7 +148,7 @@ class Aja {
    */
   private _parseBindAttrs(node: HTMLElement, attrs: Attr[], state: State) {
     for (const attr of attrs) {
-      const { name, value } = attr;
+      const { name } = attr;
       // #input #username
       if (tempvarp(name)) {
         this._tempvarBindHandle(node, attr);
@@ -390,26 +393,28 @@ class Aja {
   }
 
   /**
-   * 解析一个节点上是否绑定了:if指令, 并更具指令的值来解析节点
+   * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点
    * @param node
    * @param attrs
    */
   private _parseBindIf(node: HTMLElement, state: State): boolean {
     let show = true;
-    const bifb = new BindingIfBuilder(node, this._ifInstruction);
-    if (bifb.hasIfAttr) {
-      const value = bifb.value as string;
+    const ifBuilder = new BindingIfBuilder(node, this._ifInstruction);
+    if (ifBuilder.hasIfAttr) {
+      const value = ifBuilder.value as string;
       if (boolStringp(value)) {
         show = value === "true";
-        bifb.checked(show);
+        ifBuilder.checked(show);
       } else {
+        const [bindKey, pipeList] = parsePipe(value);
         reaction(
-          () => [this._getData(value, state)],
+          () => [this._getData(bindKey, state)],
           states => {
             show = states[0];
-            const pipeList = parsePipe(value)[1];
             show = usePipes(show, pipeList, key => this._getData(key, state));
-            bifb.checked(show);
+            ifBuilder.checked(show, () => {
+              this._define(node, state);
+            });
           }
         );
       }
@@ -426,10 +431,8 @@ class Aja {
   private _parseBindFor(node: HTMLElement, state: State): boolean {
     const forBuilder = new BindingForBuilder(node, this._forInstruction);
     if (forBuilder.hasForAttr) {
-      // 创建注释节点
       if (forBuilder.isNumberData) {
         let _data = +(forBuilder.bindData as string);
-
         _data = usePipes(_data, forBuilder.pipes, key =>
           this._getData(key, state)
         );
@@ -480,15 +483,80 @@ class Aja {
     { name, value }: Attr,
     state: State
   ): void {
+    // [style.coloe] => [style, coloe]
     let [attrName, attrChild] = name
       .replace(attrStartExp, emptyString)
       .replace(attrEndExp, emptyString)
       .split(".");
-    reaction(
-      () => [this._getData(value, state)],
-      states => {
-        const data = states[0];
-        if (attrName === "style") {
+    const [bindKey, pipeList] = parsePipe(value);
+    // reaction(
+    //   () => [this._getData(bindKey, state)],
+    //   states => {
+    //     let data = states[0];
+    //     data = usePipes(data, pipeList, arg => this._getData(arg, state));
+
+    //     let _value = data;
+    //     switch (attrName) {
+    //       case "style":
+    //         if (attrChild && attrChild in node.style) {
+    //           (node.style as { [k: string]: any })[attrChild] = data;
+    //         } else {
+    //           const styles: CSSStyleDeclaration = data;
+    //           for (const key in styles) {
+    //             if (
+    //               Object.getOwnPropertyDescriptor(node.style, key) &&
+    //               styles[key]
+    //             ) {
+    //               reaction(
+    //                 () => [styles[key]],
+    //                 states => {
+    //                   node.style[key] = states[0];
+    //                 }
+    //               );
+    //             }
+    //           }
+    //         }
+    //         break;
+    //       case "class":
+    //         if (_value === null) _value = emptyString;
+    //         if (!attrChild) {
+    //           if (objectp(_value)) {
+    //             for (const klass in _value) {
+    //               if (_value[klass]) node.classList.add(klass);
+    //               else node.classList.remove(klass);
+    //             }
+    //           } else {
+    //             node.setAttribute("class", _value);
+    //           }
+    //         } else {
+    //           if (_value) node.classList.add(attrChild);
+    //         }
+    //         break;
+    //       case "html":
+    //         if (data !== node.innerHTML) node.innerHTML = data;
+    //         break;
+
+    //       default:
+    //         if (_value === null) _value = emptyString;
+    //         if (_value) {
+    //           if (node.getAttribute(attrName) !== _value) {
+    //             node.setAttribute(attrName, _value);
+    //           }
+    //         } else {
+    //           if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
+    //         }
+    //         break;
+    //     }
+    //   }
+    // );
+    autorun(() => {
+      let data = this._getData(bindKey, state);
+      data = usePipes(data, pipeList, arg => this._getData(arg, state));
+
+      let _value = data;
+      switch (attrName) {
+        case "style":
+          l(data);
           if (attrChild && attrChild in node.style) {
             (node.style as { [k: string]: any })[attrChild] = data;
           } else {
@@ -498,53 +566,43 @@ class Aja {
                 Object.getOwnPropertyDescriptor(node.style, key) &&
                 styles[key]
               ) {
-                reaction(
-                  () => [styles[key]],
-                  states => {
-                    node.style[key] = states[0];
-                  }
-                );
+                if (styles[key] !== node.style[key])
+                  node.style[key] = styles[key];
               }
             }
           }
-        } else if (attrName === "class") {
-          let _value = data;
+          break;
+        case "class":
           if (_value === null) _value = emptyString;
           if (!attrChild) {
             if (objectp(_value)) {
               for (const klass in _value) {
-                reaction(
-                  () => [_value[klass]],
-                  states => {
-                    if (states[0]) {
-                      node.classList.add(klass);
-                    } else {
-                      node.classList.remove(klass);
-                    }
-                  }
-                );
+                if (_value[klass]) node.classList.add(klass);
+                else node.classList.remove(klass);
               }
             } else {
+              node.setAttribute("class", _value);
+            }
+          } else {
+            if (_value) node.classList.add(attrChild);
+          }
+          break;
+        case "html":
+          if (data !== node.innerHTML) node.innerHTML = data;
+          break;
+
+        default:
+          if (_value === null) _value = emptyString;
+          if (_value) {
+            if (node.getAttribute(attrName) !== _value) {
               node.setAttribute(attrName, _value);
             }
           } else {
-            if (_value) {
-              node.classList.add(attrChild);
-            }
-          }
-        } else if (attrName === "innerhtml") {
-          node.innerHTML = data;
-        } else {
-          let _value = data;
-          if (_value === null) _value = emptyString;
-          if (_value) {
-            node.setAttribute(attrName, _value);
-          } else {
             if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
           }
-        }
+          break;
       }
-    );
+    });
     node.removeAttribute(name);
   }
 

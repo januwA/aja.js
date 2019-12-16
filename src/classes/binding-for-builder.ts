@@ -35,8 +35,8 @@ export class BindingForBuilder {
     pipes: string[];
   } | null {
     if (!this.forAttr) return null;
-    let [variable, bindData] = this.forAttr.value
-      .split(/\bin\b/)
+    let [variable, bindKey] = this.forAttr.value
+      .split(/\bin|of\b/)
       .map(s => s.trim());
     const variables: string[] = variable
       .trim()
@@ -44,7 +44,7 @@ export class BindingForBuilder {
       .replace(eventEndExp, emptyString)
       .split(",")
       .map(v => v.trim());
-    const p = parsePipe(bindData);
+    const p = parsePipe(bindKey);
     return {
       variable,
       variables,

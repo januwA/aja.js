@@ -14,8 +14,7 @@ export declare class BindingIfBuilder {
     /**
      * * 这里使用了回调把template标签给渲染了
      * @param show
-     * @param cb
      */
-    checked(show: boolean): void;
+    checked(show: boolean, cb?: () => void): void;
     private _createIfCommentData;
 }

@@ -12,43 +12,45 @@
       .aja-invalid {
         border-color: red;
       }
+      .text-red {
+        color: red;
+      }
+      .f-2 {
+        font-size: 2rem;
+      }
     </style>
   </head>
 
   <body>
     <div class="app">
-      <p :for="el in 3 | inc:3">hello</p>
-      <p [title]="name | uppercase ">{{ info | json }}</p>
+      <p [html]="data | json" [style]="styles"></p>
+
       <button (click)="asd()">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
-        pipes: {
-          inc(v, n = 1) {
-            return +v + +n;
-          }
-        },
         state: {
           name: "ajanuw",
-          info: [
-            {
-              name: "a",
-              select: true
-            },
-            {
-              name: "b",
-              select: true
-            },
-            {
-              name: "c",
-              select: true
-            }
-          ]
+          data: {
+            items: [{ show: false }]
+          },
+          styles: {
+            color: "red",
+            fontSize: "3rem"
+          }
         },
         actions: {
-          asd(m) {}
+          asd(m) {
+            // this.name += "-";
+
+            // this.data.items[0].show = !this.data.items[0].show;
+
+            // l(this.data);
+            this.styles.color = "blue";
+            l(this.styles)
+          }
         }
       });
       // console.log(vm);

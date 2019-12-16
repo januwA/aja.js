@@ -96,7 +96,7 @@ export declare class Store {
     static map(object: State, context?: {}): {};
     /**
      * * 拦截数组的非幕等方, 并循环代理每个元素
-     * @param array
+     * @param list
      */
-    static list<T>(array: T[]): T[];
+    static list(list: any[]): any[];
 }

@@ -32,7 +32,7 @@
 ## 属性绑定
 ```html
 <p [title]="title" class="c" [style]="style"></p>
-<p [innerhtml]="'name'"></p>
+<p [html]="'name'"></p>
 ```
 
 ## 绑定class

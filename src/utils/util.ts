@@ -1,3 +1,6 @@
+import { spaceExp, parsePipesExp } from "./exp";
+import { objectTag, arrayTag, strString } from "./const-string";
+
 export function createRoot(view: string | HTMLElement): HTMLElement | null {
   return typeof view === "string"
     ? document.querySelector<HTMLElement>(view)
@@ -132,7 +135,99 @@ export function hasModelAttr(
  */
 export function parsePipe(key: string): [string, string[]] {
   const [bindKey, ...pipes] = key
-    .replace(/[\s]/g, "")
-    .split(/(?<![\|])\|(?![\|])/);
+    .replace(spaceExp, emptyString)
+    .split(parsePipesExp);
   return [bindKey, pipes];
+}
+const emptyp = function(value: any) {
+  return JSON.stringify(value).length === 2 ? true : false;
+};
+
+function _equal(obj: any, other: any, equalp: boolean = false): boolean {
+  function Equal(obj: any, other: any, equalp: boolean): boolean {
+    let objTag = dataTag(obj);
+    let otherTag = dataTag(other);
+
+    if (
+      objTag !== objectTag &&
+      objTag !== arrayTag &&
+      otherTag !== objectTag &&
+      otherTag !== arrayTag
+    ) {
+      if (equalp && typeof obj === strString && typeof other === strString) {
+        return obj.toLocaleUpperCase() === other.toLocaleUpperCase();
+      }
+      return obj === other;
+    }
+    if (objTag !== otherTag) return false; // 集合类型不一样
+    // if (
+    //   Object.getOwnPropertyNames(obj).length !==
+    //   Object.getOwnPropertyNames(other).length
+    // )
+    if (Object.keys(obj).length !== Object.keys(other).length) return false; // 集合元素数量不一样
+    if (emptyp(obj) && emptyp(other)) return true; // 类型一样的空集合，永远相等。
+
+    let data: any[] = (function() {
+      let data = Object.getOwnPropertyNames(obj);
+      if (objTag === arrayTag) {
+        data.pop();
+        return data;
+      } else {
+        return data;
+      }
+    })();
+
+    for (const i in data) {
+      const k = data[i];
+      if (k in other) {
+        // 元素是否相交
+        let obj_value = obj[k];
+        let other_value = other[k];
+        let obj_item_tag = dataTag(obj_value);
+        let other_item_tag = dataTag(other_value);
+
+        if (obj_item_tag === other_item_tag) {
+          if (
+            obj_item_tag === objectTag ||
+            obj_item_tag === arrayTag ||
+            other_item_tag === objectTag ||
+            other_item_tag === arrayTag
+          ) {
+            return Equal(obj_value, other_value, equalp);
+          } else {
+            if (obj_value === other_value) {
+            } else {
+              return false;
+            }
+          }
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  return Equal(obj, other, equalp);
+}
+
+/**
+ * * 不忽略大小写
+ * @param obj
+ * @param other
+ */
+export function equal(obj: any, other: any) {
+  return _equal(obj, other, false);
+}
+
+/**
+ * * 忽略大小写
+ * @param obj
+ * @param other
+ */
+export function equalp(obj: any, other: any) {
+  return _equal(obj, other, true);
 }
