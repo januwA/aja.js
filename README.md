@@ -58,6 +58,7 @@ state: {
 ```html
 <p style="font-family: Consolas;" [style.color]="'red'" [style.font-size]="size">x</p>
 <p style="font-family: Consolas;" [style]="styles">x</p> </div>
+
 state: {
   size: "5rem",
   styles: {
@@ -204,45 +205,42 @@ state: {
 - 不要在[initState]设置新state，应为不会被代理
 
 ```html
-<!DOCTYPE html>
-<html lang="en">
-  <body>
-    <div class="app">
-      <p>{{ age }}</p>
-      <button (click)="change">change</button>
-    </div>
-    <script>
-      const l = console.log;
-      let vm = new Aja(".app", {
-        state: {
-          age: null
-        },
-        initState() {
-          this.age = 2;
-        },
-        actions: {
-          change() {
-            this.age++;
-          }
-        }
-      });
-      // console.log(vm);
-    </script>
-  </body>
-</html>
+<div class="app">
+  <p>{{ age }}</p>
+  <button (click)="change">change</button>
+</div>
+<script>
+  const l = console.log;
+  let vm = new Aja(".app", {
+    state: {
+      age: null
+    },
+    initState() {
+      this.age = 2;
+    },
+    actions: {
+      change() {
+        this.age++;
+      }
+    }
+  });
+  // console.log(vm);
+</script>
 ```
 
 ## pipe
 ```html
-<p [title]="name | slice:0:3 | hello">hello</p>
-<p>{{ name | uppercase }}</p>
-<p>{{ name | lowercase }}</p>
-<p>{{ name | capitalize | hello }}</p>
-<p>{{ name | slice:1:3 }}</p>
-<hr>
-<ul>
-  <li :for="el in 4">{{ name | slice:0:el }}</li>
-</ul>
+<div class=".app">
+  <p [title]="name | slice:0:3 | hello">hello</p>
+  <p>{{ name | uppercase }}</p>
+  <p>{{ name | lowercase }}</p>
+  <p>{{ name | capitalize | hello }}</p>
+  <p>{{ name | slice:1:3 }}</p>
+  <hr>
+  <ul>
+    <li :for="el in 4">{{ name | slice:0:el }}</li>
+  </ul>
+</div>
 
 <script>
 let vm = new Aja(".app", {
@@ -280,9 +278,12 @@ let vm = new Aja(".app", {
   }
 </style>
 
-<input required type="text" [(model)]="name" #nameModel="ajaModel" />
-<div [hidden]="nameModel.valid || nameModel.pristine">Name is required</div>
-<button (click)="asd(nameModel)">change</button>
+
+<div class=".app">
+  <input required type="text" [(model)]="name" #nameModel="ajaModel" />
+  <div [hidden]="nameModel.valid || nameModel.pristine">Name is required</div>
+  <button (click)="asd(nameModel)">change</button>
+</div>
 <script>
   const l = console.log;
   let vm = new Aja(".app", {
