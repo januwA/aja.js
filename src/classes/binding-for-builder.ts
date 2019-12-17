@@ -4,6 +4,12 @@ import { numberp, arrayp } from "../utils/p";
 
 export class BindingForBuilder {
   /**
+   * :for="$_ of arr"
+   * :for="of arr"
+   */
+  static defaultKey = "$_";
+
+  /**
    * * 一个注释节点
    */
   private commentNode: Comment | undefined;
@@ -38,12 +44,16 @@ export class BindingForBuilder {
     let [variable, bindKey] = this.forAttr.value
       .split(/\bin|of\b/)
       .map(s => s.trim());
-    const variables: string[] = variable
-      .trim()
-      .replace(eventStartExp, emptyString)
-      .replace(eventEndExp, emptyString)
-      .split(",")
-      .map(v => v.trim());
+
+    let variables: string[] = [];
+    if (variable) {
+      variables = variable
+        .trim()
+        .replace(eventStartExp, emptyString)
+        .replace(eventEndExp, emptyString)
+        .split(",")
+        .map(v => v.trim());
+    }
     const p = parsePipe(bindKey);
     return {
       variable,
@@ -53,15 +63,11 @@ export class BindingForBuilder {
     };
   }
 
-  get bindVar(): string | undefined {
-    if (this.hasForAttr) {
-      return this.forAttrValue!.variable;
-    }
+  get bindVar(): string {
+    return this.forAttrValue!.variable || BindingForBuilder.defaultKey;
   }
-  get bindKey(): string | undefined {
-    if (this.hasForAttr) {
-      return this.forAttrValue!.variables[0];
-    }
+  get bindKey(): string {
+    return this.forAttrValue!.variables[0] || BindingForBuilder.defaultKey;
   }
   get bindValue(): string | undefined {
     if (this.hasForAttr) {
@@ -87,17 +93,6 @@ export class BindingForBuilder {
   }
 
   /**
-   * * 添加一个节点
-   * @param item
-   */
-  add(item: Node) {
-    if (this.fragment) {
-      this.fragment.append(item);
-      this.forBuffer.push(item);
-    }
-  }
-
-  /**
    * * 将所有节点插入DOM
    * @param data
    */
@@ -119,35 +114,15 @@ export class BindingForBuilder {
   }
 
   createForContextState(k: any, v: any = null, isNumber: boolean = true): {} {
-    const forState = {};
-    if (isNumber && this.bindVar) {
-      Object.defineProperty(forState, this.bindVar, {
-        get() {
-          return k;
-        }
-      });
+    const forState: { [k: string]: any } = {};
+    if (isNumber) {
+      forState[this.bindVar] = k;
     } else {
       if (this.bindKey && this.bindValue) {
-        Object.defineProperties(forState, {
-          [this.bindKey]: {
-            get() {
-              return k;
-            }
-          },
-          [this.bindValue]: {
-            get() {
-              return v;
-            }
-          }
-        });
+        forState[this.bindKey] = k;
+        forState[this.bindValue] = v;
       } else if (this.bindKey) {
-        Object.defineProperties(forState, {
-          [this.bindKey]: {
-            get() {
-              return v;
-            }
-          }
-        });
+        forState[this.bindKey] = v;
       }
     }
     return forState;
@@ -163,7 +138,10 @@ export class BindingForBuilder {
 
   createItem() {
     const item = this.node.cloneNode(true);
-    this.add(item);
+    if (this.fragment) {
+      this.forBuffer.push(item);
+      this.fragment.append(item);
+    }
     return item;
   }
 }

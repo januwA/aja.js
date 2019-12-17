@@ -1,6 +1,6 @@
 {
   "name": "aja.js",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "mvvm",
   "main": "lib/main.js",
   "types": "lib/main.d.ts",
@@ -22,9 +22,13 @@
   "repository": "januwA/aja.js",
   "devDependencies": {
     "@rollup/plugin-typescript": "^2.0.1",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-sourcemaps": "^0.4.2",
     "tslib": "^1.10.0",
     "typescript": "^3.7.2"
   },
-  "dependencies": {}
+  "dependencies": {
+    "mobx": "^5.15.1"
+  }
 }

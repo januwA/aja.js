@@ -6,17 +6,19 @@ import {
   ourEval,
   hasModelAttr,
   parsePipe,
-  toArray,
-  equalp,
-  equal
+  toArray
 } from "./utils/util";
-import { Store, State, Actions, Computeds, reaction, autorun } from "./store";
+
+import { observable, autorun, action } from "mobx";
+
 import {
   attrStartExp,
   attrEndExp,
   eventStartExp,
   eventEndExp,
-  tempvarExp
+  tempvarExp,
+  interpolationExpressionExp,
+  spaceExp
 } from "./utils/exp";
 import { BindingIfBuilder } from "./classes/binding-if-builder";
 import { BindingForBuilder } from "./classes/binding-for-builder";
@@ -48,9 +50,11 @@ export interface SetDataCallBack {
 }
 
 export interface Options {
-  state?: State;
-  actions?: Actions;
-  computeds?: Computeds;
+  /**
+   * 包含computed state
+   */
+  state?: any;
+  actions?: any;
   instructionPrefix?: string;
   templateEvent?: string;
   modeldirective?: string;
@@ -97,11 +101,9 @@ class Aja {
     return this._instructionPrefix + "for";
   }
 
-  $store!: State;
+  $store!: any;
 
-  get $actions() {
-    return this.$store.$actions;
-  }
+  $actions: any;
 
   constructor(view: string | HTMLElement, options: Options) {
     const root = createRoot(view);
@@ -121,7 +123,7 @@ class Aja {
    * 扫描绑定
    * @param root
    */
-  private _define(root: HTMLElement, state: State): void {
+  private _define(root: HTMLElement, state: any): void {
     let depath = true;
 
     // 没有attrs就不解析了
@@ -135,7 +137,7 @@ class Aja {
       }
     }
 
-    const children = Array.from(root.childNodes);
+    const children = toArray(root.childNodes);
     if (depath && children.length) {
       this._bindingChildrenAttrs(children, state);
     }
@@ -146,7 +148,7 @@ class Aja {
    * @param node
    * @param state
    */
-  private _parseBindAttrs(node: HTMLElement, attrs: Attr[], state: State) {
+  private _parseBindAttrs(node: HTMLElement, attrs: Attr[], state: any) {
     for (const attr of attrs) {
       const { name } = attr;
       // #input #username
@@ -176,49 +178,36 @@ class Aja {
       if (inputp(node) || textareap(node)) {
         if (model.checkbox && checkboxp(model.checkbox)) {
           const data = this._getData(value, state);
-          // 这个时候的data如果是array, 就对value进行处理
-          // 不然就当作bool值处理
-          const isArrayData = arrayp(data);
-          reaction(
-            () => [this._getData(value, state)],
-            states => {
-              model.checkboxSetup(states, isArrayData);
-            }
-          );
-          model.checkboxChangeListener(isArrayData, data, newValue => {
+          autorun(() => {
+            model.checkboxSetup(data);
+          });
+
+          model.checkboxChangeListener(data, newValue => {
             this._setDate(value, newValue, state);
           });
         } else if (model.radio && radiop(model.radio)) {
           // 单选按钮
-          reaction(
-            () => [this._getData(value, state)],
-            states => {
-              model.radioSetup(states);
-            }
-          );
+          autorun(() => {
+            model.radioSetup(this._getData(value, state));
+          });
+
           model.radioChangeListener(newValue => {
             this._setDate(value, newValue, state);
           });
         } else {
           // 其它
-          reaction(
-            () => [this._getData(value, state)],
-            states => {
-              model.inputSetup(states);
-            }
-          );
+          autorun(() => {
+            model.inputSetup(this._getData(value, state));
+          });
           model.inputChangeListener(newValue => {
             this._setDate(value, newValue, state);
           });
         }
       } else if (selectp(node)) {
         setTimeout(() => {
-          reaction(
-            () => [this._getData(value, state)],
-            states => {
-              model.selectSetup(states);
-            }
-          );
+          autorun(() => {
+            model.selectSetup(this._getData(value, state));
+          });
         });
         model.selectChangeListener(newValue => {
           this._setDate(value, newValue, state);
@@ -228,11 +217,14 @@ class Aja {
   }
 
   private _proxyState(options: Options): void {
-    const state = createObject<State>(options.state);
-    const computeds = createObject<Computeds>(options.computeds);
-    const actions = createObject<Actions>(options.actions);
+    const state = createObject<any>(options.state);
+    this.$actions = createObject<any>(options.actions);
 
-    this.$store = new Store({ state, computeds, actions });
+    const bounds: { [k: string]: any } = {};
+    Object.keys(this.$actions).forEach(ac => (bounds[ac] = action.bound));
+    this.$store = observable(Object.assign(state, this.$actions), bounds, {
+      deep: true
+    });
   }
 
   /**
@@ -245,7 +237,7 @@ class Aja {
    * @param key
    * @param state
    */
-  private _getData(key: string, state: State): any {
+  private _getData(key: string, state: any): any {
     if (typeof key !== "string") return null;
     // 抽掉所有空格，再把管道排除
     const [bindKey, pipeList] = parsePipe(key);
@@ -295,7 +287,7 @@ class Aja {
    * @param newValue
    * @param state
    */
-  private _setDate(key: string, newValue: any, state: State) {
+  private _setDate(key: string, newValue: any, state: any) {
     if (typeof key !== "string") return null;
     const keys = key.split(".");
     const keysSize = keys.length;
@@ -329,7 +321,7 @@ class Aja {
    */
   private _parseJsString(
     key: string,
-    state: State,
+    state: any,
     setState: boolean = false,
     newValue: any = ""
   ) {
@@ -371,7 +363,7 @@ class Aja {
   private _parseArgsToArguments(
     args: string[],
     e: Event,
-    state: State,
+    state: any,
     isModel = false
   ) {
     return args.map(arg => {
@@ -397,7 +389,7 @@ class Aja {
    * @param node
    * @param attrs
    */
-  private _parseBindIf(node: HTMLElement, state: State): boolean {
+  private _parseBindIf(node: HTMLElement, state: any): boolean {
     let show = true;
     const ifBuilder = new BindingIfBuilder(node, this._ifInstruction);
     if (ifBuilder.hasIfAttr) {
@@ -407,16 +399,13 @@ class Aja {
         ifBuilder.checked(show);
       } else {
         const [bindKey, pipeList] = parsePipe(value);
-        reaction(
-          () => [this._getData(bindKey, state)],
-          states => {
-            show = states[0];
-            show = usePipes(show, pipeList, key => this._getData(key, state));
-            ifBuilder.checked(show, () => {
-              this._define(node, state);
-            });
-          }
-        );
+        autorun(() => {
+          show = this._getData(bindKey, state);
+          show = usePipes(show, pipeList, key => this._getData(key, state));
+          ifBuilder.checked(show, () => {
+            this._define(node, state);
+          });
+        });
       }
     }
     return show;
@@ -428,7 +417,7 @@ class Aja {
    * @param node
    * @param state
    */
-  private _parseBindFor(node: HTMLElement, state: State): boolean {
+  private _parseBindFor(node: HTMLElement, state: any): boolean {
     const forBuilder = new BindingForBuilder(node, this._forInstruction);
     if (forBuilder.hasForAttr) {
       if (forBuilder.isNumberData) {
@@ -445,29 +434,23 @@ class Aja {
         forBuilder.draw(_data);
       } else {
         const _that = this;
-        reaction(
-          () => [this._getData(forBuilder.bindData as string, state)],
-          states => {
-            let _data = states[0];
-            _data = usePipes(_data, forBuilder.pipes, key =>
-              this._getData(key, state)
+        autorun(() => {
+          let _data = this._getData(forBuilder.bindData as string, state);
+          _data = usePipes(_data, forBuilder.pipes, key =>
+            this._getData(key, state)
+          );
+          forBuilder.clear();
+          for (const k in _data) {
+            const forState = forBuilder.createForContextState(
+              k,
+              _data[k],
+              false
             );
-            forBuilder.clear();
-            let keys;
-            if (arrayp(_data)) keys = Object.keys(_data);
-            else keys = _data;
-            for (const k in keys) {
-              const forState = forBuilder.createForContextState(
-                k,
-                _data[k],
-                false
-              );
-              const item = forBuilder.createItem();
-              _that._define(item as HTMLElement, forState);
-            }
-            forBuilder.draw(_data);
+            const item = forBuilder.createItem();
+            _that._define(item as HTMLElement, forState);
           }
-        );
+          forBuilder.draw(_data);
+        });
       }
     }
     return !forBuilder.hasForAttr;
@@ -481,7 +464,7 @@ class Aja {
   private _attrBindHandle(
     node: HTMLElement,
     { name, value }: Attr,
-    state: State
+    state: any
   ): void {
     // [style.coloe] => [style, coloe]
     let [attrName, attrChild] = name
@@ -489,66 +472,6 @@ class Aja {
       .replace(attrEndExp, emptyString)
       .split(".");
     const [bindKey, pipeList] = parsePipe(value);
-    // reaction(
-    //   () => [this._getData(bindKey, state)],
-    //   states => {
-    //     let data = states[0];
-    //     data = usePipes(data, pipeList, arg => this._getData(arg, state));
-
-    //     let _value = data;
-    //     switch (attrName) {
-    //       case "style":
-    //         if (attrChild && attrChild in node.style) {
-    //           (node.style as { [k: string]: any })[attrChild] = data;
-    //         } else {
-    //           const styles: CSSStyleDeclaration = data;
-    //           for (const key in styles) {
-    //             if (
-    //               Object.getOwnPropertyDescriptor(node.style, key) &&
-    //               styles[key]
-    //             ) {
-    //               reaction(
-    //                 () => [styles[key]],
-    //                 states => {
-    //                   node.style[key] = states[0];
-    //                 }
-    //               );
-    //             }
-    //           }
-    //         }
-    //         break;
-    //       case "class":
-    //         if (_value === null) _value = emptyString;
-    //         if (!attrChild) {
-    //           if (objectp(_value)) {
-    //             for (const klass in _value) {
-    //               if (_value[klass]) node.classList.add(klass);
-    //               else node.classList.remove(klass);
-    //             }
-    //           } else {
-    //             node.setAttribute("class", _value);
-    //           }
-    //         } else {
-    //           if (_value) node.classList.add(attrChild);
-    //         }
-    //         break;
-    //       case "html":
-    //         if (data !== node.innerHTML) node.innerHTML = data;
-    //         break;
-
-    //       default:
-    //         if (_value === null) _value = emptyString;
-    //         if (_value) {
-    //           if (node.getAttribute(attrName) !== _value) {
-    //             node.setAttribute(attrName, _value);
-    //           }
-    //         } else {
-    //           if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
-    //         }
-    //         break;
-    //     }
-    //   }
-    // );
     autorun(() => {
       let data = this._getData(bindKey, state);
       data = usePipes(data, pipeList, arg => this._getData(arg, state));
@@ -556,18 +479,13 @@ class Aja {
       let _value = data;
       switch (attrName) {
         case "style":
-          l(data);
           if (attrChild && attrChild in node.style) {
             (node.style as { [k: string]: any })[attrChild] = data;
           } else {
             const styles: CSSStyleDeclaration = data;
             for (const key in styles) {
-              if (
-                Object.getOwnPropertyDescriptor(node.style, key) &&
-                styles[key]
-              ) {
-                if (styles[key] !== node.style[key])
-                  node.style[key] = styles[key];
+              if (Object.getOwnPropertyDescriptor(node.style, key)) {
+                node.style[key] = styles[key];
               }
             }
           }
@@ -614,7 +532,7 @@ class Aja {
   private _eventBindHandle(
     htmlElement: HTMLElement,
     { name, value }: Attr,
-    state: State
+    state: any
   ): void {
     let eventName = name
       .replace(eventStartExp, emptyString)
@@ -687,7 +605,7 @@ class Aja {
    * @param childNodes
    * @param state
    */
-  private _bindingChildrenAttrs(children: ChildNode[], state: State): any {
+  private _bindingChildrenAttrs(children: ChildNode[], state: any): any {
     if (!children.length) return;
     let node: ChildNode = children[0];
     if (elementNodep(node)) {
@@ -701,12 +619,11 @@ class Aja {
 
   /**
    * * 解析文本节点的插值表达式
-   * @param childNode
+   * @param textNode
    * @param state
    */
-  private _setTextContent(childNode: ChildNode, state: State): void {
-    const textBuilder = new BindingTextBuilder(childNode);
-    if (!textBuilder.needParse) return;
+  private _setTextContent(textNode: ChildNode, state: any): void {
+    const textBuilder = new BindingTextBuilder(textNode);
     autorun(() => {
       textBuilder.setText(key => this._getData(key, state));
     });

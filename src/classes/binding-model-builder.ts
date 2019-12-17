@@ -8,7 +8,7 @@ import {
   checkboxp,
   arrayp
 } from "../utils/p";
-import { Store } from "../store";
+import { Store } from "../store/store";
 import { SetDataCallBack } from "../aja";
 
 export class BindingModelBuilder {
@@ -56,31 +56,27 @@ export class BindingModelBuilder {
     this.node.removeAttribute(this.modelAttr.name);
   }
 
-  checkboxSetup(states: any[], isArray: boolean) {
+  checkboxSetup(data: any) {
     if (this.checkbox) {
-      if (isArray) {
-        const data = states[0];
+      // array 处理数组，否则处理boolean值
+      if (arrayp(data)) {
         let ivalue = getCheckboxRadioValue(this.checkbox);
         const checkde = data.some((d: any) => d === ivalue);
         this.checkbox.checked = checkde;
       } else {
-        this.checkbox.checked = !!states[0];
+        this.checkbox.checked = !!data;
       }
     }
   }
 
-  checkboxChangeListener(
-    isArray: boolean,
-    data: any,
-    setData: SetDataCallBack
-  ) {
+  checkboxChangeListener(data: any, setData: SetDataCallBack) {
     if (this.checkbox) {
       this.checkbox.addEventListener("change", () => {
         if (!this.checkbox) return;
-        if (isArray) {
+        if (arrayp(data)) {
           let ivalue = getCheckboxRadioValue(this.checkbox);
           if (this.checkbox.checked) data.push(ivalue);
-          else data.remove((d: any) => d === ivalue);
+          else data.remove(ivalue);
         } else {
           setData(this.checkbox.checked);
         }

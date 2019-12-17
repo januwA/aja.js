@@ -10,8 +10,8 @@ export declare class BindingModelBuilder {
     get selectValues(): string[];
     constructor(node: HTMLElement, modelAttr: Attr);
     private _setup;
-    checkboxSetup(states: any[], isArray: boolean): void;
-    checkboxChangeListener(isArray: boolean, data: any, setData: SetDataCallBack): void;
+    checkboxSetup(data: any): void;
+    checkboxChangeListener(data: any, setData: SetDataCallBack): void;
     radioSetup(states: any[]): void;
     radioChangeListener(setData: SetDataCallBack): void;
     inputSetup(states: any[]): void;

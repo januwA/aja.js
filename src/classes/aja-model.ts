@@ -1,4 +1,4 @@
-import { Store } from "../store";
+import { Store } from "../store/store";
 
 export class AjaModel {
   static classes = {

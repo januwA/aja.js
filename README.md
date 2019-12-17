@@ -15,6 +15,9 @@
       let vm = new Aja(".app", {
         state: {
           text: "hello..."
+          get hello() {
+            return this.text + 'xxx';
+          }
         },
         actions: {
           change(e) {

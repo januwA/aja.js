@@ -1,5 +1,5 @@
-import { arrayp, objectp } from "./utils/p";
-import { equal } from "./utils/util";
+import { arrayp, objectp } from "../utils/p";
+import { equal } from "../utils/util";
 
 const l = console.log;
 

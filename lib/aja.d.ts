@@ -1,4 +1,3 @@
-import { State, Actions, Computeds } from "./store";
 import { Pipes } from "./pipes/pipes";
 export interface GetDataCallBack {
     (key: string): any;
@@ -7,9 +6,11 @@ export interface SetDataCallBack {
     (newData: any): void;
 }
 export interface Options {
-    state?: State;
-    actions?: Actions;
-    computeds?: Computeds;
+    /**
+     * 包含computed state
+     */
+    state?: any;
+    actions?: any;
     instructionPrefix?: string;
     templateEvent?: string;
     modeldirective?: string;
@@ -42,8 +43,8 @@ declare class Aja {
      * * :for
      */
     private get _forInstruction();
-    $store: State;
-    get $actions(): any;
+    $store: any;
+    $actions: any;
     constructor(view: string | HTMLElement, options: Options);
     /**
      * 扫描绑定
@@ -138,7 +139,7 @@ declare class Aja {
     private _bindingChildrenAttrs;
     /**
      * * 解析文本节点的插值表达式
-     * @param childNode
+     * @param textNode
      * @param state
      */
     private _setTextContent;

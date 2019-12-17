@@ -23,7 +23,14 @@
 
   <body>
     <div class="app">
-      <p [html]="data | json" [style]="styles"></p>
+      <input type="checkbox" id="jack" value="Jack" [(model)]="checkedNames" />
+      <label for="jack">Jack</label>
+      <input type="checkbox" id="john" value="John" [(model)]="checkedNames" />
+      <label for="john">John</label>
+      <input type="checkbox" id="mike" value="Mike" [(model)]="checkedNames" />
+      <label for="mike">Mike</label>
+      <br />
+      <span>Checked names: {{ checkedNames | json}}</span>
 
       <button (click)="asd()">change</button>
     </div>
@@ -32,28 +39,15 @@
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          name: "ajanuw",
-          data: {
-            items: [{ show: false }]
-          },
-          styles: {
-            color: "red",
-            fontSize: "3rem"
-          }
+          checkedNames: []
         },
         actions: {
           asd(m) {
-            // this.name += "-";
-
-            // this.data.items[0].show = !this.data.items[0].show;
-
-            // l(this.data);
-            this.styles.color = "blue";
-            l(this.styles)
+            this.checkedNames[0] = "Jack";
+            l(this.checkedNames.slice())
           }
         }
       });
-      // console.log(vm);
     </script>
   </body>
 </html>
