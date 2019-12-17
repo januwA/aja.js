@@ -1,4 +1,4 @@
-import { GetDataCallBack } from "../aja";
+import { ContextData } from "./context-data";
 export declare class BindingTextBuilder {
     private node;
     /**
@@ -6,5 +6,5 @@ export declare class BindingTextBuilder {
      */
     text: string;
     constructor(node: ChildNode);
-    setText(getData: GetDataCallBack): void;
+    setText(contextData: ContextData): void;
 }

@@ -1,9 +1,4 @@
-import { GetDataCallBack } from "../aja";
-export interface Pipe {
-    (...value: any[]): any;
-}
-export interface Pipes {
-    [pipeName: string]: Pipe;
-}
-export declare const pipes: Pipes;
-export declare function usePipes(data: any, pipeList: string[], getData: GetDataCallBack | null): any;
+import { Pipes } from "./interfaces/interfaces";
+import { ContextData } from "../classes/context-data";
+export declare const ajaPipes: Pipes;
+export declare function usePipes(target: any, pipeList: string[], contextData: ContextData): any;

@@ -1,23 +1,23 @@
-import { SetDataCallBack } from "../aja";
+import { ContextData } from "./context-data";
 export declare class BindingModelBuilder {
     node: HTMLElement;
-    modelAttr: Attr;
-    input: HTMLInputElement | undefined;
-    checkbox: HTMLInputElement | undefined;
-    radio: HTMLInputElement | undefined;
-    select: HTMLSelectElement | undefined;
+    input?: HTMLInputElement;
+    checkbox?: HTMLInputElement;
+    radio?: HTMLInputElement;
+    select?: HTMLSelectElement;
     get options(): HTMLOptionElement[];
     get selectValues(): string[];
-    constructor(node: HTMLElement, modelAttr: Attr);
+    modelAttr?: Attr;
+    constructor(node: HTMLElement);
     private _setup;
     checkboxSetup(data: any): void;
-    checkboxChangeListener(data: any, setData: SetDataCallBack): void;
+    checkboxChangeListener(data: any, contextData: ContextData): void;
     radioSetup(states: any[]): void;
-    radioChangeListener(setData: SetDataCallBack): void;
+    radioChangeListener(contextData: ContextData): void;
     inputSetup(states: any[]): void;
-    inputChangeListener(setData: SetDataCallBack): void;
+    inputChangeListener(contextData: ContextData): void;
     selectSetup(states: any[]): void;
-    selectChangeListener(setData: SetDataCallBack): void;
+    selectChangeListener(contextData: ContextData): void;
     /**
      * * 控件的值有效时
      */

@@ -1,34 +1,48 @@
 import { AjaModel } from "./aja-model";
 import { hasStructureDirective, toArray, emptyString } from "../utils/util";
-import { tempvarp } from "../utils/p";
+import { tempvarp, elementNodep } from "../utils/p";
 import { tempvarExp } from "../utils/exp";
+
+export interface TemplateVariableInterface {
+  [key: string]: ChildNode | Element | HTMLElement | AjaModel;
+}
 
 export class BindingTempvarBuilder {
   /**
    * * 模板变量保存的DOM
    */
-  private static readonly _templateVariables: {
-    [key: string]: ChildNode | Element | HTMLElement | AjaModel;
-  } = {};
+  templateVariables: TemplateVariableInterface = {};
 
-  static has(key: string): boolean {
-    return key.toLowerCase() in this._templateVariables;
+  constructor(
+    node: HTMLElement,
+    templateVariables: TemplateVariableInterface = {}
+  ) {
+    // 浅克隆
+    Object.assign(this.templateVariables, templateVariables);
+    this.deepParse(node);
   }
 
-  static get(key: string) {
-    return this._templateVariables[key];
+  has(key: string): boolean {
+    return key.toLowerCase() in this.templateVariables;
   }
 
-  static set(key: string, value: any) {
-    if (this.has(key)) return;
-    this._templateVariables[key] = value;
+  get(key: string) {
+    return this.templateVariables[key];
+  }
+
+  set(key: string, value: any) {
+    this.templateVariables[key] = value;
+  }
+
+  copyWith(node: HTMLElement) {
+    return new BindingTempvarBuilder(node, this.templateVariables);
   }
 
   /**
    * * 解析模板引用变量
    * @param root
    */
-  static deepParse(root: HTMLElement) {
+  private deepParse(root: HTMLElement) {
     // 如果有结构指令，则跳过
     if (!hasStructureDirective(root)) {
       toArray(root.attributes)
@@ -37,9 +51,9 @@ export class BindingTempvarBuilder {
           this._tempvarBindHandle(root, attr);
         });
 
-      toArray(root.children).forEach(node =>
-        this.deepParse(node as HTMLElement)
-      );
+      toArray(root.childNodes).forEach(itemNode => {
+        if (elementNodep(itemNode)) this.deepParse(itemNode as HTMLElement);
+      });
     }
   }
 
@@ -48,10 +62,7 @@ export class BindingTempvarBuilder {
    * @param node
    * @param param1
    */
-  private static _tempvarBindHandle(
-    node: HTMLElement,
-    { name, value }: Attr
-  ): void {
+  private _tempvarBindHandle(node: HTMLElement, { name, value }: Attr): void {
     const _key = name.replace(tempvarExp, emptyString);
     if (value === "ajaModel") {
       // 表单元素才绑定 ajaModel

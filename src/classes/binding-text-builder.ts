@@ -1,7 +1,7 @@
 import { interpolationExpressionExp } from "../utils/exp";
-import { parsePipe } from "../utils/util";
+import { parsePipe, getData } from "../utils/util";
 import { usePipes } from "../pipes/pipes";
-import { GetDataCallBack } from "../interfaces/interfaces";
+import { ContextData } from "./context-data";
 
 export class BindingTextBuilder {
   /**
@@ -13,11 +13,11 @@ export class BindingTextBuilder {
     this.text = node.textContent || "";
   }
 
-  setText(getData: GetDataCallBack) {
+  setText(contextData: ContextData) {
     const text = this.text.replace(interpolationExpressionExp, (match, g1) => {
       const [bindKey, pipeList] = parsePipe(g1);
-      const data = getData(bindKey);
-      const pipeData = usePipes(data, pipeList, arg => getData(arg));
+      const data = getData(bindKey, contextData);
+      const pipeData = usePipes(data, pipeList, contextData);
       return pipeData;
     });
     this.node.textContent = text;

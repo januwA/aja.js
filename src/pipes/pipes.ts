@@ -1,6 +1,7 @@
 import { numberp } from "../utils/p";
-import { GetDataCallBack } from "../interfaces/interfaces";
 import { Pipes } from "./interfaces/interfaces";
+import { ContextData } from "../classes/context-data";
+import { getData } from "../utils/util";
 export const ajaPipes: Pipes = {
   /**
    * * 全部大写
@@ -36,24 +37,18 @@ export const ajaPipes: Pipes = {
 
 // 开始管道加工
 export function usePipes(
-  data: any,
+  target: any,
   pipeList: string[],
-  getData: GetDataCallBack | null
+  contextData: ContextData
 ): any {
-  let _result = data;
+  let _result = target;
   if (pipeList.length) {
     pipeList.forEach(pipe => {
       const [p, ...pipeArgs] = pipe.split(":");
       if (p in ajaPipes) {
-        let parsePipeArgs;
-        if (getData) {
-          parsePipeArgs = pipeArgs.map(arg => {
-            if (numberp(arg)) return arg;
-            return getData(arg);
-          });
-        } else {
-          parsePipeArgs = pipeArgs;
-        }
+        const parsePipeArgs = pipeArgs.map(arg =>
+          numberp(arg) ? arg : getData(arg, contextData)
+        );
         _result = ajaPipes[p](_result, ...parsePipeArgs);
       }
     });

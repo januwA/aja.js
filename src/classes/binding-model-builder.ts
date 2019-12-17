@@ -1,5 +1,10 @@
 import { AjaModel } from "./aja-model";
-import { toArray, getCheckboxRadioValue } from "../utils/util";
+import {
+  toArray,
+  getCheckboxRadioValue,
+  setData,
+  findModelAttr
+} from "../utils/util";
 import {
   radiop,
   selectp,
@@ -8,9 +13,8 @@ import {
   checkboxp,
   arrayp
 } from "../utils/p";
-import { Store } from "../store/store";
-import { EventType } from "../utils/const-string";
-import { SetDataCallBack } from "../interfaces/interfaces";
+import { EventType, modelDirective } from "../utils/const-string";
+import { ContextData } from "./context-data";
 
 export class BindingModelBuilder {
   // input / textarea
@@ -28,7 +32,11 @@ export class BindingModelBuilder {
     return this.options.filter(op => op.selected).map(op => op.value);
   }
 
-  constructor(public node: HTMLElement, public modelAttr: Attr) {
+  modelAttr?: Attr;
+
+  constructor(public node: HTMLElement) {
+    this.modelAttr = findModelAttr(node, modelDirective);
+    if (!this.modelAttr) return;
     this._setup();
   }
   private _setup() {
@@ -54,7 +62,7 @@ export class BindingModelBuilder {
     this.node.addEventListener(EventType.blur, () => {
       this.touched();
     });
-    this.node.removeAttribute(this.modelAttr.name);
+    this.node.removeAttribute(this.modelAttr!.name);
   }
 
   checkboxSetup(data: any) {
@@ -70,7 +78,7 @@ export class BindingModelBuilder {
     }
   }
 
-  checkboxChangeListener(data: any, setData: SetDataCallBack) {
+  checkboxChangeListener(data: any, contextData: ContextData) {
     if (this.checkbox) {
       this.checkbox.addEventListener(EventType.change, () => {
         if (!this.checkbox) return;
@@ -79,7 +87,8 @@ export class BindingModelBuilder {
           if (this.checkbox.checked) data.push(ivalue);
           else data.remove(ivalue);
         } else {
-          setData(this.checkbox.checked);
+          if (this.modelAttr)
+            setData(this.modelAttr.value, this.checkbox.checked, contextData);
         }
         this.dirty();
       });
@@ -92,14 +101,14 @@ export class BindingModelBuilder {
     }
   }
 
-  radioChangeListener(setData: SetDataCallBack) {
+  radioChangeListener(contextData: ContextData) {
     if (this.radio) {
       this.radio.addEventListener(EventType.change, () => {
         if (!this.radio) return;
         let newData = getCheckboxRadioValue(this.radio);
         this.radio.checked = true;
         this.dirty();
-        setData(newData);
+        if (this.modelAttr) setData(this.modelAttr.value, newData, contextData);
       });
     }
   }
@@ -109,12 +118,13 @@ export class BindingModelBuilder {
       this.input.value = states[0];
     }
   }
-  inputChangeListener(setData: SetDataCallBack) {
+  inputChangeListener(contextData: ContextData) {
     if (this.input) {
       // 值发生变化了
       this.input.addEventListener(EventType.input, () => {
         this.dirty();
-        setData(this.input?.value);
+        if (this.modelAttr)
+          setData(this.modelAttr.value, this.input?.value, contextData);
       });
     }
   }
@@ -142,13 +152,15 @@ export class BindingModelBuilder {
     }
   }
 
-  selectChangeListener(setData: SetDataCallBack) {
+  selectChangeListener(contextData: ContextData) {
     if (this.select) {
       this.select.addEventListener(EventType.change, () => {
         if (this.select?.multiple) {
-          setData(Store.list(this.selectValues));
+          if (this.modelAttr)
+            setData(this.modelAttr.value, this.selectValues, contextData);
         } else {
-          setData(this.select?.value);
+          if (this.modelAttr)
+            setData(this.modelAttr.value, this.select?.value, contextData);
         }
         this.dirty();
       });

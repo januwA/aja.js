@@ -11,7 +11,7 @@ export class EventType {
 }
 
 /**
- * * 传递事件event变量
+ * * 传递事件$event变量
  * click($event)
  */
 export const templateEvent: string = "$event".toLowerCase();

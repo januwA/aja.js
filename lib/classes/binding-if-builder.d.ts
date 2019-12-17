@@ -3,18 +3,14 @@ export declare class BindingIfBuilder {
     /**
      * * 一个注释节点
      */
-    commentNode: Comment | undefined;
-    ifAttr: Attr | undefined;
-    constructor(node: HTMLElement, ifInstruction: string);
-    /**
-     * * 只有存在if指令，其他的方法和属性才生效
-     */
-    get hasIfAttr(): boolean;
-    get value(): string | undefined;
+    commentNode?: Comment;
+    ifAttr?: Attr;
+    constructor(node: HTMLElement);
+    get value(): string;
     /**
      * * 这里使用了回调把template标签给渲染了
      * @param show
      */
-    checked(show: boolean, cb?: () => void): void;
+    checked(show: boolean, cb: () => void): void;
     private _createIfCommentData;
 }

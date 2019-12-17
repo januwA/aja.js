@@ -3,8 +3,10 @@ import {
   objectTag,
   arrayTag,
   strString,
-  structureDirectivePrefix
+  structureDirectivePrefix,
+  templateEvent
 } from "./const-string";
+import { ContextData } from "../classes/context-data";
 
 export function createRoot(view: string | HTMLElement): HTMLElement | null {
   return typeof view === "string"
@@ -253,4 +255,157 @@ export function equal(obj: any, other: any) {
  */
 export function equalp(obj: any, other: any) {
   return _equal(obj, other, true);
+}
+
+/**
+ * * 1. 优先寻找模板变量
+ * * 2. 在传入的state中寻找
+ * * 3. 在this.$store中找
+ * * 'name' 'object.name'
+ * @param key
+ * @param contextData
+ * @param isDeep  添加这个参数避免堆栈溢出
+ */
+export function getData(
+  key: string,
+  contextData: ContextData,
+  isDeep = false
+): any {
+  if (typeof key !== strString) return null;
+  // 抽掉所有空格，再把管道排除
+  const [bindKey, pipeList] = parsePipe(key);
+  // 在解析绑定的变量
+  const bindKeys = bindKey.split(".");
+  let _result: any;
+  const firstKey = bindKeys[0];
+
+  // 模板变量
+  if (contextData.tvState && contextData.tvState.has(firstKey)) {
+    // 绑定的模板变量，全是小写
+    const lowerKeys = bindKeys.map(k => k.toLowerCase());
+    for (const k of lowerKeys) {
+      _result = _result ? _result[k] : contextData.tvState.get(k);
+    }
+  }
+
+  // state
+  if (_result === undefined) {
+    if (contextData.contextState && firstKey in contextData.contextState) {
+      for (const k of bindKeys) {
+        _result = _result ? _result[k] : contextData.contextState[k];
+      }
+    }
+  }
+
+  // this.$store
+  if (_result === undefined) {
+    if (firstKey in contextData.globalState) {
+      for (const k of bindKeys) {
+        _result = _result ? _result[k] : contextData.globalState[k];
+      }
+    }
+  }
+
+  if (_result === undefined) {
+    // eval解析
+    if (isDeep) return undefined;
+    _result = parseJsString(bindKey, contextData);
+  }
+
+  return _result;
+}
+
+/**
+ * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于用户定义的 state
+ * @param key
+ * @param newValue
+ * @param state
+ */
+export function setData(key: string, newValue: any, contextData: ContextData) {
+  if (typeof key !== strString) return null;
+  const state = contextData.globalState;
+  const keys = key.split(".");
+  const keysSize = keys.length;
+  if (!keysSize) return;
+  const firstKey = keys[0];
+  let _result: any;
+  if (keysSize === 1 && firstKey in state) {
+    state[firstKey] = newValue;
+    return;
+  }
+  for (let index = 0; index < keysSize - 1; index++) {
+    const k = keys[index];
+    _result = _result ? _result[k] : state[k];
+  }
+
+  if (_result) {
+    const lastKey = keys[keysSize - 1];
+    _result[lastKey] = newValue;
+    return;
+  }
+  parseJsString(key, state, true, newValue);
+}
+
+/**
+ * 解析一些奇怪的插值表达式
+ * {{ el['age'] }}
+ * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
+ * @param key
+ * @param state
+ * @param setState
+ */
+export function parseJsString(
+  key: string,
+  state: any,
+  setState: boolean = false,
+  newValue: any = ""
+) {
+  try {
+    return ourEval(`return ${key}`);
+  } catch (er) {
+    // 利用错误来抓取变量
+    const msg: string = er.message;
+    if (msg.includes("is not defined")) {
+      const match = msg.match(/(.*) is not defined/);
+      if (!match) return emptyString;
+      const varName = match[1];
+      const context = getData(varName, state, true);
+      if (setState) {
+        const funBody =
+          key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
+          `='${newValue}'`;
+        ourEval.call(context, `${funBody}`);
+      } else {
+        if (context === undefined) return context;
+        const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
+        let _result = ourEval.call(context, `return ${funBody}`);
+        if (_result === undefined) _result = emptyString;
+        return _result;
+      }
+    } else {
+      console.error(er);
+      throw er;
+    }
+  }
+}
+
+/**
+ * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
+ * @param args
+ * @param contextData
+ */
+export function parseArgsToArguments(args: string[], contextData: ContextData) {
+  return args.map(arg => {
+    if (!arg) return arg;
+    let el = arg.trim();
+    if (el === templateEvent) return el;
+    return getData(el, contextData);
+  });
+}
+
+export function parseArgsEvent(args: string[], e: any) {
+  return args.map(arg => {
+    if (arg === templateEvent) return e;
+    return arg;
+  });
 }

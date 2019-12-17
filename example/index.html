@@ -1,53 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Aja</title>
-    <style>
-      [hidden] {
-        display: none;
-      }
-      .aja-invalid {
-        border-color: red;
-      }
-      .text-red {
-        color: red;
-      }
-      .f-2 {
-        font-size: 2rem;
-      }
-    </style>
-  </head>
 
-  <body>
-    <div class="app">
-      <p>{{name.value}}</p>
-      <input type="text" value="xxx" #name />
-      <p>{{name.value}}</p>
-      <hr />
-      <div :if="show">
-        <p>a: {{ pass.value }}</p>
-        <input type="text" value="pass" #pass />
-      </div>
-      <button (click)="asd(name)">change</button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Aja</title>
+  <style>
+    [hidden] {
+      display: none;
+    }
+
+    .aja-invalid {
+      border-color: red;
+    }
+
+    .text-red {
+      color: red;
+    }
+
+    .f-2 {
+      font-size: 2rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <div :for="of arr">
+      <p>{{ $_.key }}</p>
+      <ul>
+        <li :for="of $_.list">{{ $__}}</li>
+      </ul>
     </div>
-    <script src="../dist/aja.js"></script>
-    <script>
-      const l = console.log;
-      let vm = new Aja(".app", {
-        state: {
-          show: false,
-          text: "xxx{{}} []][][] ..**&&???",
-          checkedNames: []
-        },
-        actions: {
-          asd(m) {
-            this.show = !this.show;
-          }
+
+
+    <p>a: {{ name.value }}</p>
+    <button (click)="asd(name.value)">change</button>
+  </div>
+  <script src="../dist/aja.js"></script>
+  <script>
+    const l = console.log;
+    let vm = new Aja(".app", {
+      state: {
+        arr: [
+          {
+            key: 1,
+            list: ['x', 'y', 'z']
+          },
+          {
+            key: 2,
+            list: ['q', 'w', 'e']
+          },
+          {
+            key: 3,
+            list: ['a', 'b', 'c']
+          },
+        ],
+      },
+      actions: {
+        asd(m) {
+          this.show = !this.show;
         }
-      });
-    </script>
-  </body>
+      }
+    });
+  </script>
+</body>
+
 </html>

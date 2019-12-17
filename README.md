@@ -96,7 +96,8 @@ state: {
   <p>{{ pass.value }}</p>
   <input type="text" value="pass" #pass />
 </div>
-<p>错误，不要外部使用结构形指令里面的 {{ pass.value }}</p>
+<!-- 错误，不要使用结构型指令内部的变量，因为解构型指令有新的上下文 -->
+<p>{{ pass.value }}</p>
 ```
 
 ## :for
@@ -109,7 +110,51 @@ state: {
     
     <li :for="(key, value) in object">{{ key }} {{ value }}</li>
     <p :for="value in object">{{ value }}</p>
-</ul
+</ul>
+
+
+```
+
+## for自带的上下文
+```html
+<div class="app">
+
+  <div :for="of 3">
+    <p>$_: {{ $_ }}</p>
+    <ul>
+      <li :for="of 2">$__: {{ $__ }}</li>
+    </ul>
+  </div>
+
+  <div :for="of arr">
+    <p>{{ $_.key }}</p>
+    <ul>
+      <li :for="of $_.list">{{ $__}}</li>
+    </ul>
+  </div>
+
+</div>
+<script>
+  const l = console.log;
+  let vm = new Aja(".app", {
+    state: {
+      arr: [
+        {
+          key: 1,
+          list: ['x', 'y', 'z']
+        },
+        {
+          key: 2,
+          list: ['q', 'w', 'e']
+        },
+        {
+          key: 3,
+          list: ['a', 'b', 'c']
+        },
+      ],
+    }
+  });
+</script>
 ```
 
 ## :if
@@ -311,5 +356,5 @@ let vm = new Aja(".app", {
 
 ## TODO
 - 响应式表单
-- 绑定了model的节点延迟解析
+- 延迟解析[(model)]
 - h5自带的表单验证

@@ -2,14 +2,9 @@ import { emptyString, findForAttr, parsePipe } from "../utils/util";
 import { eventStartExp, eventEndExp } from "../utils/exp";
 import { numberp, arrayp } from "../utils/p";
 import { structureDirectives } from "../utils/const-string";
+import { ContextData } from "./context-data";
 
 export class BindingForBuilder {
-  /**
-   * :for="$_ of arr"
-   * :for="of arr"
-   */
-  static defaultKey = "$_";
-
   /**
    * * 一个注释节点
    */
@@ -20,7 +15,7 @@ export class BindingForBuilder {
 
   forAttr?: Attr;
 
-  constructor(public node: HTMLElement) {
+  constructor(public node: HTMLElement, public contextData: ContextData) {
     let forAttr = findForAttr(node, structureDirectives.for);
     // 没有for指令，就不构建下去了
     if (!forAttr) return;
@@ -67,10 +62,10 @@ export class BindingForBuilder {
   }
 
   get bindVar(): string {
-    return this.forAttrValue!.variable || BindingForBuilder.defaultKey;
+    return this.forAttrValue!.variable || this.contextData.forLet;
   }
   get bindKey(): string {
-    return this.forAttrValue!.variables[0] || BindingForBuilder.defaultKey;
+    return this.forAttrValue!.variables[0] || this.contextData.forLet;
   }
   get bindValue(): string | undefined {
     if (this.hasForAttr) {

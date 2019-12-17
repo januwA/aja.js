@@ -15,7 +15,6 @@
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
   const parsePipesExp = /(?<![\|])\|(?![\|])/;
-  //# sourceMappingURL=exp.js.map
 
   const objectTag = "[object Object]";
   const arrayTag = "[object Array]";
@@ -27,7 +26,7 @@
   EventType.change = "change";
   EventType.blur = "blur";
   /**
-   * * 传递事件event变量
+   * * 传递事件$event变量
    * click($event)
    */
   const templateEvent = "$event".toLowerCase();
@@ -48,7 +47,6 @@
    * * (modelChange)="f()"
    */
   const modelChangeEvent = "(modelChange)".toLowerCase();
-  //# sourceMappingURL=const-string.js.map
 
   function createRoot(view) {
       return typeof view === "string"
@@ -246,7 +244,151 @@
   function equal(obj, other) {
       return _equal(obj, other, false);
   }
-  //# sourceMappingURL=util.js.map
+  /**
+   * * 1. 优先寻找模板变量
+   * * 2. 在传入的state中寻找
+   * * 3. 在this.$store中找
+   * * 'name' 'object.name'
+   * @param key
+   * @param contextData
+   * @param isDeep  添加这个参数避免堆栈溢出
+   */
+  function getData(key, contextData, isDeep = false) {
+      if (typeof key !== strString)
+          return null;
+      // 抽掉所有空格，再把管道排除
+      const [bindKey, pipeList] = parsePipe(key);
+      // 在解析绑定的变量
+      const bindKeys = bindKey.split(".");
+      let _result;
+      const firstKey = bindKeys[0];
+      // 模板变量
+      if (contextData.tvState && contextData.tvState.has(firstKey)) {
+          // 绑定的模板变量，全是小写
+          const lowerKeys = bindKeys.map(k => k.toLowerCase());
+          for (const k of lowerKeys) {
+              _result = _result ? _result[k] : contextData.tvState.get(k);
+          }
+      }
+      // state
+      if (_result === undefined) {
+          if (contextData.contextState && firstKey in contextData.contextState) {
+              for (const k of bindKeys) {
+                  _result = _result ? _result[k] : contextData.contextState[k];
+              }
+          }
+      }
+      // this.$store
+      if (_result === undefined) {
+          if (firstKey in contextData.globalState) {
+              for (const k of bindKeys) {
+                  _result = _result ? _result[k] : contextData.globalState[k];
+              }
+          }
+      }
+      if (_result === undefined) {
+          // eval解析
+          if (isDeep)
+              return undefined;
+          _result = parseJsString(bindKey, contextData);
+      }
+      return _result;
+  }
+  /**
+   * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于用户定义的 state
+   * @param key
+   * @param newValue
+   * @param state
+   */
+  function setData(key, newValue, contextData) {
+      if (typeof key !== strString)
+          return null;
+      const state = contextData.globalState;
+      const keys = key.split(".");
+      const keysSize = keys.length;
+      if (!keysSize)
+          return;
+      const firstKey = keys[0];
+      let _result;
+      if (keysSize === 1 && firstKey in state) {
+          state[firstKey] = newValue;
+          return;
+      }
+      for (let index = 0; index < keysSize - 1; index++) {
+          const k = keys[index];
+          _result = _result ? _result[k] : state[k];
+      }
+      if (_result) {
+          const lastKey = keys[keysSize - 1];
+          _result[lastKey] = newValue;
+          return;
+      }
+      parseJsString(key, state, true, newValue);
+  }
+  /**
+   * 解析一些奇怪的插值表达式
+   * {{ el['age'] }}
+   * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
+   * @param key
+   * @param state
+   * @param setState
+   */
+  function parseJsString(key, state, setState = false, newValue = "") {
+      try {
+          return ourEval(`return ${key}`);
+      }
+      catch (er) {
+          // 利用错误来抓取变量
+          const msg = er.message;
+          if (msg.includes("is not defined")) {
+              const match = msg.match(/(.*) is not defined/);
+              if (!match)
+                  return emptyString;
+              const varName = match[1];
+              const context = getData(varName, state, true);
+              if (setState) {
+                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
+                      `='${newValue}'`;
+                  ourEval.call(context, `${funBody}`);
+              }
+              else {
+                  if (context === undefined)
+                      return context;
+                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
+                  let _result = ourEval.call(context, `return ${funBody}`);
+                  if (_result === undefined)
+                      _result = emptyString;
+                  return _result;
+              }
+          }
+          else {
+              console.error(er);
+              throw er;
+          }
+      }
+  }
+  /**
+   * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
+   * @param args
+   * @param contextData
+   */
+  function parseArgsToArguments(args, contextData) {
+      return args.map(arg => {
+          if (!arg)
+              return arg;
+          let el = arg.trim();
+          if (el === templateEvent)
+              return el;
+          return getData(el, contextData);
+      });
+  }
+  function parseArgsEvent(args, e) {
+      return args.map(arg => {
+          if (arg === templateEvent)
+              return e;
+          return arg;
+      });
+  }
 
   /** MobX - (c) Michel Weststrate 2015 - 2019 - MIT Licensed */
   /*! *****************************************************************************
@@ -4149,7 +4291,6 @@
           return `{":if": "${!!value}"}`;
       }
   }
-  //# sourceMappingURL=binding-if-builder.js.map
 
   /**
    * * 谓词
@@ -4215,11 +4356,11 @@
   function radiop(node) {
       return node.type === "radio";
   }
-  //# sourceMappingURL=p.js.map
 
   class BindingForBuilder {
-      constructor(node) {
+      constructor(node, contextData) {
           this.node = node;
+          this.contextData = contextData;
           this.forBuffer = [];
           let forAttr = findForAttr(node, structureDirectives.for);
           // 没有for指令，就不构建下去了
@@ -4258,10 +4399,10 @@
           };
       }
       get bindVar() {
-          return this.forAttrValue.variable || BindingForBuilder.defaultKey;
+          return this.forAttrValue.variable || this.contextData.forLet;
       }
       get bindKey() {
-          return this.forAttrValue.variables[0] || BindingForBuilder.defaultKey;
+          return this.forAttrValue.variables[0] || this.contextData.forLet;
       }
       get bindValue() {
           if (this.hasForAttr) {
@@ -4338,12 +4479,6 @@
           return item;
       }
   }
-  /**
-   * :for="$_ of arr"
-   * :for="of arr"
-   */
-  BindingForBuilder.defaultKey = "$_";
-  //# sourceMappingURL=binding-for-builder.js.map
 
   const ajaPipes = {
       /**
@@ -4375,47 +4510,35 @@
       }
   };
   // 开始管道加工
-  function usePipes(data, pipeList, getData) {
-      let _result = data;
+  function usePipes(target, pipeList, contextData) {
+      let _result = target;
       if (pipeList.length) {
           pipeList.forEach(pipe => {
               const [p, ...pipeArgs] = pipe.split(":");
               if (p in ajaPipes) {
-                  let parsePipeArgs;
-                  if (getData) {
-                      parsePipeArgs = pipeArgs.map(arg => {
-                          if (numberp(arg))
-                              return arg;
-                          return getData(arg);
-                      });
-                  }
-                  else {
-                      parsePipeArgs = pipeArgs;
-                  }
+                  const parsePipeArgs = pipeArgs.map(arg => numberp(arg) ? arg : getData(arg, contextData));
                   _result = ajaPipes[p](_result, ...parsePipeArgs);
               }
           });
       }
       return _result;
   }
-  //# sourceMappingURL=pipes.js.map
 
   class BindingTextBuilder {
       constructor(node) {
           this.node = node;
           this.text = node.textContent || "";
       }
-      setText(getData) {
+      setText(contextData) {
           const text = this.text.replace(interpolationExpressionExp, (match, g1) => {
               const [bindKey, pipeList] = parsePipe(g1);
-              const data = getData(bindKey);
-              const pipeData = usePipes(data, pipeList, arg => getData(arg));
+              const data = getData(bindKey, contextData);
+              const pipeData = usePipes(data, pipeList, contextData);
               return pipeData;
           });
           this.node.textContent = text;
       }
   }
-  //# sourceMappingURL=binding-text-builder.js.map
 
   const l = console.log;
   const reactionListeners = [];
@@ -4533,7 +4656,6 @@
           return newList;
       }
   }
-  //# sourceMappingURL=store.js.map
 
   class AjaModel {
       constructor(node) {
@@ -4617,12 +4739,13 @@
       valid: "aja-valid",
       invalid: "aja-invalid" // false
   };
-  //# sourceMappingURL=aja-model.js.map
 
   class BindingModelBuilder {
-      constructor(node, modelAttr) {
+      constructor(node) {
           this.node = node;
-          this.modelAttr = modelAttr;
+          this.modelAttr = findModelAttr(node, modelDirective);
+          if (!this.modelAttr)
+              return;
           this._setup();
       }
       get options() {
@@ -4669,7 +4792,7 @@
               }
           }
       }
-      checkboxChangeListener(data, setData) {
+      checkboxChangeListener(data, contextData) {
           if (this.checkbox) {
               this.checkbox.addEventListener(EventType.change, () => {
                   if (!this.checkbox)
@@ -4682,7 +4805,8 @@
                           data.remove(ivalue);
                   }
                   else {
-                      setData(this.checkbox.checked);
+                      if (this.modelAttr)
+                          setData(this.modelAttr.value, this.checkbox.checked, contextData);
                   }
                   this.dirty();
               });
@@ -4693,7 +4817,7 @@
               this.radio.checked = states[0] === this.radio.value;
           }
       }
-      radioChangeListener(setData) {
+      radioChangeListener(contextData) {
           if (this.radio) {
               this.radio.addEventListener(EventType.change, () => {
                   if (!this.radio)
@@ -4701,7 +4825,8 @@
                   let newData = getCheckboxRadioValue(this.radio);
                   this.radio.checked = true;
                   this.dirty();
-                  setData(newData);
+                  if (this.modelAttr)
+                      setData(this.modelAttr.value, newData, contextData);
               });
           }
       }
@@ -4710,13 +4835,14 @@
               this.input.value = states[0];
           }
       }
-      inputChangeListener(setData) {
+      inputChangeListener(contextData) {
           if (this.input) {
               // 值发生变化了
               this.input.addEventListener(EventType.input, () => {
                   var _a;
                   this.dirty();
-                  setData((_a = this.input) === null || _a === void 0 ? void 0 : _a.value);
+                  if (this.modelAttr)
+                      setData(this.modelAttr.value, (_a = this.input) === null || _a === void 0 ? void 0 : _a.value, contextData);
               });
           }
       }
@@ -4744,15 +4870,17 @@
               }
           }
       }
-      selectChangeListener(setData) {
+      selectChangeListener(contextData) {
           if (this.select) {
               this.select.addEventListener(EventType.change, () => {
                   var _a, _b;
                   if ((_a = this.select) === null || _a === void 0 ? void 0 : _a.multiple) {
-                      setData(Store.list(this.selectValues));
+                      if (this.modelAttr)
+                          setData(this.modelAttr.value, this.selectValues, contextData);
                   }
                   else {
-                      setData((_b = this.select) === null || _b === void 0 ? void 0 : _b.value);
+                      if (this.modelAttr)
+                          setData(this.modelAttr.value, (_b = this.select) === null || _b === void 0 ? void 0 : _b.value, contextData);
                   }
                   this.dirty();
               });
@@ -4783,25 +4911,34 @@
           this.node.classList.replace(AjaModel.classes.untouched, AjaModel.classes.touched);
       }
   }
-  //# sourceMappingURL=binding-model-builder.js.map
 
   class BindingTempvarBuilder {
-      static has(key) {
-          return key.toLowerCase() in this._templateVariables;
+      constructor(node, templateVariables = {}) {
+          /**
+           * * 模板变量保存的DOM
+           */
+          this.templateVariables = {};
+          // 浅克隆
+          Object.assign(this.templateVariables, templateVariables);
+          this.deepParse(node);
       }
-      static get(key) {
-          return this._templateVariables[key];
+      has(key) {
+          return key.toLowerCase() in this.templateVariables;
       }
-      static set(key, value) {
-          if (this.has(key))
-              return;
-          this._templateVariables[key] = value;
+      get(key) {
+          return this.templateVariables[key];
+      }
+      set(key, value) {
+          this.templateVariables[key] = value;
+      }
+      copyWith(node) {
+          return new BindingTempvarBuilder(node, this.templateVariables);
       }
       /**
        * * 解析模板引用变量
        * @param root
        */
-      static deepParse(root) {
+      deepParse(root) {
           // 如果有结构指令，则跳过
           if (!hasStructureDirective(root)) {
               toArray(root.attributes)
@@ -4809,7 +4946,10 @@
                   .forEach(attr => {
                   this._tempvarBindHandle(root, attr);
               });
-              toArray(root.children).forEach(node => this.deepParse(node));
+              toArray(root.childNodes).forEach(itemNode => {
+                  if (elementNodep(itemNode))
+                      this.deepParse(itemNode);
+              });
           }
       }
       /**
@@ -4817,7 +4957,7 @@
        * @param node
        * @param param1
        */
-      static _tempvarBindHandle(node, { name, value }) {
+      _tempvarBindHandle(node, { name, value }) {
           const _key = name.replace(tempvarExp, emptyString);
           if (value === "ajaModel") {
               // 表单元素才绑定 ajaModel
@@ -4829,11 +4969,33 @@
           node.removeAttribute(name);
       }
   }
-  /**
-   * * 模板变量保存的DOM
-   */
-  BindingTempvarBuilder._templateVariables = {};
-  //# sourceMappingURL=binding-tempvar-builder.js.map
+
+  class ContextData {
+      constructor(options) {
+          /**
+           * * for结构指令，默认的上下文变量
+           * :for="of arr" -> :for="$_ of arr"
+           * for -> $_
+           *   for -> $__
+           *     ...
+           */
+          this.forLet = "$_";
+          this.globalState = options.globalState;
+          if (options.contextState)
+              this.contextState = options.contextState;
+          this.tvState = options.tvState;
+          if (options.forLet)
+              this.forLet = options.forLet;
+      }
+      copyWith(options) {
+          return new ContextData({
+              globalState: options.globalState || this.globalState,
+              contextState: options.contextState || this.contextState,
+              tvState: options.tvState || this.tvState,
+              forLet: options.forLet || this.forLet
+          });
+      }
+  }
 
   class Aja {
       constructor(view, options) {
@@ -4847,94 +5009,85 @@
           this._proxyState(options);
           if (options.initState)
               options.initState.call(this.$store);
-          this._define(root, this.$store);
+          const contextData = new ContextData({
+              globalState: this.$store,
+              tvState: new BindingTempvarBuilder(root)
+          });
+          this._define(root, contextData);
       }
       /**
        * 扫描绑定
        * @param root
        */
-      _define(root, state) {
-          // 优先解析模板引用变量
-          BindingTempvarBuilder.deepParse(root);
+      _define(root, contextData) {
           let depath = true;
           // 没有attrs就不解析了
           if (root.attributes && root.attributes.length) {
               // 优先解析if -> for -> 其它属性
-              depath = this._parseBindIf(root, state);
+              depath = this._parseBindIf(root, contextData);
               if (depath)
-                  depath = this._parseBindFor(root, state);
+                  depath = this._parseBindFor(root, contextData);
               if (depath) {
                   const attrs = toArray(root.attributes);
-                  this._parseBindAttrs(root, attrs, state);
+                  this._parseBindAttrs(root, attrs, contextData);
               }
           }
-          const children = toArray(root.childNodes);
-          if (depath && children.length) {
-              this._bindingChildrenAttrs(children, state);
+          const childNodes = toArray(root.childNodes);
+          if (depath && childNodes.length) {
+              this._bindingChildNodesAttrs(childNodes, contextData);
           }
       }
       /**
        * * 解析指定HTMLElement的属性
        * @param node
-       * @param state
+       * @param contextData
        */
-      _parseBindAttrs(node, attrs, state) {
+      _parseBindAttrs(node, attrs, contextData) {
           for (const attr of attrs) {
               const { name } = attr;
               // [title]='xxx'
               if (attrp(name)) {
-                  this._attrBindHandle(node, attr, state);
+                  this._attrBindHandle(node, attr, contextData);
                   continue;
               }
               // (click)="echo('hello',$event)"
               if (eventp(name)) {
-                  this._eventBindHandle(node, attr, state);
+                  this._eventBindHandle(node, attr, contextData);
                   continue;
               }
           }
-          // 其它属性解析完，在解析双向绑定
-          const modelAttr = findModelAttr(node, modelDirective);
-          if (modelAttr) {
-              const model = new BindingModelBuilder(node, modelAttr);
-              const { value } = modelAttr;
+          const model = new BindingModelBuilder(node);
+          if (model.modelAttr) {
               if (inputp(node) || textareap(node)) {
                   if (model.checkbox && checkboxp(model.checkbox)) {
-                      const data = this._getData(value, state);
+                      const data = getData(model.modelAttr.value, contextData);
                       autorun(() => {
                           model.checkboxSetup(data);
                       });
-                      model.checkboxChangeListener(data, newValue => {
-                          this._setDate(value, newValue, state);
-                      });
+                      model.checkboxChangeListener(data, contextData);
                   }
                   else if (model.radio && radiop(model.radio)) {
                       // 单选按钮
                       autorun(() => {
-                          model.radioSetup(this._getData(value, state));
+                          model.radioSetup(getData(model.modelAttr.value, contextData));
                       });
-                      model.radioChangeListener(newValue => {
-                          this._setDate(value, newValue, state);
-                      });
+                      model.radioChangeListener(contextData);
                   }
                   else {
                       // 其它
                       autorun(() => {
-                          model.inputSetup(this._getData(value, state));
+                          model.inputSetup(getData(model.modelAttr.value, contextData));
                       });
-                      model.inputChangeListener(newValue => {
-                          this._setDate(value, newValue, state);
-                      });
+                      model.inputChangeListener(contextData);
                   }
               }
               else if (selectp(node)) {
                   setTimeout(() => {
                       autorun(() => {
-                          model.selectSetup(this._getData(value, state));
+                          model.selectSetup(getData(model.modelAttr.value, contextData));
                       });
                   });
-                  model.selectChangeListener(newValue => {
-                      this._setDate(value, newValue, state);
-                  });
+                  model.selectChangeListener(contextData);
               }
           }
       }
@@ -4948,163 +5101,31 @@
           });
       }
       /**
-       * * 1. 优先寻找模板变量
-       * * 2. 在传入的state中寻找
-       * * 3. 在this.$store中找
-       * * 'name' 'object.name'
-       * ? 优先找模板变量的数据，再找state
-       * ? 虽然返回的是any， 但是这个函数不会返回 undefined
-       * @param key
-       * @param state
-       */
-      _getData(key, state) {
-          if (typeof key !== strString)
-              return null;
-          // 抽掉所有空格，再把管道排除
-          const [bindKey, pipeList] = parsePipe(key);
-          // 在解析绑定的变量
-          const bindKeys = bindKey.split(".");
-          let _result;
-          const firstKey = bindKeys[0];
-          // 模板变量
-          if (BindingTempvarBuilder.has(firstKey)) {
-              // 绑定的模板变量，全是小写
-              const lowerKeys = bindKeys.map(k => k.toLowerCase());
-              for (const k of lowerKeys) {
-                  _result = _result ? _result[k] : BindingTempvarBuilder.get(k);
-              }
-          }
-          // state
-          if (_result === undefined) {
-              if (firstKey in state) {
-                  for (const k of bindKeys) {
-                      _result = _result ? _result[k] : state[k];
-                  }
-              }
-          }
-          // this.$store
-          if (_result === undefined && state !== this.$store) {
-              if (firstKey in this.$store) {
-                  for (const k of bindKeys) {
-                      _result = _result ? _result[k] : this.$store[k];
-                  }
-              }
-          }
-          if (_result === undefined) {
-              // 没救了， eval随便解析返回个值吧!
-              _result = this._parseJsString(bindKey, state);
-          }
-          return _result;
-      }
-      /**
-       * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
-       * @param key
-       * @param newValue
-       * @param state
-       */
-      _setDate(key, newValue, state) {
-          if (typeof key !== strString)
-              return null;
-          const keys = key.split(".");
-          const keysSize = keys.length;
-          if (!keysSize)
-              return;
-          const firstKey = keys[0];
-          let _result;
-          if (keysSize === 1 && firstKey in state) {
-              state[firstKey] = newValue;
-              return;
-          }
-          for (let index = 0; index < keysSize - 1; index++) {
-              const k = keys[index];
-              _result = _result ? _result[k] : state[k];
-          }
-          if (_result) {
-              const lastKey = keys[keysSize - 1];
-              _result[lastKey] = newValue;
-              return;
-          }
-          this._parseJsString(key, state, true, newValue);
-      }
-      /**
-       * 解析一些奇怪的插值表达式
-       * {{ el['age'] }}
-       * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
-       * @param key
-       * @param state
-       * @param setState
-       */
-      _parseJsString(key, state, setState = false, newValue = "") {
-          try {
-              return ourEval(`return ${key}`);
-          }
-          catch (er) {
-              // 利用错误来抓取变量
-              const msg = er.message;
-              if (msg.includes("is not defined")) {
-                  const match = msg.match(/(.*) is not defined/);
-                  if (!match)
-                      return emptyString;
-                  const varName = match[1];
-                  const context = this._getData(varName, state);
-                  if (setState) {
-                      const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
-                          `='${newValue}'`;
-                      ourEval.call(context, `${funBody}`);
-                  }
-                  else {
-                      const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
-                      let _result = ourEval.call(context, `return ${funBody}`);
-                      if (_result === undefined)
-                          _result = emptyString;
-                      return _result;
-                  }
-              }
-              else {
-                  console.error(er);
-                  throw er;
-              }
-          }
-      }
-      /**
-       * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
-       * @param args
-       * @param event
-       * @param state
-       * @param isModel 是否为展开的双向绑定事件  [(model)]="name" (modelChange)="nameChange($event)"
-       */
-      _parseArgsToArguments(args, event, state) {
-          return args.map(arg => {
-              if (!arg)
-                  return arg;
-              let el = arg.trim();
-              if (el === templateEvent)
-                  return event;
-              return this._getData(el, state);
-          });
-      }
-      /**
        * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点
        * @param node
        * @param attrs
        */
-      _parseBindIf(node, state) {
+      _parseBindIf(node, contextData) {
           let show = true;
           const ifBuilder = new BindingIfBuilder(node);
           if (ifBuilder.ifAttr) {
               if (boolStringp(ifBuilder.value)) {
                   show = ifBuilder.value === "true";
                   ifBuilder.checked(show, () => {
-                      this._define(node, state);
+                      this._define(node, contextData.copyWith({
+                          tvState: contextData.tvState.copyWith(node)
+                      }));
                   });
               }
               else {
                   const [bindKey, pipeList] = parsePipe(ifBuilder.value);
                   autorun(() => {
-                      show = this._getData(bindKey, state);
-                      show = usePipes(show, pipeList, key => this._getData(key, state));
+                      show = getData(bindKey, contextData);
+                      show = usePipes(show, pipeList, contextData);
                       ifBuilder.checked(show, () => {
-                          this._define(node, state);
+                          this._define(node, contextData.copyWith({
+                              tvState: contextData.tvState.copyWith(node)
+                          }));
                       });
                   });
               }
@@ -5115,31 +5136,38 @@
        * 解析节点上绑定的for指令
        * 如果节点绑定了for指令，这个节点将不会继续被解析
        * @param node
-       * @param state
+       * @param contextData
        */
-      _parseBindFor(node, state) {
-          const forBuilder = new BindingForBuilder(node);
+      _parseBindFor(node, contextData) {
+          const forBuilder = new BindingForBuilder(node, contextData);
           if (forBuilder.hasForAttr) {
               if (forBuilder.isNumberData) {
                   let _data = +forBuilder.bindData;
-                  _data = usePipes(_data, forBuilder.pipes, key => this._getData(key, state));
+                  _data = usePipes(_data, forBuilder.pipes, contextData);
                   for (let v = 0; v < _data; v++) {
-                      const forState = forBuilder.createForContextState(v);
                       const item = forBuilder.createItem();
-                      this._define(item, forState);
+                      const forLet = contextData.forLet + "_";
+                      this._define(item, contextData.copyWith({
+                          contextState: forBuilder.createForContextState(v),
+                          tvState: contextData.tvState.copyWith(node),
+                          forLet: forLet
+                      }));
                   }
                   forBuilder.draw(_data);
               }
               else {
                   const _that = this;
                   autorun(() => {
-                      let _data = this._getData(forBuilder.bindData, state);
-                      _data = usePipes(_data, forBuilder.pipes, key => this._getData(key, state));
+                      let _data = getData(forBuilder.bindData, contextData);
+                      _data = usePipes(_data, forBuilder.pipes, contextData);
                       forBuilder.clear();
                       for (const k in _data) {
-                          const forState = forBuilder.createForContextState(k, _data[k], false);
                           const item = forBuilder.createItem();
-                          _that._define(item, forState);
+                          _that._define(item, contextData.copyWith({
+                              contextState: forBuilder.createForContextState(k, _data[k], false),
+                              tvState: contextData.tvState.copyWith(node),
+                              forLet: contextData.forLet + "_"
+                          }));
                       }
                       forBuilder.draw(_data);
                   });
@@ -5152,7 +5180,7 @@
        * @param node
        * @param param1
        */
-      _attrBindHandle(node, { name, value }, state) {
+      _attrBindHandle(node, { name, value }, contextData) {
           // [style.coloe] => [style, coloe]
           let [attrName, attrChild] = name
               .replace(attrStartExp, emptyString)
@@ -5160,8 +5188,8 @@
               .split(".");
           const [bindKey, pipeList] = parsePipe(value);
           autorun(() => {
-              let data = this._getData(bindKey, state);
-              data = usePipes(data, pipeList, arg => this._getData(arg, state));
+              let data = getData(bindKey, contextData);
+              data = usePipes(data, pipeList, contextData);
               let _value = data;
               switch (attrName) {
                   case "style":
@@ -5224,7 +5252,7 @@
        * @param node
        * @param param1
        */
-      _eventBindHandle(node, { name, value }, state) {
+      _eventBindHandle(node, { name, value }, contextData) {
           let type = name
               .replace(eventStartExp, emptyString)
               .replace(eventEndExp, emptyString);
@@ -5243,61 +5271,45 @@
           if (modelChangep)
               type = EventType.input;
           if (this.$actions && funcName in this.$actions) {
+              // 每次只需把新的event传入就行了
               node.addEventListener(type, e => {
-                  this.$actions[funcName].apply(this.$store, this._parseArgsToArguments(args, modelChangep ? e.target.value : e, state));
+                  //? 每次事件响应都解析，确保变量更改能够得到新数据
+                  //? 如果放在外面，则不会响应新数据
+                  const transitionArgs = parseArgsToArguments(args, contextData);
+                  this.$actions[funcName].apply(this.$store, parseArgsEvent(transitionArgs, modelChangep ? e.target.value : e));
               });
           }
           node.removeAttribute(name);
       }
       /**
-       * * 克隆DOM节点，默认深度克隆，绑定模板事件
-       * @param htmlElement
-       * @param forState
-       * @param deep
-       */
-      _cloneNode(htmlElement, forState, deep = true) {
-          const item = htmlElement.cloneNode(deep);
-          const forElementAttrs = Array.from(htmlElement.attributes);
-          const eventAttrs = forElementAttrs.filter(e => eventp(e.name));
-          if (eventAttrs.length) {
-              for (const eventAttr of eventAttrs) {
-                  this._eventBindHandle(item, eventAttr, forState);
-              }
-          }
-          return item;
-      }
-      /**
        * * 递归解析子节点
        * @param childNodes
-       * @param state
+       * @param contextData
        */
-      _bindingChildrenAttrs(children, state) {
-          if (!children.length)
+      _bindingChildNodesAttrs(childNodes, contextData) {
+          if (!childNodes.length)
               return;
-          let node = children[0];
+          let node = childNodes[0];
           if (elementNodep(node)) {
-              this._define(node, state);
+              this._define(node, contextData);
           }
           if (textNodep(node)) {
-              this._setTextContent(node, state);
+              this._setTextContent(node, contextData);
           }
-          return this._bindingChildrenAttrs(children.slice(1), state);
+          return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
       }
       /**
        * * 解析文本节点的插值表达式
        * @param textNode
-       * @param state
+       * @param contextData
        */
-      _setTextContent(textNode, state) {
+      _setTextContent(textNode, contextData) {
           const textBuilder = new BindingTextBuilder(textNode);
           autorun(() => {
-              textBuilder.setText(key => this._getData(key, state));
+              textBuilder.setText(contextData);
           });
       }
   }
-  //# sourceMappingURL=aja.js.map
-
-  //# sourceMappingURL=main.js.map
 
   return Aja;
 

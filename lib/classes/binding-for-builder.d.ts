@@ -1,19 +1,15 @@
+import { ContextData } from "./context-data";
 export declare class BindingForBuilder {
     node: HTMLElement;
-    forInstruction: string;
-    /**
-     * :for="$_ of arr"
-     * :for="of arr"
-     */
-    static defaultKey: string;
+    contextData: ContextData;
     /**
      * * 一个注释节点
      */
-    private commentNode;
-    private fragment;
+    private commentNode?;
+    private fragment?;
     private forBuffer;
-    forAttr: Attr | undefined;
-    constructor(node: HTMLElement, forInstruction: string);
+    forAttr?: Attr;
+    constructor(node: HTMLElement, contextData: ContextData);
     get hasForAttr(): boolean;
     private get forAttrValue();
     get bindVar(): string;

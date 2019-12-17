@@ -3,10 +3,11 @@ import {
   createObject,
   emptyString,
   parseTemplateEventArgs,
-  ourEval,
-  findModelAttr,
   parsePipe,
-  toArray
+  toArray,
+  getData,
+  parseArgsToArguments,
+  parseArgsEvent
 } from "./utils/util";
 
 import { observable, autorun, action } from "mobx";
@@ -35,15 +36,10 @@ import {
 } from "./utils/p";
 import { BindingModelBuilder } from "./classes/binding-model-builder";
 import { ajaPipes, usePipes } from "./pipes/pipes";
-import {
-  EventType,
-  strString,
-  modelDirective,
-  templateEvent,
-  modelChangeEvent
-} from "./utils/const-string";
-import { Options } from "./interfaces/interfaces";
+import { EventType, modelChangeEvent } from "./utils/const-string";
+import { OptionsInterface } from "./interfaces/interfaces";
 import { BindingTempvarBuilder } from "./classes/binding-tempvar-builder";
+import { ContextData } from "./classes/context-data";
 
 const l = console.log;
 
@@ -52,111 +48,105 @@ class Aja {
 
   $actions: any;
 
-  constructor(view?: string | HTMLElement, options?: Options) {
+  constructor(view?: string | HTMLElement, options?: OptionsInterface) {
     if (!options || !view) return;
     const root = createRoot(view);
     if (root === null) return;
     if (options.pipes) Object.assign(ajaPipes, options.pipes);
     this._proxyState(options);
     if (options.initState) options.initState.call(this.$store);
-    this._define(root, this.$store);
+
+    const contextData = new ContextData({
+      globalState: this.$store,
+      tvState: new BindingTempvarBuilder(root)
+    });
+    this._define(root, contextData);
   }
 
   /**
    * 扫描绑定
    * @param root
    */
-  private _define(root: HTMLElement, state: any): void {
-    // 优先解析模板引用变量
-    BindingTempvarBuilder.deepParse(root);
-
+  private _define(root: HTMLElement, contextData: ContextData): void {
     let depath = true;
     // 没有attrs就不解析了
     if (root.attributes && root.attributes.length) {
       // 优先解析if -> for -> 其它属性
-      depath = this._parseBindIf(root, state);
-      if (depath) depath = this._parseBindFor(root, state);
+      depath = this._parseBindIf(root, contextData);
+      if (depath) depath = this._parseBindFor(root, contextData);
       if (depath) {
         const attrs: Attr[] = toArray(root.attributes);
-        this._parseBindAttrs(root, attrs, state);
+        this._parseBindAttrs(root, attrs, contextData);
       }
     }
 
-    const children = toArray(root.childNodes);
-    if (depath && children.length) {
-      this._bindingChildrenAttrs(children, state);
+    const childNodes = toArray(root.childNodes);
+    if (depath && childNodes.length) {
+      this._bindingChildNodesAttrs(childNodes, contextData);
     }
   }
 
   /**
    * * 解析指定HTMLElement的属性
    * @param node
-   * @param state
+   * @param contextData
    */
-  private _parseBindAttrs(node: HTMLElement, attrs: Attr[], state: any) {
+  private _parseBindAttrs(
+    node: HTMLElement,
+    attrs: Attr[],
+    contextData: ContextData
+  ) {
     for (const attr of attrs) {
       const { name } = attr;
 
       // [title]='xxx'
       if (attrp(name)) {
-        this._attrBindHandle(node, attr, state);
+        this._attrBindHandle(node, attr, contextData);
         continue;
       }
 
       // (click)="echo('hello',$event)"
       if (eventp(name)) {
-        this._eventBindHandle(node, attr, state);
+        this._eventBindHandle(node, attr, contextData);
         continue;
       }
     }
-
-    // 其它属性解析完，在解析双向绑定
-    const modelAttr = findModelAttr(node, modelDirective);
-    if (modelAttr) {
-      const model = new BindingModelBuilder(node, modelAttr);
-      const { value } = modelAttr;
+    const model = new BindingModelBuilder(node);
+    if (model.modelAttr) {
       if (inputp(node) || textareap(node)) {
         if (model.checkbox && checkboxp(model.checkbox)) {
-          const data = this._getData(value, state);
+          const data = getData(model.modelAttr.value, contextData);
           autorun(() => {
             model.checkboxSetup(data);
           });
 
-          model.checkboxChangeListener(data, newValue => {
-            this._setDate(value, newValue, state);
-          });
+          model.checkboxChangeListener(data, contextData);
         } else if (model.radio && radiop(model.radio)) {
           // 单选按钮
           autorun(() => {
-            model.radioSetup(this._getData(value, state));
+            model.radioSetup(getData(model.modelAttr!.value, contextData));
           });
 
-          model.radioChangeListener(newValue => {
-            this._setDate(value, newValue, state);
-          });
+          model.radioChangeListener(contextData);
         } else {
           // 其它
           autorun(() => {
-            model.inputSetup(this._getData(value, state));
+            model.inputSetup(getData(model.modelAttr!.value, contextData));
           });
-          model.inputChangeListener(newValue => {
-            this._setDate(value, newValue, state);
-          });
+          model.inputChangeListener(contextData);
         }
       } else if (selectp(node)) {
         setTimeout(() => {
           autorun(() => {
-            model.selectSetup(this._getData(value, state));
+            model.selectSetup(getData(model.modelAttr!.value, contextData));
           });
         });
-        model.selectChangeListener(newValue => {
-          this._setDate(value, newValue, state);
-        });
+        model.selectChangeListener(contextData);
       }
     }
   }
 
-  private _proxyState(options: Options): void {
+  private _proxyState(options: OptionsInterface): void {
     const state = createObject<any>(options.state);
     this.$actions = createObject<any>(options.actions);
 
@@ -168,168 +158,36 @@ class Aja {
   }
 
   /**
-   * * 1. 优先寻找模板变量
-   * * 2. 在传入的state中寻找
-   * * 3. 在this.$store中找
-   * * 'name' 'object.name'
-   * ? 优先找模板变量的数据，再找state
-   * ? 虽然返回的是any， 但是这个函数不会返回 undefined
-   * @param key
-   * @param state
-   */
-  private _getData(key: string, state: any): any {
-    if (typeof key !== strString) return null;
-    // 抽掉所有空格，再把管道排除
-    const [bindKey, pipeList] = parsePipe(key);
-    // 在解析绑定的变量
-    const bindKeys = bindKey.split(".");
-    let _result: any;
-    const firstKey = bindKeys[0];
-
-    // 模板变量
-    if (BindingTempvarBuilder.has(firstKey)) {
-      // 绑定的模板变量，全是小写
-      const lowerKeys = bindKeys.map(k => k.toLowerCase());
-      for (const k of lowerKeys) {
-        _result = _result ? _result[k] : BindingTempvarBuilder.get(k);
-      }
-    }
-
-    // state
-    if (_result === undefined) {
-      if (firstKey in state) {
-        for (const k of bindKeys) {
-          _result = _result ? _result[k] : state[k];
-        }
-      }
-    }
-
-    // this.$store
-    if (_result === undefined && state !== this.$store) {
-      if (firstKey in this.$store) {
-        for (const k of bindKeys) {
-          _result = _result ? _result[k] : this.$store[k];
-        }
-      }
-    }
-
-    if (_result === undefined) {
-      // 没救了， eval随便解析返回个值吧!
-      _result = this._parseJsString(bindKey, state);
-    }
-
-    return _result;
-  }
-
-  /**
-   * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于state
-   * @param key
-   * @param newValue
-   * @param state
-   */
-  private _setDate(key: string, newValue: any, state: any) {
-    if (typeof key !== strString) return null;
-    const keys = key.split(".");
-    const keysSize = keys.length;
-    if (!keysSize) return;
-    const firstKey = keys[0];
-    let _result: any;
-    if (keysSize === 1 && firstKey in state) {
-      state[firstKey] = newValue;
-      return;
-    }
-    for (let index = 0; index < keysSize - 1; index++) {
-      const k = keys[index];
-      _result = _result ? _result[k] : state[k];
-    }
-
-    if (_result) {
-      const lastKey = keys[keysSize - 1];
-      _result[lastKey] = newValue;
-      return;
-    }
-    this._parseJsString(key, state, true, newValue);
-  }
-
-  /**
-   * 解析一些奇怪的插值表达式
-   * {{ el['age'] }}
-   * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
-   * @param key
-   * @param state
-   * @param setState
-   */
-  private _parseJsString(
-    key: string,
-    state: any,
-    setState: boolean = false,
-    newValue: any = ""
-  ) {
-    try {
-      return ourEval(`return ${key}`);
-    } catch (er) {
-      // 利用错误来抓取变量
-      const msg: string = er.message;
-      if (msg.includes("is not defined")) {
-        const match = msg.match(/(.*) is not defined/);
-        if (!match) return emptyString;
-        const varName = match[1];
-        const context = this._getData(varName, state);
-        if (setState) {
-          const funBody =
-            key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
-            `='${newValue}'`;
-          ourEval.call(context, `${funBody}`);
-        } else {
-          const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
-          let _result = ourEval.call(context, `return ${funBody}`);
-          if (_result === undefined) _result = emptyString;
-          return _result;
-        }
-      } else {
-        console.error(er);
-        throw er;
-      }
-    }
-  }
-
-  /**
-   * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
-   * @param args
-   * @param event
-   * @param state
-   * @param isModel 是否为展开的双向绑定事件  [(model)]="name" (modelChange)="nameChange($event)"
-   */
-  private _parseArgsToArguments(args: string[], event: any, state: any) {
-    return args.map(arg => {
-      if (!arg) return arg;
-      let el = arg.trim();
-      if (el === templateEvent) return event;
-      return this._getData(el, state);
-    });
-  }
-
-  /**
    * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点
    * @param node
    * @param attrs
    */
-  private _parseBindIf(node: HTMLElement, state: any): boolean {
+  private _parseBindIf(node: HTMLElement, contextData: ContextData): boolean {
     let show = true;
     const ifBuilder = new BindingIfBuilder(node);
     if (ifBuilder.ifAttr) {
       if (boolStringp(ifBuilder.value)) {
         show = ifBuilder.value === "true";
         ifBuilder.checked(show, () => {
-          this._define(node, state);
+          this._define(
+            node,
+            contextData.copyWith({
+              tvState: contextData.tvState.copyWith(node)
+            })
+          );
         });
       } else {
         const [bindKey, pipeList] = parsePipe(ifBuilder.value);
         autorun(() => {
-          show = this._getData(bindKey, state);
-          show = usePipes(show, pipeList, key => this._getData(key, state));
+          show = getData(bindKey, contextData);
+          show = usePipes(show, pipeList, contextData);
           ifBuilder.checked(show, () => {
-            this._define(node, state);
+            this._define(
+              node,
+              contextData.copyWith({
+                tvState: contextData.tvState.copyWith(node)
+              })
+            );
           });
         });
       }
@@ -341,39 +199,48 @@ class Aja {
    * 解析节点上绑定的for指令
    * 如果节点绑定了for指令，这个节点将不会继续被解析
    * @param node
-   * @param state
+   * @param contextData
    */
-  private _parseBindFor(node: HTMLElement, state: any): boolean {
-    const forBuilder = new BindingForBuilder(node);
+  private _parseBindFor(node: HTMLElement, contextData: ContextData): boolean {
+    const forBuilder = new BindingForBuilder(node, contextData);
     if (forBuilder.hasForAttr) {
       if (forBuilder.isNumberData) {
         let _data = +(forBuilder.bindData as string);
-        _data = usePipes(_data, forBuilder.pipes, key =>
-          this._getData(key, state)
-        );
+        _data = usePipes(_data, forBuilder.pipes, contextData);
 
         for (let v = 0; v < _data; v++) {
-          const forState = forBuilder.createForContextState(v);
           const item = forBuilder.createItem();
-          this._define(item as HTMLElement, forState);
+          const forLet = contextData.forLet + "_";
+          this._define(
+            item as HTMLElement,
+            contextData.copyWith({
+              contextState: forBuilder.createForContextState(v),
+              tvState: contextData.tvState.copyWith(node),
+              forLet: forLet
+            })
+          );
         }
         forBuilder.draw(_data);
       } else {
         const _that = this;
         autorun(() => {
-          let _data = this._getData(forBuilder.bindData as string, state);
-          _data = usePipes(_data, forBuilder.pipes, key =>
-            this._getData(key, state)
-          );
+          let _data = getData(forBuilder.bindData as string, contextData);
+          _data = usePipes(_data, forBuilder.pipes, contextData);
           forBuilder.clear();
           for (const k in _data) {
-            const forState = forBuilder.createForContextState(
-              k,
-              _data[k],
-              false
-            );
             const item = forBuilder.createItem();
-            _that._define(item as HTMLElement, forState);
+            _that._define(
+              item as HTMLElement,
+              contextData.copyWith({
+                contextState: forBuilder.createForContextState(
+                  k,
+                  _data[k],
+                  false
+                ),
+                tvState: contextData.tvState.copyWith(node),
+                forLet: contextData.forLet + "_"
+              })
+            );
           }
           forBuilder.draw(_data);
         });
@@ -390,7 +257,7 @@ class Aja {
   private _attrBindHandle(
     node: HTMLElement,
     { name, value }: Attr,
-    state: any
+    contextData: ContextData
   ): void {
     // [style.coloe] => [style, coloe]
     let [attrName, attrChild] = name
@@ -399,8 +266,8 @@ class Aja {
       .split(".");
     const [bindKey, pipeList] = parsePipe(value);
     autorun(() => {
-      let data = this._getData(bindKey, state);
-      data = usePipes(data, pipeList, arg => this._getData(arg, state));
+      let data = getData(bindKey, contextData);
+      data = usePipes(data, pipeList, contextData);
 
       let _value = data;
       switch (attrName) {
@@ -458,7 +325,7 @@ class Aja {
   private _eventBindHandle(
     node: HTMLElement,
     { name, value }: Attr,
-    state: any
+    contextData: ContextData
   ): void {
     let type: string = name
       .replace(eventStartExp, emptyString)
@@ -477,13 +344,16 @@ class Aja {
     const modelChangep: boolean = name === modelChangeEvent;
     if (modelChangep) type = EventType.input;
     if (this.$actions && funcName in this.$actions) {
+      // 每次只需把新的event传入就行了
       node.addEventListener(type, e => {
+        //? 每次事件响应都解析，确保变量更改能够得到新数据
+        //? 如果放在外面，则不会响应新数据
+        const transitionArgs = parseArgsToArguments(args, contextData);
         this.$actions[funcName].apply(
           this.$store,
-          this._parseArgsToArguments(
-            args,
-            modelChangep ? (e.target as HTMLInputElement).value : e,
-            state
+          parseArgsEvent(
+            transitionArgs,
+            modelChangep ? (e.target as HTMLInputElement).value : e
           )
         );
       });
@@ -493,53 +363,34 @@ class Aja {
   }
 
   /**
-   * * 克隆DOM节点，默认深度克隆，绑定模板事件
-   * @param htmlElement
-   * @param forState
-   * @param deep
-   */
-  private _cloneNode(
-    htmlElement: HTMLElement,
-    forState: Object,
-    deep: boolean = true
-  ): Node {
-    const item = htmlElement.cloneNode(deep);
-    const forElementAttrs = Array.from(htmlElement.attributes);
-    const eventAttrs = forElementAttrs.filter(e => eventp(e.name));
-    if (eventAttrs.length) {
-      for (const eventAttr of eventAttrs) {
-        this._eventBindHandle(item as HTMLElement, eventAttr, forState);
-      }
-    }
-    return item;
-  }
-
-  /**
    * * 递归解析子节点
    * @param childNodes
-   * @param state
+   * @param contextData
    */
-  private _bindingChildrenAttrs(children: ChildNode[], state: any): any {
-    if (!children.length) return;
-    let node: ChildNode = children[0];
+  private _bindingChildNodesAttrs(
+    childNodes: ChildNode[],
+    contextData: ContextData
+  ): any {
+    if (!childNodes.length) return;
+    let node: ChildNode = childNodes[0];
     if (elementNodep(node)) {
-      this._define(node as HTMLElement, state);
+      this._define(node as HTMLElement, contextData);
     }
     if (textNodep(node)) {
-      this._setTextContent(node, state);
+      this._setTextContent(node, contextData);
     }
-    return this._bindingChildrenAttrs(children.slice(1), state);
+    return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
   }
 
   /**
    * * 解析文本节点的插值表达式
    * @param textNode
-   * @param state
+   * @param contextData
    */
-  private _setTextContent(textNode: ChildNode, state: any): void {
+  private _setTextContent(textNode: ChildNode, contextData: ContextData): void {
     const textBuilder = new BindingTextBuilder(textNode);
     autorun(() => {
-      textBuilder.setText(key => this._getData(key, state));
+      textBuilder.setText(contextData);
     });
   }
 }
