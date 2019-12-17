@@ -23,28 +23,28 @@
 
   <body>
     <div class="app">
-      <input type="checkbox" id="jack" value="Jack" [(model)]="checkedNames" />
-      <label for="jack">Jack</label>
-      <input type="checkbox" id="john" value="John" [(model)]="checkedNames" />
-      <label for="john">John</label>
-      <input type="checkbox" id="mike" value="Mike" [(model)]="checkedNames" />
-      <label for="mike">Mike</label>
-      <br />
-      <span>Checked names: {{ checkedNames | json}}</span>
-
-      <button (click)="asd()">change</button>
+      <p>{{name.value}}</p>
+      <input type="text" value="xxx" #name />
+      <p>{{name.value}}</p>
+      <hr />
+      <div :if="show">
+        <p>a: {{ pass.value }}</p>
+        <input type="text" value="pass" #pass />
+      </div>
+      <button (click)="asd(name)">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
+          show: false,
+          text: "xxx{{}} []][][] ..**&&???",
           checkedNames: []
         },
         actions: {
           asd(m) {
-            this.checkedNames[0] = "Jack";
-            l(this.checkedNames.slice())
+            this.show = !this.show;
           }
         }
       });

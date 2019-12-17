@@ -9,14 +9,15 @@ import {
   arrayp
 } from "../utils/p";
 import { Store } from "../store/store";
-import { SetDataCallBack } from "../aja";
+import { EventType } from "../utils/const-string";
+import { SetDataCallBack } from "../interfaces/interfaces";
 
 export class BindingModelBuilder {
   // input / textarea
-  input: HTMLInputElement | undefined;
-  checkbox: HTMLInputElement | undefined;
-  radio: HTMLInputElement | undefined;
-  select: HTMLSelectElement | undefined;
+  input?: HTMLInputElement;
+  checkbox?: HTMLInputElement;
+  radio?: HTMLInputElement;
+  select?: HTMLSelectElement;
 
   get options(): HTMLOptionElement[] {
     if (!this.select) return [];
@@ -50,7 +51,7 @@ export class BindingModelBuilder {
 
     // 控件被访问了
     // 所有绑定的model的元素，都会添加这个服务
-    this.node.addEventListener("blur", () => {
+    this.node.addEventListener(EventType.blur, () => {
       this.touched();
     });
     this.node.removeAttribute(this.modelAttr.name);
@@ -71,7 +72,7 @@ export class BindingModelBuilder {
 
   checkboxChangeListener(data: any, setData: SetDataCallBack) {
     if (this.checkbox) {
-      this.checkbox.addEventListener("change", () => {
+      this.checkbox.addEventListener(EventType.change, () => {
         if (!this.checkbox) return;
         if (arrayp(data)) {
           let ivalue = getCheckboxRadioValue(this.checkbox);
@@ -93,7 +94,7 @@ export class BindingModelBuilder {
 
   radioChangeListener(setData: SetDataCallBack) {
     if (this.radio) {
-      this.radio.addEventListener("change", () => {
+      this.radio.addEventListener(EventType.change, () => {
         if (!this.radio) return;
         let newData = getCheckboxRadioValue(this.radio);
         this.radio.checked = true;
@@ -111,7 +112,7 @@ export class BindingModelBuilder {
   inputChangeListener(setData: SetDataCallBack) {
     if (this.input) {
       // 值发生变化了
-      this.input.addEventListener("input", () => {
+      this.input.addEventListener(EventType.input, () => {
         this.dirty();
         setData(this.input?.value);
       });
@@ -143,7 +144,7 @@ export class BindingModelBuilder {
 
   selectChangeListener(setData: SetDataCallBack) {
     if (this.select) {
-      this.select.addEventListener("change", () => {
+      this.select.addEventListener(EventType.change, () => {
         if (this.select?.multiple) {
           setData(Store.list(this.selectValues));
         } else {

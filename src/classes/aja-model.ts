@@ -1,4 +1,5 @@
 import { Store } from "../store/store";
+import { EventType } from "../utils/const-string";
 
 export class AjaModel {
   static classes = {
@@ -78,7 +79,7 @@ export class AjaModel {
 
   private _setup() {
     // 值发生变化了
-    this.node.addEventListener("input", () => {
+    this.node.addEventListener(EventType.input, () => {
       this.control.pristine = false;
       this.control.dirty = true;
 
@@ -94,7 +95,7 @@ export class AjaModel {
     });
 
     // 控件被访问了
-    this.node.addEventListener("blur", () => {
+    this.node.addEventListener(EventType.blur, () => {
       this.control.untouched = false;
       this.control.touched = true;
     });

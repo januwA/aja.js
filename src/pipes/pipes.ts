@@ -1,15 +1,7 @@
 import { numberp } from "../utils/p";
-import { GetDataCallBack } from "../aja";
-
-export interface Pipe {
-  (...value: any[]): any;
-}
-
-export interface Pipes {
-  [pipeName: string]: Pipe;
-}
-
-export const pipes: Pipes = {
+import { GetDataCallBack } from "../interfaces/interfaces";
+import { Pipes } from "./interfaces/interfaces";
+export const ajaPipes: Pipes = {
   /**
    * * 全部大写
    * @param value
@@ -52,7 +44,7 @@ export function usePipes(
   if (pipeList.length) {
     pipeList.forEach(pipe => {
       const [p, ...pipeArgs] = pipe.split(":");
-      if (p in pipes) {
+      if (p in ajaPipes) {
         let parsePipeArgs;
         if (getData) {
           parsePipeArgs = pipeArgs.map(arg => {
@@ -62,7 +54,7 @@ export function usePipes(
         } else {
           parsePipeArgs = pipeArgs;
         }
-        _result = pipes[p](_result, ...parsePipeArgs);
+        _result = ajaPipes[p](_result, ...parsePipeArgs);
       }
     });
   }

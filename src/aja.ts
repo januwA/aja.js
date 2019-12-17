@@ -4,7 +4,7 @@ import {
   emptyString,
   parseTemplateEventArgs,
   ourEval,
-  hasModelAttr,
+  findModelAttr,
   parsePipe,
   toArray
 } from "./utils/util";
@@ -15,21 +15,15 @@ import {
   attrStartExp,
   attrEndExp,
   eventStartExp,
-  eventEndExp,
-  tempvarExp,
-  interpolationExpressionExp,
-  spaceExp
+  eventEndExp
 } from "./utils/exp";
 import { BindingIfBuilder } from "./classes/binding-if-builder";
 import { BindingForBuilder } from "./classes/binding-for-builder";
 import { BindingTextBuilder } from "./classes/binding-text-builder";
-import { AjaModel } from "./classes/aja-model";
 import {
   eventp,
-  tempvarp,
   objectp,
   boolStringp,
-  arrayp,
   attrp,
   elementNodep,
   textNodep,
@@ -40,80 +34,29 @@ import {
   selectp
 } from "./utils/p";
 import { BindingModelBuilder } from "./classes/binding-model-builder";
-import { Pipes, pipes, usePipes } from "./pipes/pipes";
-
-export interface GetDataCallBack {
-  (key: string): any;
-}
-export interface SetDataCallBack {
-  (newData: any): void;
-}
-
-export interface Options {
-  /**
-   * 包含computed state
-   */
-  state?: any;
-  actions?: any;
-  instructionPrefix?: string;
-  templateEvent?: string;
-  modeldirective?: string;
-  initState?: Function;
-  pipes?: Pipes;
-}
+import { ajaPipes, usePipes } from "./pipes/pipes";
+import {
+  EventType,
+  strString,
+  modelDirective,
+  templateEvent,
+  modelChangeEvent
+} from "./utils/const-string";
+import { Options } from "./interfaces/interfaces";
+import { BindingTempvarBuilder } from "./classes/binding-tempvar-builder";
 
 const l = console.log;
 
 class Aja {
-  /**
-   * * 模板变量保存的DOM
-   */
-  private _templateVariables: {
-    [key: string]: ChildNode | Element | HTMLElement | AjaModel;
-  } = {};
-
-  /**
-   * *  指令前缀
-   * [:for] [:if]
-   */
-  private _instructionPrefix: string = ":";
-
-  /**
-   * <button (click)="setName($event)">click me</button>
-   */
-  private _templateEvent: string = "$event";
-
-  /**
-   * * 双向绑定指令
-   */
-  private _modeldirective: string = "[(model)]";
-
-  /**
-   * * :if
-   */
-  private get _ifInstruction(): string {
-    return this._instructionPrefix + "if";
-  }
-  /**
-   * * :for
-   */
-  private get _forInstruction(): string {
-    return this._instructionPrefix + "for";
-  }
-
   $store!: any;
 
   $actions: any;
 
-  constructor(view: string | HTMLElement, options: Options) {
+  constructor(view?: string | HTMLElement, options?: Options) {
+    if (!options || !view) return;
     const root = createRoot(view);
     if (root === null) return;
-    if (options.instructionPrefix)
-      this._instructionPrefix = options.instructionPrefix.toLowerCase();
-    if (options.templateEvent) this._templateEvent = options.templateEvent;
-    if (options.modeldirective)
-      this._modeldirective = options.modeldirective.toLowerCase();
-    if (options.pipes) Object.assign(pipes, options.pipes);
+    if (options.pipes) Object.assign(ajaPipes, options.pipes);
     this._proxyState(options);
     if (options.initState) options.initState.call(this.$store);
     this._define(root, this.$store);
@@ -124,8 +67,10 @@ class Aja {
    * @param root
    */
   private _define(root: HTMLElement, state: any): void {
-    let depath = true;
+    // 优先解析模板引用变量
+    BindingTempvarBuilder.deepParse(root);
 
+    let depath = true;
     // 没有attrs就不解析了
     if (root.attributes && root.attributes.length) {
       // 优先解析if -> for -> 其它属性
@@ -151,11 +96,6 @@ class Aja {
   private _parseBindAttrs(node: HTMLElement, attrs: Attr[], state: any) {
     for (const attr of attrs) {
       const { name } = attr;
-      // #input #username
-      if (tempvarp(name)) {
-        this._tempvarBindHandle(node, attr);
-        continue;
-      }
 
       // [title]='xxx'
       if (attrp(name)) {
@@ -171,7 +111,7 @@ class Aja {
     }
 
     // 其它属性解析完，在解析双向绑定
-    const modelAttr = hasModelAttr(node, this._modeldirective);
+    const modelAttr = findModelAttr(node, modelDirective);
     if (modelAttr) {
       const model = new BindingModelBuilder(node, modelAttr);
       const { value } = modelAttr;
@@ -238,7 +178,7 @@ class Aja {
    * @param state
    */
   private _getData(key: string, state: any): any {
-    if (typeof key !== "string") return null;
+    if (typeof key !== strString) return null;
     // 抽掉所有空格，再把管道排除
     const [bindKey, pipeList] = parsePipe(key);
     // 在解析绑定的变量
@@ -247,11 +187,11 @@ class Aja {
     const firstKey = bindKeys[0];
 
     // 模板变量
-    if (firstKey.toLowerCase() in this._templateVariables) {
+    if (BindingTempvarBuilder.has(firstKey)) {
       // 绑定的模板变量，全是小写
       const lowerKeys = bindKeys.map(k => k.toLowerCase());
       for (const k of lowerKeys) {
-        _result = _result ? _result[k] : this._templateVariables[k];
+        _result = _result ? _result[k] : BindingTempvarBuilder.get(k);
       }
     }
 
@@ -288,7 +228,7 @@ class Aja {
    * @param state
    */
   private _setDate(key: string, newValue: any, state: any) {
-    if (typeof key !== "string") return null;
+    if (typeof key !== strString) return null;
     const keys = key.split(".");
     const keysSize = keys.length;
     if (!keysSize) return;
@@ -356,30 +296,15 @@ class Aja {
   /**
    * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
    * @param args
-   * @param e
+   * @param event
    * @param state
    * @param isModel 是否为展开的双向绑定事件  [(model)]="name" (modelChange)="nameChange($event)"
    */
-  private _parseArgsToArguments(
-    args: string[],
-    e: Event,
-    state: any,
-    isModel = false
-  ) {
+  private _parseArgsToArguments(args: string[], event: any, state: any) {
     return args.map(arg => {
       if (!arg) return arg;
       let el = arg.trim();
-      if (el === this._templateEvent) {
-        let _result;
-        if (isModel) {
-          if (e.target) {
-            _result = (e.target as HTMLInputElement).value;
-          }
-        } else {
-          _result = e;
-        }
-        return _result;
-      }
+      if (el === templateEvent) return event;
       return this._getData(el, state);
     });
   }
@@ -391,14 +316,15 @@ class Aja {
    */
   private _parseBindIf(node: HTMLElement, state: any): boolean {
     let show = true;
-    const ifBuilder = new BindingIfBuilder(node, this._ifInstruction);
-    if (ifBuilder.hasIfAttr) {
-      const value = ifBuilder.value as string;
-      if (boolStringp(value)) {
-        show = value === "true";
-        ifBuilder.checked(show);
+    const ifBuilder = new BindingIfBuilder(node);
+    if (ifBuilder.ifAttr) {
+      if (boolStringp(ifBuilder.value)) {
+        show = ifBuilder.value === "true";
+        ifBuilder.checked(show, () => {
+          this._define(node, state);
+        });
       } else {
-        const [bindKey, pipeList] = parsePipe(value);
+        const [bindKey, pipeList] = parsePipe(ifBuilder.value);
         autorun(() => {
           show = this._getData(bindKey, state);
           show = usePipes(show, pipeList, key => this._getData(key, state));
@@ -418,7 +344,7 @@ class Aja {
    * @param state
    */
   private _parseBindFor(node: HTMLElement, state: any): boolean {
-    const forBuilder = new BindingForBuilder(node, this._forInstruction);
+    const forBuilder = new BindingForBuilder(node);
     if (forBuilder.hasForAttr) {
       if (forBuilder.isNumberData) {
         let _data = +(forBuilder.bindData as string);
@@ -499,7 +425,7 @@ class Aja {
                 else node.classList.remove(klass);
               }
             } else {
-              node.setAttribute("class", _value);
+              node.setAttribute(attrName, _value);
             }
           } else {
             if (_value) node.classList.add(attrChild);
@@ -526,15 +452,15 @@ class Aja {
 
   /**
    * 处理 (click)="echo('hello',$event)" 解析
-   * @param htmlElement
+   * @param node
    * @param param1
    */
   private _eventBindHandle(
-    htmlElement: HTMLElement,
+    node: HTMLElement,
     { name, value }: Attr,
     state: any
   ): void {
-    let eventName = name
+    let type: string = name
       .replace(eventStartExp, emptyString)
       .replace(eventEndExp, emptyString);
     // 函数名
@@ -544,37 +470,25 @@ class Aja {
     if (value.includes("(")) {
       // 带参数的函数
       const index = value.indexOf("(");
+      // 砍出函数名
       funcName = value.substr(0, index);
       args = parseTemplateEventArgs(value);
     }
-    const modelChangep: boolean = eventName === "modelchange";
-    if (modelChangep) eventName = "input";
-    htmlElement.addEventListener(eventName, e => {
-      //? 每次点击都需解析参数?
-      //! 如果只解析一次，那么模板变量需要提前声明, 并且模板变量不会更新!
-      if (this.$actions && funcName in this.$actions) {
+    const modelChangep: boolean = name === modelChangeEvent;
+    if (modelChangep) type = EventType.input;
+    if (this.$actions && funcName in this.$actions) {
+      node.addEventListener(type, e => {
         this.$actions[funcName].apply(
           this.$store,
-          this._parseArgsToArguments(args, e, state, modelChangep)
+          this._parseArgsToArguments(
+            args,
+            modelChangep ? (e.target as HTMLInputElement).value : e,
+            state
+          )
         );
-      }
-    });
-    htmlElement.removeAttribute(name);
-  }
-
-  /**
-   * * 处理模板变量 #input 解析
-   * @param node
-   * @param param1
-   */
-  private _tempvarBindHandle(node: HTMLElement, { name, value }: Attr): void {
-    const _key = name.replace(tempvarExp, emptyString);
-    if (value === "ajaModel") {
-      // 表单元素才绑定 ajaModel
-      this._templateVariables[_key] = new AjaModel(node as HTMLInputElement);
-    } else {
-      this._templateVariables[_key] = node;
+      });
     }
+
     node.removeAttribute(name);
   }
 

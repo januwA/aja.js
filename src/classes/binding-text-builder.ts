@@ -1,7 +1,7 @@
-import { interpolationExpressionExp, spaceExp } from "../utils/exp";
+import { interpolationExpressionExp } from "../utils/exp";
 import { parsePipe } from "../utils/util";
 import { usePipes } from "../pipes/pipes";
-import { GetDataCallBack } from "../aja";
+import { GetDataCallBack } from "../interfaces/interfaces";
 
 export class BindingTextBuilder {
   /**

@@ -15,10 +15,40 @@
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
   const parsePipesExp = /(?<![\|])\|(?![\|])/;
+  //# sourceMappingURL=exp.js.map
 
   const objectTag = "[object Object]";
   const arrayTag = "[object Array]";
   const strString = "string";
+  class EventType {
+  }
+  EventType.input = "input";
+  EventType.click = "click";
+  EventType.change = "change";
+  EventType.blur = "blur";
+  /**
+   * * 传递事件event变量
+   * click($event)
+   */
+  const templateEvent = "$event".toLowerCase();
+  /**
+   * * 结构指令前缀
+   * :if :for
+   */
+  let structureDirectivePrefix = ":";
+  const structureDirectives = {
+      if: structureDirectivePrefix + "if".toLowerCase(),
+      for: structureDirectivePrefix + "for".toLowerCase()
+  };
+  /**
+   * * 双向绑定指令
+   */
+  let modelDirective = "[(model)]".toLowerCase();
+  /**
+   * * (modelChange)="f()"
+   */
+  const modelChangeEvent = "(modelChange)".toLowerCase();
+  //# sourceMappingURL=const-string.js.map
 
   function createRoot(view) {
       return typeof view === "string"
@@ -44,11 +74,14 @@
    * @param str
    */
   function parseTemplateEventArgs(str) {
-      let index = str.indexOf("(");
+      const index = str.indexOf("(");
+      // 砍掉函数名
+      // 去掉首尾圆括号
+      // 用逗号分割参数
       return str
-          .substr(index, str.length - 2)
-          .replace(/(^\(*)|(\)$)/g, emptyString)
+          .substr(index)
           .trim()
+          .replace(/(^\(*)|(\)$)/g, emptyString)
           .split(",");
   }
   /**
@@ -74,10 +107,10 @@
   }
   /**
    * * 将['on']转为[null]
-   * @param checkbox
+   * @param inputNode
    */
-  function getCheckboxRadioValue(checkbox) {
-      let value = checkbox.value;
+  function getCheckboxRadioValue(inputNode) {
+      let value = inputNode.value;
       if (value === "on")
           value = null;
       return value;
@@ -86,7 +119,7 @@
    * 查找一个节点是否包含:if指令
    * 并返回
    */
-  function hasIfAttr(node, ifInstruction) {
+  function findIfAttr(node, ifInstruction) {
       if (node.attributes && node.attributes.length) {
           const attrs = Array.from(node.attributes);
           return attrs.find(({ name }) => name === ifInstruction);
@@ -96,7 +129,7 @@
    * 查找一个节点是否包含:if指令
    * 并返回
    */
-  function hasForAttr(node, forInstruction) {
+  function findForAttr(node, forInstruction) {
       if (node.attributes && node.attributes.length) {
           const attrs = Array.from(node.attributes);
           return attrs.find(({ name }) => name === forInstruction);
@@ -106,11 +139,23 @@
    * 查找一个节点是否包含[(model)]指令
    * 并返回
    */
-  function hasModelAttr(node, modelAttr) {
+  function findModelAttr(node, modelAttr) {
       if (node.attributes && node.attributes.length) {
           const attrs = toArray(node.attributes);
           return attrs.find(({ name }) => name === modelAttr);
       }
+  }
+  /**
+   * * 检测节点上是否有绑定结构指令
+   * @param node
+   * @param modelAttr
+   */
+  function hasStructureDirective(node) {
+      if (node.attributes && node.attributes.length) {
+          const attrs = toArray(node.attributes);
+          return attrs.some(({ name }) => name.charAt(0) === structureDirectivePrefix);
+      }
+      return false;
   }
   /**
    * * 从表达式中获取管道
@@ -201,6 +246,7 @@
   function equal(obj, other) {
       return _equal(obj, other, false);
   }
+  //# sourceMappingURL=util.js.map
 
   /** MobX - (c) Michel Weststrate 2015 - 2019 - MIT Licensed */
   /*! *****************************************************************************
@@ -4069,26 +4115,19 @@
   }
 
   class BindingIfBuilder {
-      constructor(node, ifInstruction) {
+      constructor(node) {
           this.node = node;
-          let ifAttr = hasIfAttr(node, ifInstruction);
+          let ifAttr = findIfAttr(node, structureDirectives.if);
           if (!ifAttr)
               return;
           this.ifAttr = ifAttr;
           this.commentNode = document.createComment("");
           this.node.before(this.commentNode);
-          this.node.removeAttribute(ifInstruction);
-      }
-      /**
-       * * 只有存在if指令，其他的方法和属性才生效
-       */
-      get hasIfAttr() {
-          return !!this.ifAttr;
+          this.node.removeAttribute(structureDirectives.if);
       }
       get value() {
-          if (this.hasIfAttr) {
-              return this.ifAttr.value.trim();
-          }
+          var _a;
+          return ((_a = this.ifAttr) === null || _a === void 0 ? void 0 : _a.value.trim()) || "";
       }
       /**
        * * 这里使用了回调把template标签给渲染了
@@ -4099,8 +4138,7 @@
               return;
           if (show) {
               this.commentNode.after(this.node);
-              if (cb)
-                  cb();
+              cb();
           }
           else {
               this.node.replaceWith(this.commentNode);
@@ -4111,6 +4149,7 @@
           return `{":if": "${!!value}"}`;
       }
   }
+  //# sourceMappingURL=binding-if-builder.js.map
 
   /**
    * * 谓词
@@ -4176,13 +4215,13 @@
   function radiop(node) {
       return node.type === "radio";
   }
+  //# sourceMappingURL=p.js.map
 
   class BindingForBuilder {
-      constructor(node, forInstruction) {
+      constructor(node) {
           this.node = node;
-          this.forInstruction = forInstruction;
           this.forBuffer = [];
-          let forAttr = hasForAttr(node, forInstruction);
+          let forAttr = findForAttr(node, structureDirectives.for);
           // 没有for指令，就不构建下去了
           if (!forAttr)
               return;
@@ -4190,14 +4229,14 @@
           this.commentNode = document.createComment("");
           this.fragment = document.createDocumentFragment();
           node.replaceWith(this.commentNode);
-          node.removeAttribute(forInstruction);
+          node.removeAttribute(structureDirectives.for);
       }
       get hasForAttr() {
           return !!this.forAttr;
       }
       get forAttrValue() {
           if (!this.forAttr)
-              return null;
+              return;
           let [variable, bindKey] = this.forAttr.value
               .split(/\bin|of\b/)
               .map(s => s.trim());
@@ -4304,8 +4343,9 @@
    * :for="of arr"
    */
   BindingForBuilder.defaultKey = "$_";
+  //# sourceMappingURL=binding-for-builder.js.map
 
-  const pipes = {
+  const ajaPipes = {
       /**
        * * 全部大写
        * @param value
@@ -4340,7 +4380,7 @@
       if (pipeList.length) {
           pipeList.forEach(pipe => {
               const [p, ...pipeArgs] = pipe.split(":");
-              if (p in pipes) {
+              if (p in ajaPipes) {
                   let parsePipeArgs;
                   if (getData) {
                       parsePipeArgs = pipeArgs.map(arg => {
@@ -4352,12 +4392,13 @@
                   else {
                       parsePipeArgs = pipeArgs;
                   }
-                  _result = pipes[p](_result, ...parsePipeArgs);
+                  _result = ajaPipes[p](_result, ...parsePipeArgs);
               }
           });
       }
       return _result;
   }
+  //# sourceMappingURL=pipes.js.map
 
   class BindingTextBuilder {
       constructor(node) {
@@ -4374,6 +4415,7 @@
           this.node.textContent = text;
       }
   }
+  //# sourceMappingURL=binding-text-builder.js.map
 
   const l = console.log;
   const reactionListeners = [];
@@ -4491,6 +4533,7 @@
           return newList;
       }
   }
+  //# sourceMappingURL=store.js.map
 
   class AjaModel {
       constructor(node) {
@@ -4541,7 +4584,7 @@
       }
       _setup() {
           // 值发生变化了
-          this.node.addEventListener("input", () => {
+          this.node.addEventListener(EventType.input, () => {
               this.control.pristine = false;
               this.control.dirty = true;
               if (this.node.required && this.node.value) {
@@ -4556,7 +4599,7 @@
               }
           });
           // 控件被访问了
-          this.node.addEventListener("blur", () => {
+          this.node.addEventListener(EventType.blur, () => {
               this.control.untouched = false;
               this.control.touched = true;
           });
@@ -4574,6 +4617,7 @@
       valid: "aja-valid",
       invalid: "aja-invalid" // false
   };
+  //# sourceMappingURL=aja-model.js.map
 
   class BindingModelBuilder {
       constructor(node, modelAttr) {
@@ -4607,7 +4651,7 @@
           this.node.classList.add(AjaModel.classes.untouched, AjaModel.classes.pristine, AjaModel.classes.valid);
           // 控件被访问了
           // 所有绑定的model的元素，都会添加这个服务
-          this.node.addEventListener("blur", () => {
+          this.node.addEventListener(EventType.blur, () => {
               this.touched();
           });
           this.node.removeAttribute(this.modelAttr.name);
@@ -4627,7 +4671,7 @@
       }
       checkboxChangeListener(data, setData) {
           if (this.checkbox) {
-              this.checkbox.addEventListener("change", () => {
+              this.checkbox.addEventListener(EventType.change, () => {
                   if (!this.checkbox)
                       return;
                   if (arrayp(data)) {
@@ -4651,7 +4695,7 @@
       }
       radioChangeListener(setData) {
           if (this.radio) {
-              this.radio.addEventListener("change", () => {
+              this.radio.addEventListener(EventType.change, () => {
                   if (!this.radio)
                       return;
                   let newData = getCheckboxRadioValue(this.radio);
@@ -4669,7 +4713,7 @@
       inputChangeListener(setData) {
           if (this.input) {
               // 值发生变化了
-              this.input.addEventListener("input", () => {
+              this.input.addEventListener(EventType.input, () => {
                   var _a;
                   this.dirty();
                   setData((_a = this.input) === null || _a === void 0 ? void 0 : _a.value);
@@ -4702,7 +4746,7 @@
       }
       selectChangeListener(setData) {
           if (this.select) {
-              this.select.addEventListener("change", () => {
+              this.select.addEventListener(EventType.change, () => {
                   var _a, _b;
                   if ((_a = this.select) === null || _a === void 0 ? void 0 : _a.multiple) {
                       setData(Store.list(this.selectValues));
@@ -4739,59 +4783,79 @@
           this.node.classList.replace(AjaModel.classes.untouched, AjaModel.classes.touched);
       }
   }
+  //# sourceMappingURL=binding-model-builder.js.map
+
+  class BindingTempvarBuilder {
+      static has(key) {
+          return key.toLowerCase() in this._templateVariables;
+      }
+      static get(key) {
+          return this._templateVariables[key];
+      }
+      static set(key, value) {
+          if (this.has(key))
+              return;
+          this._templateVariables[key] = value;
+      }
+      /**
+       * * 解析模板引用变量
+       * @param root
+       */
+      static deepParse(root) {
+          // 如果有结构指令，则跳过
+          if (!hasStructureDirective(root)) {
+              toArray(root.attributes)
+                  .filter(({ name }) => tempvarp(name))
+                  .forEach(attr => {
+                  this._tempvarBindHandle(root, attr);
+              });
+              toArray(root.children).forEach(node => this.deepParse(node));
+          }
+      }
+      /**
+       * * 处理模板变量 #input 解析
+       * @param node
+       * @param param1
+       */
+      static _tempvarBindHandle(node, { name, value }) {
+          const _key = name.replace(tempvarExp, emptyString);
+          if (value === "ajaModel") {
+              // 表单元素才绑定 ajaModel
+              this.set(_key, new AjaModel(node));
+          }
+          else {
+              this.set(_key, node);
+          }
+          node.removeAttribute(name);
+      }
+  }
+  /**
+   * * 模板变量保存的DOM
+   */
+  BindingTempvarBuilder._templateVariables = {};
+  //# sourceMappingURL=binding-tempvar-builder.js.map
 
   class Aja {
       constructor(view, options) {
-          /**
-           * * 模板变量保存的DOM
-           */
-          this._templateVariables = {};
-          /**
-           * *  指令前缀
-           * [:for] [:if]
-           */
-          this._instructionPrefix = ":";
-          /**
-           * <button (click)="setName($event)">click me</button>
-           */
-          this._templateEvent = "$event";
-          /**
-           * * 双向绑定指令
-           */
-          this._modeldirective = "[(model)]";
+          if (!options || !view)
+              return;
           const root = createRoot(view);
           if (root === null)
               return;
-          if (options.instructionPrefix)
-              this._instructionPrefix = options.instructionPrefix.toLowerCase();
-          if (options.templateEvent)
-              this._templateEvent = options.templateEvent;
-          if (options.modeldirective)
-              this._modeldirective = options.modeldirective.toLowerCase();
           if (options.pipes)
-              Object.assign(pipes, options.pipes);
+              Object.assign(ajaPipes, options.pipes);
           this._proxyState(options);
           if (options.initState)
               options.initState.call(this.$store);
           this._define(root, this.$store);
       }
       /**
-       * * :if
-       */
-      get _ifInstruction() {
-          return this._instructionPrefix + "if";
-      }
-      /**
-       * * :for
-       */
-      get _forInstruction() {
-          return this._instructionPrefix + "for";
-      }
-      /**
        * 扫描绑定
        * @param root
        */
       _define(root, state) {
+          // 优先解析模板引用变量
+          BindingTempvarBuilder.deepParse(root);
           let depath = true;
           // 没有attrs就不解析了
           if (root.attributes && root.attributes.length) {
@@ -4817,11 +4881,6 @@
       _parseBindAttrs(node, attrs, state) {
           for (const attr of attrs) {
               const { name } = attr;
-              // #input #username
-              if (tempvarp(name)) {
-                  this._tempvarBindHandle(node, attr);
-                  continue;
-              }
               // [title]='xxx'
               if (attrp(name)) {
                   this._attrBindHandle(node, attr, state);
@@ -4834,7 +4893,7 @@
               }
           }
           // 其它属性解析完，在解析双向绑定
-          const modelAttr = hasModelAttr(node, this._modeldirective);
+          const modelAttr = findModelAttr(node, modelDirective);
           if (modelAttr) {
               const model = new BindingModelBuilder(node, modelAttr);
               const { value } = modelAttr;
@@ -4899,7 +4958,7 @@
        * @param state
        */
       _getData(key, state) {
-          if (typeof key !== "string")
+          if (typeof key !== strString)
               return null;
           // 抽掉所有空格，再把管道排除
           const [bindKey, pipeList] = parsePipe(key);
@@ -4908,11 +4967,11 @@
           let _result;
           const firstKey = bindKeys[0];
           // 模板变量
-          if (firstKey.toLowerCase() in this._templateVariables) {
+          if (BindingTempvarBuilder.has(firstKey)) {
               // 绑定的模板变量，全是小写
               const lowerKeys = bindKeys.map(k => k.toLowerCase());
               for (const k of lowerKeys) {
-                  _result = _result ? _result[k] : this._templateVariables[k];
+                  _result = _result ? _result[k] : BindingTempvarBuilder.get(k);
               }
           }
           // state
@@ -4944,7 +5003,7 @@
        * @param state
        */
       _setDate(key, newValue, state) {
-          if (typeof key !== "string")
+          if (typeof key !== strString)
               return null;
           const keys = key.split(".");
           const keysSize = keys.length;
@@ -5010,27 +5069,17 @@
       /**
        * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
        * @param args
-       * @param e
+       * @param event
        * @param state
        * @param isModel 是否为展开的双向绑定事件  [(model)]="name" (modelChange)="nameChange($event)"
        */
-      _parseArgsToArguments(args, e, state, isModel = false) {
+      _parseArgsToArguments(args, event, state) {
           return args.map(arg => {
               if (!arg)
                   return arg;
               let el = arg.trim();
-              if (el === this._templateEvent) {
-                  let _result;
-                  if (isModel) {
-                      if (e.target) {
-                          _result = e.target.value;
-                      }
-                  }
-                  else {
-                      _result = e;
-                  }
-                  return _result;
-              }
+              if (el === templateEvent)
+                  return event;
               return this._getData(el, state);
           });
       }
@@ -5041,15 +5090,16 @@
        */
       _parseBindIf(node, state) {
           let show = true;
-          const ifBuilder = new BindingIfBuilder(node, this._ifInstruction);
-          if (ifBuilder.hasIfAttr) {
-              const value = ifBuilder.value;
-              if (boolStringp(value)) {
-                  show = value === "true";
-                  ifBuilder.checked(show);
+          const ifBuilder = new BindingIfBuilder(node);
+          if (ifBuilder.ifAttr) {
+              if (boolStringp(ifBuilder.value)) {
+                  show = ifBuilder.value === "true";
+                  ifBuilder.checked(show, () => {
+                      this._define(node, state);
+                  });
               }
               else {
-                  const [bindKey, pipeList] = parsePipe(value);
+                  const [bindKey, pipeList] = parsePipe(ifBuilder.value);
                   autorun(() => {
                       show = this._getData(bindKey, state);
                       show = usePipes(show, pipeList, key => this._getData(key, state));
@@ -5068,7 +5118,7 @@
        * @param state
        */
       _parseBindFor(node, state) {
-          const forBuilder = new BindingForBuilder(node, this._forInstruction);
+          const forBuilder = new BindingForBuilder(node);
           if (forBuilder.hasForAttr) {
               if (forBuilder.isNumberData) {
                   let _data = +forBuilder.bindData;
@@ -5140,7 +5190,7 @@
                               }
                           }
                           else {
-                              node.setAttribute("class", _value);
+                              node.setAttribute(attrName, _value);
                           }
                       }
                       else {
@@ -5171,11 +5221,11 @@
       }
       /**
        * 处理 (click)="echo('hello',$event)" 解析
-       * @param htmlElement
+       * @param node
        * @param param1
        */
-      _eventBindHandle(htmlElement, { name, value }, state) {
-          let eventName = name
+      _eventBindHandle(node, { name, value }, state) {
+          let type = name
               .replace(eventStartExp, emptyString)
               .replace(eventEndExp, emptyString);
           // 函数名
@@ -5185,34 +5235,17 @@
           if (value.includes("(")) {
               // 带参数的函数
               const index = value.indexOf("(");
+              // 砍出函数名
               funcName = value.substr(0, index);
               args = parseTemplateEventArgs(value);
           }
-          const modelChangep = eventName === "modelchange";
+          const modelChangep = name === modelChangeEvent;
           if (modelChangep)
-              eventName = "input";
-          htmlElement.addEventListener(eventName, e => {
-              //? 每次点击都需解析参数?
-              //! 如果只解析一次，那么模板变量需要提前声明, 并且模板变量不会更新!
-              if (this.$actions && funcName in this.$actions) {
-                  this.$actions[funcName].apply(this.$store, this._parseArgsToArguments(args, e, state, modelChangep));
-              }
-          });
-          htmlElement.removeAttribute(name);
-      }
-      /**
-       * * 处理模板变量 #input 解析
-       * @param node
-       * @param param1
-       */
-      _tempvarBindHandle(node, { name, value }) {
-          const _key = name.replace(tempvarExp, emptyString);
-          if (value === "ajaModel") {
-              // 表单元素才绑定 ajaModel
-              this._templateVariables[_key] = new AjaModel(node);
-          }
-          else {
-              this._templateVariables[_key] = node;
+              type = EventType.input;
+          if (this.$actions && funcName in this.$actions) {
+              node.addEventListener(type, e => {
+                  this.$actions[funcName].apply(this.$store, this._parseArgsToArguments(args, modelChangep ? e.target.value : e, state));
+              });
           }
           node.removeAttribute(name);
       }
@@ -5262,6 +5295,9 @@
           });
       }
   }
+  //# sourceMappingURL=aja.js.map
+
+  //# sourceMappingURL=main.js.map
 
   return Aja;
 

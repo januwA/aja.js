@@ -1,5 +1,10 @@
 import { spaceExp, parsePipesExp } from "./exp";
-import { objectTag, arrayTag, strString } from "./const-string";
+import {
+  objectTag,
+  arrayTag,
+  strString,
+  structureDirectivePrefix
+} from "./const-string";
 
 export function createRoot(view: string | HTMLElement): HTMLElement | null {
   return typeof view === "string"
@@ -26,12 +31,15 @@ export const emptyString: string = "";
  * setAge( obj.age   , '        ') -> ["obj.age   ", " '        '"]
  * @param str
  */
-export function parseTemplateEventArgs(str: string) {
-  let index = str.indexOf("(");
+export function parseTemplateEventArgs(str: string): string[] {
+  const index = str.indexOf("(");
+  // 砍掉函数名
+  // 去掉首尾圆括号
+  // 用逗号分割参数
   return str
-    .substr(index, str.length - 2)
-    .replace(/(^\(*)|(\)$)/g, emptyString)
+    .substr(index)
     .trim()
+    .replace(/(^\(*)|(\)$)/g, emptyString)
     .split(",");
 }
 
@@ -76,12 +84,12 @@ export function escapeHTML(str: string) {
 
 /**
  * * 将['on']转为[null]
- * @param checkbox
+ * @param inputNode
  */
 export function getCheckboxRadioValue(
-  checkbox: HTMLInputElement
+  inputNode: HTMLInputElement
 ): string | null {
-  let value: string | null = checkbox.value;
+  let value: string | null = inputNode.value;
   if (value === "on") value = null;
   return value;
 }
@@ -90,7 +98,7 @@ export function getCheckboxRadioValue(
  * 查找一个节点是否包含:if指令
  * 并返回
  */
-export function hasIfAttr(
+export function findIfAttr(
   node: HTMLElement,
   ifInstruction: string
 ): Attr | undefined {
@@ -104,7 +112,7 @@ export function hasIfAttr(
  * 查找一个节点是否包含:if指令
  * 并返回
  */
-export function hasForAttr(
+export function findForAttr(
   node: HTMLElement,
   forInstruction: string
 ): Attr | undefined {
@@ -118,7 +126,7 @@ export function hasForAttr(
  * 查找一个节点是否包含[(model)]指令
  * 并返回
  */
-export function hasModelAttr(
+export function findModelAttr(
   node: HTMLElement,
   modelAttr: string
 ): Attr | undefined {
@@ -126,6 +134,21 @@ export function hasModelAttr(
     const attrs = toArray(node.attributes);
     return attrs.find(({ name }) => name === modelAttr);
   }
+}
+
+/**
+ * * 检测节点上是否有绑定结构指令
+ * @param node
+ * @param modelAttr
+ */
+export function hasStructureDirective(node: HTMLElement): boolean {
+  if (node.attributes && node.attributes.length) {
+    const attrs = toArray(node.attributes);
+    return attrs.some(
+      ({ name }) => name.charAt(0) === structureDirectivePrefix
+    );
+  }
+  return false;
 }
 
 /**

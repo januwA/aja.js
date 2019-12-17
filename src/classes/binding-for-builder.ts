@@ -1,6 +1,7 @@
-import { emptyString, hasForAttr, parsePipe } from "../utils/util";
+import { emptyString, findForAttr, parsePipe } from "../utils/util";
 import { eventStartExp, eventEndExp } from "../utils/exp";
 import { numberp, arrayp } from "../utils/p";
+import { structureDirectives } from "../utils/const-string";
 
 export class BindingForBuilder {
   /**
@@ -12,35 +13,37 @@ export class BindingForBuilder {
   /**
    * * 一个注释节点
    */
-  private commentNode: Comment | undefined;
+  private commentNode?: Comment;
 
-  private fragment: DocumentFragment | undefined;
+  private fragment?: DocumentFragment;
   private forBuffer: Node[] = [];
 
-  forAttr: Attr | undefined;
+  forAttr?: Attr;
 
-  constructor(public node: HTMLElement, public forInstruction: string) {
-    let forAttr = hasForAttr(node, forInstruction);
+  constructor(public node: HTMLElement) {
+    let forAttr = findForAttr(node, structureDirectives.for);
     // 没有for指令，就不构建下去了
     if (!forAttr) return;
     this.forAttr = forAttr;
     this.commentNode = document.createComment("");
     this.fragment = document.createDocumentFragment();
     node.replaceWith(this.commentNode);
-    node.removeAttribute(forInstruction);
+    node.removeAttribute(structureDirectives.for);
   }
 
   get hasForAttr() {
     return !!this.forAttr;
   }
 
-  private get forAttrValue(): {
-    variable: string;
-    variables: string[];
-    bindData: string;
-    pipes: string[];
-  } | null {
-    if (!this.forAttr) return null;
+  private get forAttrValue():
+    | {
+        variable: string;
+        variables: string[];
+        bindData: string;
+        pipes: string[];
+      }
+    | undefined {
+    if (!this.forAttr) return;
     let [variable, bindKey] = this.forAttr.value
       .split(/\bin|of\b/)
       .map(s => s.trim());

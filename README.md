@@ -91,6 +91,12 @@ state: {
 ```html
 <input type="text" value="hello ajanuw" #input />
 <p>value: {{ input.value }} {{input.type}}</p>
+
+<div :if="show">
+  <p>{{ pass.value }}</p>
+  <input type="text" value="pass" #pass />
+</div>
+<p>错误，不要外部使用结构形指令里面的 {{ pass.value }}</p>
 ```
 
 ## :for
@@ -305,6 +311,5 @@ let vm = new Aja(".app", {
 
 ## TODO
 - 响应式表单
-- 模板变量，先使用后申明出错
 - 绑定了model的节点延迟解析
 - h5自带的表单验证
