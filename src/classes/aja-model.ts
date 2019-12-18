@@ -1,4 +1,3 @@
-import { Store } from "../store/store";
 import { EventType } from "../utils/const-string";
 import { observable } from "mobx";
 

@@ -354,6 +354,77 @@ let vm = new Aja(".app", {
 </script>
 ```
 
+## [formControl]属性
+> FormControl 实例用于追踪单个表单控件的值和验证状态。
+- 可以看看angular的[文档](https://angular.cn/guide/forms-overview)
+- [更多属性和方法可以看这里](https://github.com/januwA/aja.js/blob/master/src/classes/forms.ts)
+
+```html
+<style>
+  [hidden] {
+    display: none;
+  }
+  .aja-invalid {
+    border-color: red;
+  }
+  .aja-valid {
+    border-color: #33ff00;
+  }
+</style>
+
+
+<div class="app">
+  <input type="text" [formControl]="name" />
+  <p [hidden]="!name.pending">异步验证中...</p>
+  <p :if="name.errors">
+    {{ name.errors | json }}
+  </p>
+  <button (click)="asd()">change</button>
+</div>
+
+<script>
+  const l = console.log;
+
+  // 同步验证函数
+  function validatorFn(control) {
+    return control.value.includes("ajanuw")
+      ? null
+      : {
+          validatorFn: "必须包含ajanuw"
+        };
+  }
+
+  // 异步验证函数
+  function asyncValidatorFn(control) {
+    return new Promise(res => {
+      setTimeout(() => {
+        if (control.value.length > 10) {
+          res(null);
+        } else {
+          res({
+            asyncValidatorFn: "length须>10"
+          });
+        }
+      }, 1200);
+    });
+  }
+  let vm = new Aja(".app", {
+    state: {
+      name: new Aja.FormControl(
+        "ajanuw",
+        [validatorFn],
+        [asyncValidatorFn]
+      )
+    },
+    actions: {
+      asd() {
+        this.name.setValue("hello ajanuw");
+      }
+    }
+  });
+</script>
+```
+
 
 ## TODO
 - 响应式表单

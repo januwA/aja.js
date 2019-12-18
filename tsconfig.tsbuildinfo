@@ -134,16 +134,8 @@
         "signature": "bf687e0e2edcab7c46d91240ebb952e5f28703df49e6eac72c04e0f9ccff6aac"
       },
       "./src/utils/const-string.ts": {
-        "version": "8c62a7c1f5c21a05b395b243c1e2223edd2fdd11d95c39cf08543f444b12e146",
-        "signature": "c178f93094e4f80c3bc2c28b96b2313b894a80d93a6bc5099f316e4b0f6043c4"
-      },
-      "./src/utils/p.ts": {
-        "version": "32c48033255b37817650ecbf61f82f7efa274f35679115feb680883ad45dbe4b",
-        "signature": "7ab653484ce6bb34c96677bc3b1992340ef6687b3c4a90a064cf820ba2a055a6"
-      },
-      "./src/store/store.ts": {
-        "version": "8b375c421a15d42af061e89d2225e53ca9383423854ecd2103731846342b6ae6",
-        "signature": "eb7b2eea743ee007bef9b91cea1a836ed99de02ea94afa94cf0cf1c634fd4a31"
+        "version": "d14777826718b348a54ed41c422358a17705b30d41040903fd56387310aebe58",
+        "signature": "08f6516817765f4e45d3e5c199098b6c9f6416733b1ab215b3ec3c6dfe6e1164"
       },
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/utils.d.ts": {
         "version": "07ea0bbb6da4811de93a99425c2375d2bf2d7e2573316093e926a3e9d24d9daf",
@@ -334,8 +326,12 @@
         "signature": "fb8e8e664c26078702764fa8efe1ba1a3125f1c32995821800a94f01a3273fa1"
       },
       "./src/classes/aja-model.ts": {
-        "version": "74d223cbefe7f71f03ee1bd6303e509548e6fea659655368b3dff96f9270f671",
+        "version": "c79f49b658e8ee790f6162e422b91aaf0ef98a5e5bd19f38189c9f0218d0277d",
         "signature": "bc2779006c1e5d0e9093dde25ac895fdca2b7d41a8a25dc84fbe12f55d42ec81"
+      },
+      "./src/utils/p.ts": {
+        "version": "32c48033255b37817650ecbf61f82f7efa274f35679115feb680883ad45dbe4b",
+        "signature": "7ab653484ce6bb34c96677bc3b1992340ef6687b3c4a90a064cf820ba2a055a6"
       },
       "./src/classes/binding-tempvar-builder.ts": {
         "version": "27b174b243fde83f2f16dd02e6ec528b3f873b03e7b539e776ea774f11ff200c",
@@ -377,13 +373,29 @@
         "version": "b57ea39bed80faa885c1183b7cc7b7a90f717a527a335315dfb73613f8c87425",
         "signature": "2c6f4ae19091ecae602f4d495675699503eeeb06b272584f66e729164484cb88"
       },
+      "./src/classes/forms.ts": {
+        "version": "fbbd715924b30a7a7329f107569fb51994cf4e077ebbfea6519086fea3c06544",
+        "signature": "111a3393d8fa54578e72a38b53474ccb8114b00122654b1b2e2815c3d864e3cc"
+      },
+      "./src/service/form-control.service.ts": {
+        "version": "7e0d174ac74b6381020ce1a9ce33881c8eb806742ae5c3de264450e6dcedf4dd",
+        "signature": "24424fd2e7c9b1b02339ff8ceadb345105373ef856f3b8d7e099c7da1f65516f"
+      },
       "./src/aja.ts": {
-        "version": "5fb6a11d0e514deb6052e53bbf2e19261872abe45caf16820b50151a6b7864d5",
-        "signature": "be815b1fae6bd0a7f2991d29b0d4bc70fec06e00cc0685ec7b0491616c12f2e0"
+        "version": "760396a75107e0b3922fe84673fdd261c288794c9e6f8850755c6d041f46c54a",
+        "signature": "b39accdd10e7cecc9e0aca7f3e19acddfd338d1b24ff60443569ab2d815ec261"
       },
       "./src/main.ts": {
         "version": "1f2746984e6558f7bc5078133ba3ded40e4923485d6f3a12c67cecb02e6b99fd",
         "signature": "7ee74de76a2c2e84dd879a7a38b3f2ffd127d4d235899a3c969aa3de35482a2e"
+      },
+      "./src/classes/form-control.ts": {
+        "version": "d0ae976b9caaeeb6e54f28a7ef0dfef25801477422c6fb4724302c2df7c46f0a",
+        "signature": "f761c91419d0a89422a0004ef1a92929dd4d2d5e5c16758654d8b0467d1998c6"
+      },
+      "./src/store/store.ts": {
+        "version": "8b375c421a15d42af061e89d2225e53ca9383423854ecd2103731846342b6ae6",
+        "signature": "eb7b2eea743ee007bef9b91cea1a836ed99de02ea94afa94cf0cf1c634fd4a31"
       },
       "./node_modules/_@types_estree@0.0.39@@types/estree/index.d.ts": {
         "version": "89ccbe04e737ce613f5f04990271cfa84901446350b8551b0555ddf19319723b",
@@ -794,21 +806,6 @@
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
-      "./src/utils/p.ts": [
-        "./src/utils/util.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/store/store.ts": [
-        "./src/utils/p.ts",
-        "./src/utils/util.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/utils.d.ts": [
         "./node_modules/_mobx@5.15.1@mobx/lib/internal.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
@@ -1170,9 +1167,15 @@
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
       "./src/classes/aja-model.ts": [
-        "./src/store/store.ts",
         "./src/utils/const-string.ts",
         "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
+      "./src/utils/p.ts": [
+        "./src/utils/util.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -1268,6 +1271,22 @@
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
+      "./src/classes/forms.ts": [
+        "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
+      "./src/service/form-control.service.ts": [
+        "./src/utils/const-string.ts",
+        "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
+        "./src/classes/forms.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
       "./src/aja.ts": [
         "./src/utils/util.ts",
         "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
@@ -1282,6 +1301,8 @@
         "./src/interfaces/interfaces.ts",
         "./src/classes/binding-tempvar-builder.ts",
         "./src/classes/context-data.ts",
+        "./src/service/form-control.service.ts",
+        "./src/classes/forms.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -1289,6 +1310,22 @@
       ],
       "./src/main.ts": [
         "./src/aja.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
+      "./src/classes/form-control.ts": [
+        "./src/classes/forms.ts",
+        "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
+      "./src/store/store.ts": [
+        "./src/utils/p.ts",
+        "./src/utils/util.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -2243,7 +2280,11 @@
       "./src/interfaces/interfaces.ts": [
         "./src/pipes/interfaces/interfaces.ts"
       ],
+      "./src/service/form-control.service.ts": [
+        "./src/classes/forms.ts"
+      ],
       "./src/aja.ts": [
+        "./src/classes/forms.ts",
         "./src/interfaces/interfaces.ts"
       ],
       "./src/main.ts": [
@@ -2702,8 +2743,19 @@
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/iterable.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/internal.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
+      "./src/classes/aja-model.ts",
+      "./src/utils/p.ts",
+      "./src/classes/binding-tempvar-builder.ts",
+      "./src/classes/context-data.ts",
+      "./src/utils/util.ts",
+      "./src/classes/binding-if-builder.ts",
+      "./src/classes/binding-for-builder.ts",
       "./src/pipes/interfaces/interfaces.ts",
+      "./src/pipes/pipes.ts",
+      "./src/classes/binding-text-builder.ts",
+      "./src/classes/binding-model-builder.ts",
       "./src/interfaces/interfaces.ts",
+      "./src/store/store.ts",
       "./node_modules/_@types_estree@0.0.39@@types/estree/index.d.ts",
       "./node_modules/_@types_node@12.12.18@@types/node/globals.d.ts",
       "./node_modules/_@types_node@12.12.18@@types/node/assert.d.ts",
@@ -2751,18 +2803,10 @@
       "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/globals.d.ts",
       "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/index.d.ts",
       "./node_modules/_@types_resolve@0.0.8@@types/resolve/index.d.ts",
-      "./src/classes/aja-model.ts",
-      "./src/classes/binding-model-builder.ts",
+      "./src/classes/forms.ts",
+      "./src/classes/form-control.ts",
       "./src/aja.ts",
-      "./src/classes/binding-tempvar-builder.ts",
-      "./src/classes/context-data.ts",
-      "./src/utils/p.ts",
-      "./src/store/store.ts",
-      "./src/utils/util.ts",
-      "./src/classes/binding-if-builder.ts",
-      "./src/classes/binding-for-builder.ts",
-      "./src/pipes/pipes.ts",
-      "./src/classes/binding-text-builder.ts",
+      "./src/service/form-control.service.ts",
       "./src/main.ts"
     ]
   },

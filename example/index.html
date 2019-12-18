@@ -11,47 +11,59 @@
       }
 
       .aja-invalid {
-        border-color: hsl(69, 100%, 50%);
+        border-color: red;
       }
       .aja-valid {
         border-color: #33ff00;
-      }
-
-      .text-red {
-        color: red;
-      }
-
-      .f-2 {
-        font-size: 2rem;
       }
     </style>
   </head>
 
   <body>
     <div class="app">
-      <input
-        type="text"
-        name="username"
-        [(model)]="name"
-        #nameModel="ajaModel"
-        required
-        minlength="5"
-      />
-      <div [hidden]="nameModel.valid || nameModel.pristine">
-        Name is required
-      </div>
-      <button (click)="asd(nameModel)">change</button>
+      <input type="text" [formControl]="favoriteColorControl" />
+      <p [hidden]="!favoriteColorControl.pending">异步验证中...</p>
+      <p :if="favoriteColorControl.errors">
+        {{ favoriteColorControl.errors | json }}
+      </p>
+      <button (click)="asd()">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
+      function validatorFn(control) {
+        return control.value.includes("ajanuw")
+          ? null
+          : {
+              validatorFn: "必须包含 Ajanuw"
+            };
+      }
+
+      function asyncValidatorFn(control) {
+        return new Promise(res => {
+          setTimeout(() => {
+            if (control.value.length > 10) {
+              res(null);
+            } else {
+              res({
+                asyncValidatorFn: "length须>10"
+              });
+            }
+          }, 1200);
+        });
+      }
       let vm = new Aja(".app", {
         state: {
-          name: ""
+          name: "",
+          favoriteColorControl: new Aja.FormControl(
+            "ajanuw",
+            [validatorFn],
+            [asyncValidatorFn]
+          )
         },
         actions: {
-          asd(m) {
-            l(m);
+          asd() {
+            this.favoriteColorControl.setValue("hello ajanuw");
           }
         }
       });

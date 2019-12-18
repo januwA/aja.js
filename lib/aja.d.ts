@@ -1,5 +1,7 @@
 import { OptionsInterface } from "./interfaces/interfaces";
+import { FormControl } from "./classes/forms";
 declare class Aja {
+    static FormControl: typeof FormControl;
     $store?: any;
     $actions?: {
         [name: string]: Function;

@@ -35,3 +35,5 @@ export let modelDirective: string = "[(model)]".toLowerCase();
  * * (modelChange)="f()"
  */
 export const modelChangeEvent = "(modelChange)".toLowerCase();
+
+export const formControlName = "[formControl]".toLowerCase();

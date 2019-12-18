@@ -27,23 +27,26 @@ import {
   boolStringp,
   attrp,
   elementNodep,
-  textNodep,
-  inputp,
-  textareap,
-  checkboxp,
-  radiop,
-  selectp
+  textNodep
 } from "./utils/p";
 import { BindingModelBuilder } from "./classes/binding-model-builder";
 import { ajaPipes, usePipes } from "./pipes/pipes";
-import { EventType, modelChangeEvent } from "./utils/const-string";
+import {
+  EventType,
+  modelChangeEvent,
+  formControlName
+} from "./utils/const-string";
 import { OptionsInterface } from "./interfaces/interfaces";
 import { BindingTempvarBuilder } from "./classes/binding-tempvar-builder";
 import { ContextData } from "./classes/context-data";
+import { FormControlSerivce } from "./service/form-control.service";
+import { FormControl } from "./classes/forms";
 
 const l = console.log;
 
 class Aja {
+  static FormControl = FormControl;
+
   $store?: any;
   $actions?: {
     [name: string]: Function;
@@ -231,61 +234,66 @@ class Aja {
     { name, value }: Attr,
     contextData: ContextData
   ): void {
-    // [style.coloe] => [style, coloe]
-    let [attrName, attrChild] = name
-      .replace(attrStartExp, emptyString)
-      .replace(attrEndExp, emptyString)
-      .split(".");
-    const [bindKey, pipeList] = parsePipe(value);
-    autorun(() => {
-      let data = getData(bindKey, contextData);
-      data = usePipes(data, pipeList, contextData);
+    if (name === formControlName) {
+      const formControl: FormControl = getData(value, contextData);
+      new FormControlSerivce(node, formControl);
+    } else {
+      // [style.coloe] => [style, coloe]
+      let [attrName, attrChild] = name
+        .replace(attrStartExp, emptyString)
+        .replace(attrEndExp, emptyString)
+        .split(".");
+      const [bindKey, pipeList] = parsePipe(value);
+      autorun(() => {
+        let data = getData(bindKey, contextData);
+        data = usePipes(data, pipeList, contextData);
 
-      let _value = data;
-      switch (attrName) {
-        case "style":
-          if (attrChild && attrChild in node.style) {
-            (node.style as { [k: string]: any })[attrChild] = data;
-          } else {
-            const styles: CSSStyleDeclaration = data;
-            for (const key in styles) {
-              if (Object.getOwnPropertyDescriptor(node.style, key)) {
-                node.style[key] = styles[key];
+        let _value = data;
+        switch (attrName) {
+          case "style":
+            if (attrChild && attrChild in node.style) {
+              (node.style as { [k: string]: any })[attrChild] = data;
+            } else {
+              const styles: CSSStyleDeclaration = data;
+              for (const key in styles) {
+                if (Object.getOwnPropertyDescriptor(node.style, key)) {
+                  node.style[key] = styles[key];
+                }
               }
             }
-          }
-          break;
-        case "class":
-          if (_value === null) _value = emptyString;
-          if (!attrChild) {
-            if (objectp(_value)) {
-              for (const klass in _value) {
-                if (_value[klass]) node.classList.add(klass);
-                else node.classList.remove(klass);
+            break;
+          case "class":
+            if (_value === null) _value = emptyString;
+            if (!attrChild) {
+              if (objectp(_value)) {
+                for (const klass in _value) {
+                  if (_value[klass]) node.classList.add(klass);
+                  else node.classList.remove(klass);
+                }
+              } else {
+                node.setAttribute(attrName, _value);
               }
             } else {
-              node.setAttribute(attrName, _value);
+              if (_value) node.classList.add(attrChild);
             }
-          } else {
-            if (_value) node.classList.add(attrChild);
-          }
-          break;
-        case "html":
-          if (data !== node.innerHTML) node.innerHTML = data;
-          break;
+            break;
+          case "html":
+            if (data !== node.innerHTML) node.innerHTML = data;
+            break;
 
-        default:
-          if (_value === null) _value = emptyString;
-          if (_value) {
-            if (node.getAttribute(attrName) !== _value) {
-              node.setAttribute(attrName, _value);
+          default:
+            if (_value === null) _value = emptyString;
+            if (_value) {
+              if (node.getAttribute(attrName) !== _value) {
+                node.setAttribute(attrName, _value);
+              }
+            } else {
+              if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
             }
-          } else {
-            if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
-          }
-          break;
-      }
-    });
+            break;
+        }
+      });
+    }
     node.removeAttribute(name);
   }
 

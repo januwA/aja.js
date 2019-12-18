@@ -45,6 +45,7 @@
    * * (modelChange)="f()"
    */
   const modelChangeEvent = "(modelChange)".toLowerCase();
+  const formControlName = "[formControl]".toLowerCase();
 
   function createRoot(view) {
       return typeof view === "string"
@@ -2435,6 +2436,23 @@
               "isObservable expects only 1 argument. Use isObservableProp to inspect the observability of a property");
       return _isObservable(value);
   }
+
+  function keys(obj) {
+      if (isObservableObject(obj)) {
+          return obj[$mobx].getKeys();
+      }
+      if (isObservableMap(obj)) {
+          return Array.from(obj.keys());
+      }
+      if (isObservableSet(obj)) {
+          return Array.from(obj.keys());
+      }
+      if (isObservableArray(obj)) {
+          return obj.map(function (_, index) { return index; });
+      }
+      return fail(process.env.NODE_ENV !== "production" &&
+          "'keys()' can only be used on observable objects, arrays, sets and maps");
+  }
   function set(obj, key, value) {
       if (arguments.length === 2 && !isObservableSet(obj)) {
           startBatch();
@@ -2478,6 +2496,99 @@
           return fail(process.env.NODE_ENV !== "production" &&
               "'set()' can only be used on observable objects, arrays and maps");
       }
+  }
+
+  var defaultOptions = {
+      detectCycles: true,
+      exportMapsAsObjects: true,
+      recurseEverything: false
+  };
+  function cache(map, key, value, options) {
+      if (options.detectCycles)
+          map.set(key, value);
+      return value;
+  }
+  function toJSHelper(source, options, __alreadySeen) {
+      if (!options.recurseEverything && !isObservable(source))
+          return source;
+      if (typeof source !== "object")
+          return source;
+      // Directly return null if source is null
+      if (source === null)
+          return null;
+      // Directly return the Date object itself if contained in the observable
+      if (source instanceof Date)
+          return source;
+      if (isObservableValue(source))
+          return toJSHelper(source.get(), options, __alreadySeen);
+      // make sure we track the keys of the object
+      if (isObservable(source))
+          keys(source);
+      var detectCycles = options.detectCycles === true;
+      if (detectCycles && source !== null && __alreadySeen.has(source)) {
+          return __alreadySeen.get(source);
+      }
+      if (isObservableArray(source) || Array.isArray(source)) {
+          var res_1 = cache(__alreadySeen, source, [], options);
+          var toAdd = source.map(function (value) { return toJSHelper(value, options, __alreadySeen); });
+          res_1.length = toAdd.length;
+          for (var i = 0, l = toAdd.length; i < l; i++)
+              res_1[i] = toAdd[i];
+          return res_1;
+      }
+      if (isObservableSet(source) || Object.getPrototypeOf(source) === Set.prototype) {
+          if (options.exportMapsAsObjects === false) {
+              var res_2 = cache(__alreadySeen, source, new Set(), options);
+              source.forEach(function (value) {
+                  res_2.add(toJSHelper(value, options, __alreadySeen));
+              });
+              return res_2;
+          }
+          else {
+              var res_3 = cache(__alreadySeen, source, [], options);
+              source.forEach(function (value) {
+                  res_3.push(toJSHelper(value, options, __alreadySeen));
+              });
+              return res_3;
+          }
+      }
+      if (isObservableMap(source) || Object.getPrototypeOf(source) === Map.prototype) {
+          if (options.exportMapsAsObjects === false) {
+              var res_4 = cache(__alreadySeen, source, new Map(), options);
+              source.forEach(function (value, key) {
+                  res_4.set(key, toJSHelper(value, options, __alreadySeen));
+              });
+              return res_4;
+          }
+          else {
+              var res_5 = cache(__alreadySeen, source, {}, options);
+              source.forEach(function (value, key) {
+                  res_5[key] = toJSHelper(value, options, __alreadySeen);
+              });
+              return res_5;
+          }
+      }
+      // Fallback to the situation that source is an ObservableObject or a plain object
+      var res = cache(__alreadySeen, source, {}, options);
+      getPlainObjectKeys(source).forEach(function (key) {
+          res[key] = toJSHelper(source[key], options, __alreadySeen);
+      });
+      return res;
+  }
+  function toJS(source, options) {
+      // backward compatibility
+      if (typeof options === "boolean")
+          options = { detectCycles: options };
+      if (!options)
+          options = defaultOptions;
+      options.detectCycles =
+          options.detectCycles === undefined
+              ? options.recurseEverything === true
+              : options.detectCycles === true;
+      var __alreadySeen;
+      if (options.detectCycles)
+          __alreadySeen = new Map();
+      return toJSHelper(source, options, __alreadySeen);
   }
 
   function trace() {
@@ -4838,6 +4949,394 @@
       }
   }
 
+  /**
+   * * 将dom节点和FormControl绑定在一起
+   */
+  class FormControlSerivce {
+      constructor(node, control) {
+          this.node = node;
+          this.control = control;
+          this.setup();
+      }
+      /**
+       * * 控件 <=> FormContril
+       * @param node
+       */
+      setup() {
+          // 控件同步到formControl
+          // 是否禁用
+          if ("disabled" in this.node) {
+              const inputNode = this.node;
+              if (inputNode.disabled)
+                  this.control.disable();
+              else
+                  this.control.enable();
+          }
+          // 值发生变化了
+          this.node.addEventListener(EventType.input, () => {
+              if ("value" in this.node) {
+                  this.control.setValue(this.node.value);
+              }
+              this.control.markAsDirty();
+          });
+          // 控件被访问了
+          this.node.addEventListener(EventType.blur, () => this.control.markAsTouched());
+          // formControl同步到控件
+          autorun(() => {
+              // 这个主要监听setValue()，和初始化时，将新值同步到控件中去
+              const inputNode = this.node;
+              if (this.control.value !== inputNode.value) {
+                  inputNode.value = this.control.value;
+              }
+              this._checkValidity(inputNode);
+          });
+          autorun(() => {
+              this.node.classList.toggle(FormControlSerivce.classes.touched, this.control.touched);
+              this.node.classList.toggle(FormControlSerivce.classes.untouched, this.control.untouched);
+              this.node.classList.toggle(FormControlSerivce.classes.pristine, this.control.pristine);
+              this.node.classList.toggle(FormControlSerivce.classes.dirty, this.control.dirty);
+              this.node.classList.toggle(FormControlSerivce.classes.valid, this.control.valid);
+              this.node.classList.toggle(FormControlSerivce.classes.invalid, this.control.invalid);
+              const inputNode = this.node;
+              if ("disabled" in inputNode) {
+                  inputNode.disabled = this.control.disabled;
+              }
+          });
+      }
+      /**
+       * * 验证节点的值
+       * * 如果控件被禁用，则不校验
+       * @param node
+       */
+      _checkValidity(node) {
+          if ("checkValidity" in node) {
+              const inputNode = node;
+              // 如果控件被禁用，这将一直返回true
+              // 初始化时只会验证required
+              // 只有在input期间验证，才会验证到minlength之类的
+              const ok = inputNode.checkValidity();
+              if (ok)
+                  this.control.markAsValid();
+              else
+                  this.control.markAsInValid();
+              // h5验证完后启用内置的验证
+              this.control.updateValueAndValidity();
+          }
+      }
+  }
+  FormControlSerivce.classes = {
+      // 控件被访问过
+      touched: "aja-touched",
+      untouched: "aja-untouched",
+      // 控件的值变化了
+      dirty: "aja-dirty",
+      pristine: "aja-pristine",
+      // 控件的值有效
+      valid: "aja-valid",
+      invalid: "aja-invalid" // false
+  };
+
+  /*! *****************************************************************************
+  Copyright (c) Microsoft Corporation. All rights reserved.
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+  this file except in compliance with the License. You may obtain a copy of the
+  License at http://www.apache.org/licenses/LICENSE-2.0
+
+  THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+  WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+  MERCHANTABLITY OR NON-INFRINGEMENT.
+
+  See the Apache Version 2.0 License for specific language governing permissions
+  and limitations under the License.
+  ***************************************************************************** */
+
+  function __awaiter(thisArg, _arguments, P, generator) {
+      return new (P || (P = Promise))(function (resolve, reject) {
+          function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+          function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+          function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+          step((generator = generator.apply(thisArg, _arguments || [])).next());
+      });
+  }
+
+  class AbstractControl {
+      // TODO
+      // private _parent;
+      constructor(validator, asyncValidator) {
+          this.validator = validator;
+          this.asyncValidator = asyncValidator;
+          this._control = observable({
+              touched: false,
+              untouched: true,
+              dirty: false,
+              pristine: true,
+              valid: false,
+              invalid: true,
+              disabled: false,
+              enabled: true,
+              pending: false,
+              errors: null
+          });
+      }
+      /**
+       * * 控件的确认状态。 有四种可能
+       * * **VALID 有效**：此控件已通过所有验证检查。
+       * * **INVALID 无效**：此控件至少未通过一项验证检查。
+       * * **PENDING 待审核**：此控件正在执行验证检查。
+       * * **DISABLED 已禁用**：此控件免于验证检查。
+       * 这些状态值是互斥的，因此不能进行控制,有效和无效或无效和禁用。
+       */
+      get status() {
+          if (this.disabled)
+              return "DISABLED";
+          if (this.pending)
+              return "PENDING";
+          if (this.valid)
+              return "VALID";
+          if (this.invalid)
+              return "INVALID";
+          return "";
+      }
+      // TODO
+      // readonly parent: FormGroup | FormArray;
+      // TODO
+      // setParent(parent: FormGroup | FormArray): void {}
+      // TODO
+      get(path) {
+          return null;
+      }
+      /**
+       * 包含验证失败产生的任何错误的对象，
+       * 如果没有错误，则返回null。
+       */
+      get errors() {
+          return toJS(this._control.errors);
+      }
+      /**
+       * * 获取错误
+       * @param errorCode
+       * @param path
+       */
+      getError(errorCode, path) {
+          if (!path) {
+              if (!this.errors)
+                  return null;
+              return this.errors[errorCode];
+          }
+          // TODO: 添加path解析
+          return null;
+      }
+      hasError(errorCode, path) {
+          if (!path) {
+              if (!this.errors)
+                  return false;
+              return errorCode in this.errors;
+          }
+          // TODO: 添加path
+          return false;
+      }
+      setErrors(errors) {
+          this._control.errors = errors;
+      }
+      /**
+       * * 当控件的`status`为 `PENDING`时，控件为`pending`
+       * * 如果此控件正在进行验证检查，则返回True，否则为false。
+       */
+      get pending() {
+          return this._control.pending;
+      }
+      /**
+       * *控件的值有效
+       */
+      get valid() {
+          return this._control.valid;
+      }
+      /**
+       * 控件的值无效
+       */
+      get invalid() {
+          return this._control.invalid;
+      }
+      /**
+       * 控件被禁用
+       */
+      get disabled() {
+          return this._control.disabled;
+      }
+      /**
+       * 控件被启用
+       */
+      get enabled() {
+          return this._control.enabled;
+      }
+      /**
+       * 控件的值变化了
+       */
+      get dirty() {
+          return this._control.dirty;
+      }
+      /**
+       * 控件的值没有变化
+       * 只有用户的输入才会改变这个状态
+       */
+      get pristine() {
+          return this._control.pristine;
+      }
+      /**
+       * 控件被访问过
+       */
+      get touched() {
+          return this._control.touched;
+      }
+      /**
+       * 控件没有被访问过
+       */
+      get untouched() {
+          return this._control.untouched;
+      }
+      setValidators(newValidator) {
+          this.validator = newValidator;
+      }
+      setAsyncValidators(newValidator) {
+          this.asyncValidator = newValidator;
+      }
+      clearValidators() {
+          this.validator = null;
+      }
+      clearAsyncValidators() {
+          this.asyncValidator = null;
+      }
+      /**
+       * 将控件标记为“已触摸”。
+       * @param opts
+       */
+      markAsTouched() {
+          this._control.touched = true;
+          this._control.untouched = false;
+      }
+      /**
+       * 将控件标记为“未触摸”。
+       * @param opts
+       */
+      markAsUntouched() {
+          this._control.untouched = true;
+          this._control.touched = false;
+      }
+      /**
+       * 控件的值变化
+       */
+      markAsDirty() {
+          this._control.dirty = true;
+          this._control.pristine = false;
+      }
+      /**
+       * 控件的值没发生变化
+       */
+      markAsPristine() {
+          this._control.dirty = false;
+          this._control.pristine = true;
+      }
+      /**
+       * 控件的值有效
+       */
+      markAsValid() {
+          this._control.valid = true;
+          this._control.invalid = false;
+          this._control.pending = false;
+      }
+      /**
+       * 控件的值无效效
+       */
+      markAsInValid() {
+          this._control.valid = false;
+          this._control.invalid = true;
+          this._control.pending = false;
+      }
+      /**
+       * 禁用控件
+       */
+      disable() {
+          this._control.disabled = true;
+          this._control.enabled = false;
+          this._control.pending = false;
+      }
+      /**
+       * 启用控件
+       */
+      enable() {
+          this._control.disabled = false;
+          this._control.enabled = true;
+      }
+      /**
+       * 将控件标记为“待处理”。
+       * 当控件执行异步验证时，该控件处于挂起状态。
+       */
+      markAsPending() {
+          this._control.pending = true;
+      }
+      /**
+       * * 重新计算控件的值和验证状态。
+       */
+      updateValueAndValidity() {
+          this._runValidator();
+      }
+      _runValidator() {
+          if (!this.validator)
+              return;
+          for (const validatorFn of this.validator) {
+              const error = validatorFn(this);
+              // 返回了错误
+              if (error !== null) {
+                  this._control.errors = error;
+                  this.markAsInValid();
+                  return;
+              }
+          }
+          this._control.errors = null;
+          this._runAsyncValidator();
+      }
+      _runAsyncValidator() {
+          return __awaiter(this, void 0, void 0, function* () {
+              if (!this.asyncValidator)
+                  return;
+              // 挂起
+              this.markAsPending();
+              for (const asyncValidatorFn of this.asyncValidator) {
+                  const error = yield asyncValidatorFn(this);
+                  // 返回了错误
+                  if (error !== null) {
+                      this._control.errors = error;
+                      this.markAsInValid();
+                      return;
+                  }
+              }
+              this._control.errors = null;
+              this.markAsValid();
+          });
+      }
+  }
+  class FormControl extends AbstractControl {
+      /**
+       *
+       * @param formState 初始值
+       */
+      constructor(formState, validatorOrOpts, asyncValidator) {
+          super(validatorOrOpts || null, asyncValidator || null);
+          this._value = observable.box("");
+          this._value.set(formState || "");
+      }
+      get value() {
+          return this._value.get();
+      }
+      setValue(value) {
+          this._value.set(value);
+      }
+      reset(value) {
+          this._value.set(value || "");
+      }
+  }
+
   class Aja {
       constructor(view, options) {
           if (!options || !view)
@@ -4992,70 +5491,76 @@
        * @param param1
        */
       _attrBindHandle(node, { name, value }, contextData) {
-          // [style.coloe] => [style, coloe]
-          let [attrName, attrChild] = name
-              .replace(attrStartExp, emptyString)
-              .replace(attrEndExp, emptyString)
-              .split(".");
-          const [bindKey, pipeList] = parsePipe(value);
-          autorun(() => {
-              let data = getData(bindKey, contextData);
-              data = usePipes(data, pipeList, contextData);
-              let _value = data;
-              switch (attrName) {
-                  case "style":
-                      if (attrChild && attrChild in node.style) {
-                          node.style[attrChild] = data;
-                      }
-                      else {
-                          const styles = data;
-                          for (const key in styles) {
-                              if (Object.getOwnPropertyDescriptor(node.style, key)) {
-                                  node.style[key] = styles[key];
+          if (name === formControlName) {
+              const formControl = getData(value, contextData);
+              new FormControlSerivce(node, formControl);
+          }
+          else {
+              // [style.coloe] => [style, coloe]
+              let [attrName, attrChild] = name
+                  .replace(attrStartExp, emptyString)
+                  .replace(attrEndExp, emptyString)
+                  .split(".");
+              const [bindKey, pipeList] = parsePipe(value);
+              autorun(() => {
+                  let data = getData(bindKey, contextData);
+                  data = usePipes(data, pipeList, contextData);
+                  let _value = data;
+                  switch (attrName) {
+                      case "style":
+                          if (attrChild && attrChild in node.style) {
+                              node.style[attrChild] = data;
+                          }
+                          else {
+                              const styles = data;
+                              for (const key in styles) {
+                                  if (Object.getOwnPropertyDescriptor(node.style, key)) {
+                                      node.style[key] = styles[key];
+                                  }
                               }
                           }
-                      }
-                      break;
-                  case "class":
-                      if (_value === null)
-                          _value = emptyString;
-                      if (!attrChild) {
-                          if (objectp(_value)) {
-                              for (const klass in _value) {
-                                  if (_value[klass])
-                                      node.classList.add(klass);
-                                  else
-                                      node.classList.remove(klass);
+                          break;
+                      case "class":
+                          if (_value === null)
+                              _value = emptyString;
+                          if (!attrChild) {
+                              if (objectp(_value)) {
+                                  for (const klass in _value) {
+                                      if (_value[klass])
+                                          node.classList.add(klass);
+                                      else
+                                          node.classList.remove(klass);
+                                  }
+                              }
+                              else {
+                                  node.setAttribute(attrName, _value);
                               }
                           }
                           else {
-                              node.setAttribute(attrName, _value);
+                              if (_value)
+                                  node.classList.add(attrChild);
                           }
-                      }
-                      else {
-                          if (_value)
-                              node.classList.add(attrChild);
-                      }
-                      break;
-                  case "html":
-                      if (data !== node.innerHTML)
-                          node.innerHTML = data;
-                      break;
-                  default:
-                      if (_value === null)
-                          _value = emptyString;
-                      if (_value) {
-                          if (node.getAttribute(attrName) !== _value) {
-                              node.setAttribute(attrName, _value);
+                          break;
+                      case "html":
+                          if (data !== node.innerHTML)
+                              node.innerHTML = data;
+                          break;
+                      default:
+                          if (_value === null)
+                              _value = emptyString;
+                          if (_value) {
+                              if (node.getAttribute(attrName) !== _value) {
+                                  node.setAttribute(attrName, _value);
+                              }
                           }
-                      }
-                      else {
-                          if (node.hasAttribute(attrName))
-                              node.removeAttribute(attrName);
-                      }
-                      break;
-              }
-          });
+                          else {
+                              if (node.hasAttribute(attrName))
+                                  node.removeAttribute(attrName);
+                          }
+                          break;
+                  }
+              });
+          }
           node.removeAttribute(name);
       }
       /**
@@ -5122,6 +5627,7 @@
           });
       }
   }
+  Aja.FormControl = FormControl;
 
   return Aja;
 
