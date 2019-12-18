@@ -1,7 +1,9 @@
 import { OptionsInterface } from "./interfaces/interfaces";
 declare class Aja {
-    $store: any;
-    $actions: any;
+    $store?: any;
+    $actions?: {
+        [name: string]: Function;
+    };
     constructor(view?: string | HTMLElement, options?: OptionsInterface);
     /**
      * 扫描绑定

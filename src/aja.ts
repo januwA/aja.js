@@ -44,9 +44,10 @@ import { ContextData } from "./classes/context-data";
 const l = console.log;
 
 class Aja {
-  $store!: any;
-
-  $actions: any;
+  $store?: any;
+  $actions?: {
+    [name: string]: Function;
+  };
 
   constructor(view?: string | HTMLElement, options?: OptionsInterface) {
     if (!options || !view) return;
@@ -112,43 +113,14 @@ class Aja {
       }
     }
     const model = new BindingModelBuilder(node);
-    if (model.modelAttr) {
-      if (inputp(node) || textareap(node)) {
-        if (model.checkbox && checkboxp(model.checkbox)) {
-          const data = getData(model.modelAttr.value, contextData);
-          autorun(() => {
-            model.checkboxSetup(data);
-          });
-
-          model.checkboxChangeListener(data, contextData);
-        } else if (model.radio && radiop(model.radio)) {
-          // 单选按钮
-          autorun(() => {
-            model.radioSetup(getData(model.modelAttr!.value, contextData));
-          });
-
-          model.radioChangeListener(contextData);
-        } else {
-          // 其它
-          autorun(() => {
-            model.inputSetup(getData(model.modelAttr!.value, contextData));
-          });
-          model.inputChangeListener(contextData);
-        }
-      } else if (selectp(node)) {
-        setTimeout(() => {
-          autorun(() => {
-            model.selectSetup(getData(model.modelAttr!.value, contextData));
-          });
-        });
-        model.selectChangeListener(contextData);
-      }
-    }
+    model.setup(contextData);
   }
 
   private _proxyState(options: OptionsInterface): void {
     const state = createObject<any>(options.state);
     this.$actions = createObject<any>(options.actions);
+
+    if (!this.$actions) return;
 
     const bounds: { [k: string]: any } = {};
     Object.keys(this.$actions).forEach(ac => (bounds[ac] = action.bound));
@@ -349,13 +321,14 @@ class Aja {
         //? 每次事件响应都解析，确保变量更改能够得到新数据
         //? 如果放在外面，则不会响应新数据
         const transitionArgs = parseArgsToArguments(args, contextData);
-        this.$actions[funcName].apply(
-          this.$store,
-          parseArgsEvent(
-            transitionArgs,
-            modelChangep ? (e.target as HTMLInputElement).value : e
-          )
-        );
+        if (this.$actions)
+          this.$actions[funcName].apply(
+            this.$store,
+            parseArgsEvent(
+              transitionArgs,
+              modelChangep ? (e.target as HTMLInputElement).value : e
+            )
+          );
       });
     }
 

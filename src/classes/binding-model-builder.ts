@@ -3,7 +3,8 @@ import {
   toArray,
   getCheckboxRadioValue,
   setData,
-  findModelAttr
+  findModelAttr,
+  getData
 } from "../utils/util";
 import {
   radiop,
@@ -15,6 +16,7 @@ import {
 } from "../utils/p";
 import { EventType, modelDirective } from "../utils/const-string";
 import { ContextData } from "./context-data";
+import { autorun } from "mobx";
 
 export class BindingModelBuilder {
   // input / textarea
@@ -37,35 +39,54 @@ export class BindingModelBuilder {
   constructor(public node: HTMLElement) {
     this.modelAttr = findModelAttr(node, modelDirective);
     if (!this.modelAttr) return;
-    this._setup();
-  }
-  private _setup() {
-    if (inputp(this.node) || textareap(this.node)) {
-      if (checkboxp(this.node as HTMLInputElement)) {
-        this.checkbox = this.node as HTMLInputElement;
-      } else if (radiop(this.node as HTMLInputElement)) {
-        this.radio = this.node as HTMLInputElement;
-      } else {
-        this.input = this.node as HTMLInputElement;
-      }
-    } else if (selectp(this.node)) {
-      this.select = this.node as HTMLSelectElement;
-    }
-    this.node.classList.add(
-      AjaModel.classes.untouched,
-      AjaModel.classes.pristine,
-      AjaModel.classes.valid
-    );
-
-    // 控件被访问了
-    // 所有绑定的model的元素，都会添加这个服务
-    this.node.addEventListener(EventType.blur, () => {
-      this.touched();
-    });
     this.node.removeAttribute(this.modelAttr!.name);
   }
 
-  checkboxSetup(data: any) {
+  setup(contextData: ContextData) {
+    if (!this.modelAttr || !this.modelAttr.value) return;
+    if (inputp(this.node) || textareap(this.node)) {
+      if (checkboxp(this.node as HTMLInputElement)) {
+        this.checkbox = this.node as HTMLInputElement;
+        const data = getData(this.modelAttr.value, contextData);
+        autorun(() => {
+          this._checkboxSetup(data);
+        });
+        this._checkboxChangeListener(data, contextData);
+      } else if (radiop(this.node as HTMLInputElement)) {
+        this.radio = this.node as HTMLInputElement;
+        autorun(() => {
+          this._radioSetup(getData(this.modelAttr!.value, contextData));
+        });
+
+        this._radioChangeListener(contextData);
+      } else {
+        this.input = this.node as HTMLInputElement;
+        autorun(() => {
+          this._inputSetup(getData(this.modelAttr!.value, contextData));
+        });
+        this._inputChangeListener(contextData);
+      }
+    } else if (selectp(this.node)) {
+      this.select = this.node as HTMLSelectElement;
+      setTimeout(() => {
+        autorun(() => {
+          this._selectSetup(getData(this.modelAttr!.value, contextData));
+        });
+      });
+
+      this._selectChangeListener(contextData);
+    }
+
+    AjaModel.classListSetup(this.node);
+
+    // 控件被访问了
+    // 所有绑定的model的元素，都会添加这个服务
+    this.node.addEventListener(EventType.blur, () =>
+      AjaModel.touched(this.node)
+    );
+  }
+
+  private _checkboxSetup(data: any) {
     if (this.checkbox) {
       // array 处理数组，否则处理boolean值
       if (arrayp(data)) {
@@ -78,7 +99,7 @@ export class BindingModelBuilder {
     }
   }
 
-  checkboxChangeListener(data: any, contextData: ContextData) {
+  private _checkboxChangeListener(data: any, contextData: ContextData) {
     if (this.checkbox) {
       this.checkbox.addEventListener(EventType.change, () => {
         if (!this.checkbox) return;
@@ -90,46 +111,49 @@ export class BindingModelBuilder {
           if (this.modelAttr)
             setData(this.modelAttr.value, this.checkbox.checked, contextData);
         }
-        this.dirty();
+        AjaModel.valueChange(this.checkbox);
       });
     }
   }
 
-  radioSetup(states: any[]) {
+  private _radioSetup(states: any[]) {
     if (this.radio) {
       this.radio.checked = states[0] === this.radio.value;
     }
   }
 
-  radioChangeListener(contextData: ContextData) {
+  private _radioChangeListener(contextData: ContextData) {
     if (this.radio) {
       this.radio.addEventListener(EventType.change, () => {
         if (!this.radio) return;
         let newData = getCheckboxRadioValue(this.radio);
         this.radio.checked = true;
-        this.dirty();
+        AjaModel.valueChange(this.radio);
         if (this.modelAttr) setData(this.modelAttr.value, newData, contextData);
       });
     }
   }
 
-  inputSetup(states: any[]) {
+  private _inputSetup(value: any) {
     if (this.input) {
-      this.input.value = states[0];
+      this.input.value = value;
     }
   }
-  inputChangeListener(contextData: ContextData) {
+
+  private _inputChangeListener(contextData: ContextData) {
     if (this.input) {
       // 值发生变化了
       this.input.addEventListener(EventType.input, () => {
-        this.dirty();
-        if (this.modelAttr)
-          setData(this.modelAttr.value, this.input?.value, contextData);
+        if (this.input && this.modelAttr) {
+          AjaModel.valueChange(this.input);
+          AjaModel.checkValidity(this.input);
+          setData(this.modelAttr.value, this.input.value, contextData);
+        }
       });
     }
   }
 
-  selectSetup(states: any[]) {
+  private _selectSetup(states: any[]) {
     if (this.select) {
       const data = states[0];
       const selectOptions = toArray(this.select.options);
@@ -152,57 +176,19 @@ export class BindingModelBuilder {
     }
   }
 
-  selectChangeListener(contextData: ContextData) {
+  private _selectChangeListener(contextData: ContextData) {
     if (this.select) {
       this.select.addEventListener(EventType.change, () => {
-        if (this.select?.multiple) {
-          if (this.modelAttr)
-            setData(this.modelAttr.value, this.selectValues, contextData);
-        } else {
-          if (this.modelAttr)
-            setData(this.modelAttr.value, this.select?.value, contextData);
+        if (this.select && this.modelAttr) {
+          const bindKey = this.modelAttr.value;
+          if (this.select.multiple) {
+            setData(bindKey, this.selectValues, contextData);
+          } else {
+            setData(bindKey, this.select.value, contextData);
+          }
+          AjaModel.valueChange(this.select);
         }
-        this.dirty();
       });
     }
-  }
-
-  /**
-   * * 控件的值有效时
-   */
-  valid() {
-    this.node.classList.replace(
-      AjaModel.classes.invalid,
-      AjaModel.classes.valid
-    );
-  }
-  /**
-   * * 控件的值无效时
-   */
-  invalid() {
-    this.node.classList.replace(
-      AjaModel.classes.valid,
-      AjaModel.classes.invalid
-    );
-  }
-
-  /**
-   * * 控件的值发生变化
-   */
-  dirty() {
-    this.node.classList.replace(
-      AjaModel.classes.pristine,
-      AjaModel.classes.dirty
-    );
-  }
-
-  /**
-   * * 控件被访问
-   */
-  touched() {
-    this.node.classList.replace(
-      AjaModel.classes.untouched,
-      AjaModel.classes.touched
-    );
   }
 }

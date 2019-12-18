@@ -1,71 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-  <title>Aja</title>
-  <style>
-    [hidden] {
-      display: none;
-    }
-
-    .aja-invalid {
-      border-color: red;
-    }
-
-    .text-red {
-      color: red;
-    }
-
-    .f-2 {
-      font-size: 2rem;
-    }
-  </style>
-</head>
-
-<body>
-  <div class="app">
-
-    <div :for="of arr">
-      <p>{{ $_.key }}</p>
-      <ul>
-        <li :for="of $_.list">{{ $__}}</li>
-      </ul>
-    </div>
-
-
-    <p>a: {{ name.value }}</p>
-    <button (click)="asd(name.value)">change</button>
-  </div>
-  <script src="../dist/aja.js"></script>
-  <script>
-    const l = console.log;
-    let vm = new Aja(".app", {
-      state: {
-        arr: [
-          {
-            key: 1,
-            list: ['x', 'y', 'z']
-          },
-          {
-            key: 2,
-            list: ['q', 'w', 'e']
-          },
-          {
-            key: 3,
-            list: ['a', 'b', 'c']
-          },
-        ],
-      },
-      actions: {
-        asd(m) {
-          this.show = !this.show;
-        }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Aja</title>
+    <style>
+      [hidden] {
+        display: none;
       }
-    });
-  </script>
-</body>
 
+      .aja-invalid {
+        border-color: hsl(69, 100%, 50%);
+      }
+      .aja-valid {
+        border-color: #33ff00;
+      }
+
+      .text-red {
+        color: red;
+      }
+
+      .f-2 {
+        font-size: 2rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app">
+      <input
+        type="text"
+        name="username"
+        [(model)]="name"
+        #nameModel="ajaModel"
+        required
+        minlength="5"
+      />
+      <div [hidden]="nameModel.valid || nameModel.pristine">
+        Name is required
+      </div>
+      <button (click)="asd(nameModel)">change</button>
+    </div>
+    <script src="../dist/aja.js"></script>
+    <script>
+      const l = console.log;
+      let vm = new Aja(".app", {
+        state: {
+          name: ""
+        },
+        actions: {
+          asd(m) {
+            l(m);
+          }
+        }
+      });
+    </script>
+  </body>
 </html>

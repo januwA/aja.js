@@ -1,15 +1,19 @@
+// https://www.typescriptlang.org/docs/handbook/compiler-options.html
+
 {
   "compilerOptions": {
     "target": "es6",
     "module": "commonjs",
     "strict": true,
     "esModuleInterop": true,
+    "emitDecoratorMetadata": true /* 装饰器 */,
+    "experimentalDecorators": true /* 装饰器 */,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "rootDir": "./src",
+    "rootDir": "./src" /* 用于表示源代码的位置src */,
     "outDir": "./lib",
     "sourceMap": true,
-    "lib": ["es6", "dom"]
+    "incremental": true
   },
   "exclude": ["node_modules", "dist"]
 }

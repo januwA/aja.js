@@ -9,7 +9,7 @@ export declare class BindingTempvarBuilder {
     templateVariables: TemplateVariableInterface;
     constructor(node: HTMLElement, templateVariables?: TemplateVariableInterface);
     has(key: string): boolean;
-    get(key: string): Element | ChildNode | HTMLElement | AjaModel;
+    get(key: string): AjaModel | HTMLElement | Element | ChildNode;
     set(key: string, value: any): void;
     copyWith(node: HTMLElement): BindingTempvarBuilder;
     /**

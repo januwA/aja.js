@@ -16,8 +16,6 @@
   const tempvarExp = /^#/;
   const parsePipesExp = /(?<![\|])\|(?![\|])/;
 
-  const objectTag = "[object Object]";
-  const arrayTag = "[object Array]";
   const strString = "string";
   class EventType {
   }
@@ -165,84 +163,6 @@
           .replace(spaceExp, emptyString)
           .split(parsePipesExp);
       return [bindKey, pipes];
-  }
-  const emptyp = function (value) {
-      return JSON.stringify(value).length === 2 ? true : false;
-  };
-  function _equal(obj, other, equalp = false) {
-      function Equal(obj, other, equalp) {
-          let objTag = dataTag(obj);
-          let otherTag = dataTag(other);
-          if (objTag !== objectTag &&
-              objTag !== arrayTag &&
-              otherTag !== objectTag &&
-              otherTag !== arrayTag) {
-              if (equalp && typeof obj === strString && typeof other === strString) {
-                  return obj.toLocaleUpperCase() === other.toLocaleUpperCase();
-              }
-              return obj === other;
-          }
-          if (objTag !== otherTag)
-              return false; // 集合类型不一样
-          // if (
-          //   Object.getOwnPropertyNames(obj).length !==
-          //   Object.getOwnPropertyNames(other).length
-          // )
-          if (Object.keys(obj).length !== Object.keys(other).length)
-              return false; // 集合元素数量不一样
-          if (emptyp(obj) && emptyp(other))
-              return true; // 类型一样的空集合，永远相等。
-          let data = (function () {
-              let data = Object.getOwnPropertyNames(obj);
-              if (objTag === arrayTag) {
-                  data.pop();
-                  return data;
-              }
-              else {
-                  return data;
-              }
-          })();
-          for (const i in data) {
-              const k = data[i];
-              if (k in other) {
-                  // 元素是否相交
-                  let obj_value = obj[k];
-                  let other_value = other[k];
-                  let obj_item_tag = dataTag(obj_value);
-                  let other_item_tag = dataTag(other_value);
-                  if (obj_item_tag === other_item_tag) {
-                      if (obj_item_tag === objectTag ||
-                          obj_item_tag === arrayTag ||
-                          other_item_tag === objectTag ||
-                          other_item_tag === arrayTag) {
-                          return Equal(obj_value, other_value, equalp);
-                      }
-                      else {
-                          if (obj_value === other_value) ;
-                          else {
-                              return false;
-                          }
-                      }
-                  }
-                  else {
-                      return false;
-                  }
-              }
-              else {
-                  return false;
-              }
-          }
-          return true;
-      }
-      return Equal(obj, other, equalp);
-  }
-  /**
-   * * 不忽略大小写
-   * @param obj
-   * @param other
-   */
-  function equal(obj, other) {
-      return _equal(obj, other, false);
   }
   /**
    * * 1. 优先寻找模板变量
@@ -4540,146 +4460,69 @@
       }
   }
 
-  const l = console.log;
-  const reactionListeners = [];
-  function reactionUpdate(some) {
-      for (const reactionItem of reactionListeners) {
-          const stateList = reactionItem.listenerStateList();
-          // equal 深比较
-          l(some, stateList[0]);
-          if (stateList.some(e => equal(e, some))) {
-              reactionItem.cb(stateList);
-          }
-      }
-  }
-  const autorunListeners = [];
-  function autorunUpdate() {
-      for (const f of autorunListeners) {
-          f();
-      }
-  }
-  class Store {
-      /**
-       *
-       * @param state 需要代理的数据
-       */
-      constructor({ state, computeds, actions }) {
-          Store.map(state, this);
-          if (computeds) {
-              for (const k in computeds) {
-                  Object.defineProperty(this, k, {
-                      get() {
-                          return computeds[k].call(this);
-                      },
-                      enumerable: true
-                  });
-              }
-          }
-          // 只把actions绑定在store上
-          if (actions) {
-              this.$actions = actions;
-              // 在actions中调用this.m()
-              Object.assign(this, actions);
-          }
-      }
-      /**
-       * * 代理每个属性的 get， set
-       */
-      static map(object, context = {}) {
-          for (const k in object) {
-              Object.defineProperty(context, k, {
-                  get() {
-                      let v = object[k];
-                      if (arrayp(v)) {
-                          v = Store.list(v);
-                      }
-                      if (objectp(v)) {
-                          v = Store.map(v);
-                      }
-                      return v;
-                  },
-                  set(newValue) {
-                      // 设置了同样的值， 将跳过
-                      if (equal(newValue, object[k]))
-                          return;
-                      object[k] = newValue;
-                      autorunUpdate();
-                      reactionUpdate(object[k]);
-                  },
-                  enumerable: true,
-                  configurable: true
-              });
-          }
-          return context;
-      }
-      /**
-       * * 拦截数组的非幕等方, 并循环代理每个元素
-       * @param list
-       */
-      static list(list) {
-          const resriteMethods = [
-              "push",
-              "pop",
-              "shift",
-              "unshift",
-              "splice",
-              "sort",
-              "reverse"
-          ];
-          const proto = Object.create(Array.prototype);
-          resriteMethods.forEach(m => {
-              const original = proto[m];
-              Object.defineProperty(proto, m, {
-                  value: function (...args) {
-                      const r = original.apply(list, args);
-                      // 跟新
-                      autorunUpdate();
-                      reactionUpdate(list);
-                      return r;
-                  },
-                  writable: true,
-                  configurable: true,
-                  enumerable: false // 可被枚举 for(let i in o)
-              });
-          });
-          // 遍历代理数组每项的值
-          const newList = list.map(el => {
-              if (objectp(el)) {
-                  return Store.map(el);
-              }
-              if (arrayp(el)) {
-                  return Store.list(el);
-              }
-              return el;
-          });
-          Object.setPrototypeOf(newList, proto);
-          return newList;
-      }
-  }
-
   class AjaModel {
       constructor(node) {
           this.node = node;
-          this.control = {
+          AjaModel.classListSetup(node);
+          this.control = observable({
               touched: this.node.classList.contains(AjaModel.classes.touched),
               untouched: this.node.classList.contains(AjaModel.classes.untouched),
               dirty: this.node.classList.contains(AjaModel.classes.dirty),
               pristine: this.node.classList.contains(AjaModel.classes.pristine),
               valid: this.node.classList.contains(AjaModel.classes.valid),
               invalid: this.node.classList.contains(AjaModel.classes.invalid)
-          };
-          this.control = Store.map(this.control);
+          });
           this._setup();
+      }
+      /**
+       * * 初始化class服务
+       * @param node
+       */
+      static classListSetup(node) {
+          node.classList.add(AjaModel.classes.untouched, AjaModel.classes.pristine);
+          this.checkValidity(node);
+      }
+      /**
+       * * 验证节点的值
+       * @param node
+       */
+      static checkValidity(node) {
+          if ("checkValidity" in node) {
+              const inputNode = node;
+              const ok = inputNode.checkValidity();
+              node.classList.toggle(AjaModel.classes.valid, ok);
+              node.classList.toggle(AjaModel.classes.invalid, !ok);
+              return ok;
+          }
+      }
+      /**
+       * * 节点的值发生了变化
+       * @param node
+       */
+      static valueChange(node) {
+          node.classList.replace(AjaModel.classes.pristine, AjaModel.classes.dirty);
+      }
+      /**
+       * * 节点被访问
+       */
+      static touched(node) {
+          node.classList.replace(AjaModel.classes.untouched, AjaModel.classes.touched);
       }
       get model() {
           return this.node.value;
       }
+      /**
+       * * 跟踪绑定到指令的名称。父窗体使用此名称作为键来检索此控件的值。
+       */
       get name() {
-          return this.node.name;
+          return this.node.name || null;
       }
       get value() {
           return this.node.value;
       }
+      /**
+       * * 跟踪控件是否被禁用
+       */
       get disabled() {
           return this.node.disabled;
       }
@@ -4709,7 +4552,9 @@
           this.node.addEventListener(EventType.input, () => {
               this.control.pristine = false;
               this.control.dirty = true;
-              if (this.node.required && this.node.value) {
+              AjaModel.valueChange(this.node);
+              const ok = AjaModel.checkValidity(this.node);
+              if (ok) {
                   // 控件的值有效
                   this.control.valid = true;
                   this.control.invalid = false;
@@ -4724,6 +4569,7 @@
           this.node.addEventListener(EventType.blur, () => {
               this.control.untouched = false;
               this.control.touched = true;
+              AjaModel.touched(this.node);
           });
       }
   }
@@ -4746,7 +4592,7 @@
           this.modelAttr = findModelAttr(node, modelDirective);
           if (!this.modelAttr)
               return;
-          this._setup();
+          this.node.removeAttribute(this.modelAttr.name);
       }
       get options() {
           if (!this.select)
@@ -4756,30 +4602,48 @@
       get selectValues() {
           return this.options.filter(op => op.selected).map(op => op.value);
       }
-      _setup() {
+      setup(contextData) {
+          if (!this.modelAttr || !this.modelAttr.value)
+              return;
           if (inputp(this.node) || textareap(this.node)) {
               if (checkboxp(this.node)) {
                   this.checkbox = this.node;
+                  const data = getData(this.modelAttr.value, contextData);
+                  autorun(() => {
+                      this._checkboxSetup(data);
+                  });
+                  this._checkboxChangeListener(data, contextData);
               }
               else if (radiop(this.node)) {
                   this.radio = this.node;
+                  autorun(() => {
+                      this._radioSetup(getData(this.modelAttr.value, contextData));
+                  });
+                  this._radioChangeListener(contextData);
               }
               else {
                   this.input = this.node;
+                  autorun(() => {
+                      this._inputSetup(getData(this.modelAttr.value, contextData));
+                  });
+                  this._inputChangeListener(contextData);
               }
           }
           else if (selectp(this.node)) {
               this.select = this.node;
+              setTimeout(() => {
+                  autorun(() => {
+                      this._selectSetup(getData(this.modelAttr.value, contextData));
+                  });
+              });
+              this._selectChangeListener(contextData);
           }
-          this.node.classList.add(AjaModel.classes.untouched, AjaModel.classes.pristine, AjaModel.classes.valid);
+          AjaModel.classListSetup(this.node);
           // 控件被访问了
           // 所有绑定的model的元素，都会添加这个服务
-          this.node.addEventListener(EventType.blur, () => {
-              this.touched();
-          });
-          this.node.removeAttribute(this.modelAttr.name);
+          this.node.addEventListener(EventType.blur, () => AjaModel.touched(this.node));
       }
-      checkboxSetup(data) {
+      _checkboxSetup(data) {
           if (this.checkbox) {
               // array 处理数组，否则处理boolean值
               if (arrayp(data)) {
@@ -4792,7 +4656,7 @@
               }
           }
       }
-      checkboxChangeListener(data, contextData) {
+      _checkboxChangeListener(data, contextData) {
           if (this.checkbox) {
               this.checkbox.addEventListener(EventType.change, () => {
                   if (!this.checkbox)
@@ -4808,45 +4672,46 @@
                       if (this.modelAttr)
                           setData(this.modelAttr.value, this.checkbox.checked, contextData);
                   }
-                  this.dirty();
+                  AjaModel.valueChange(this.checkbox);
               });
           }
       }
-      radioSetup(states) {
+      _radioSetup(states) {
           if (this.radio) {
               this.radio.checked = states[0] === this.radio.value;
           }
       }
-      radioChangeListener(contextData) {
+      _radioChangeListener(contextData) {
           if (this.radio) {
               this.radio.addEventListener(EventType.change, () => {
                   if (!this.radio)
                       return;
                   let newData = getCheckboxRadioValue(this.radio);
                   this.radio.checked = true;
-                  this.dirty();
+                  AjaModel.valueChange(this.radio);
                   if (this.modelAttr)
                       setData(this.modelAttr.value, newData, contextData);
               });
           }
       }
-      inputSetup(states) {
+      _inputSetup(value) {
           if (this.input) {
-              this.input.value = states[0];
+              this.input.value = value;
           }
       }
-      inputChangeListener(contextData) {
+      _inputChangeListener(contextData) {
           if (this.input) {
               // 值发生变化了
               this.input.addEventListener(EventType.input, () => {
-                  var _a;
-                  this.dirty();
-                  if (this.modelAttr)
-                      setData(this.modelAttr.value, (_a = this.input) === null || _a === void 0 ? void 0 : _a.value, contextData);
+                  if (this.input && this.modelAttr) {
+                      AjaModel.valueChange(this.input);
+                      AjaModel.checkValidity(this.input);
+                      setData(this.modelAttr.value, this.input.value, contextData);
+                  }
               });
           }
       }
-      selectSetup(states) {
+      _selectSetup(states) {
           if (this.select) {
               const data = states[0];
               const selectOptions = toArray(this.select.options);
@@ -4870,45 +4735,21 @@
               }
           }
       }
-      selectChangeListener(contextData) {
+      _selectChangeListener(contextData) {
           if (this.select) {
               this.select.addEventListener(EventType.change, () => {
-                  var _a, _b;
-                  if ((_a = this.select) === null || _a === void 0 ? void 0 : _a.multiple) {
-                      if (this.modelAttr)
-                          setData(this.modelAttr.value, this.selectValues, contextData);
+                  if (this.select && this.modelAttr) {
+                      const bindKey = this.modelAttr.value;
+                      if (this.select.multiple) {
+                          setData(bindKey, this.selectValues, contextData);
+                      }
+                      else {
+                          setData(bindKey, this.select.value, contextData);
+                      }
+                      AjaModel.valueChange(this.select);
                   }
-                  else {
-                      if (this.modelAttr)
-                          setData(this.modelAttr.value, (_b = this.select) === null || _b === void 0 ? void 0 : _b.value, contextData);
-                  }
-                  this.dirty();
               });
           }
-      }
-      /**
-       * * 控件的值有效时
-       */
-      valid() {
-          this.node.classList.replace(AjaModel.classes.invalid, AjaModel.classes.valid);
-      }
-      /**
-       * * 控件的值无效时
-       */
-      invalid() {
-          this.node.classList.replace(AjaModel.classes.valid, AjaModel.classes.invalid);
-      }
-      /**
-       * * 控件的值发生变化
-       */
-      dirty() {
-          this.node.classList.replace(AjaModel.classes.pristine, AjaModel.classes.dirty);
-      }
-      /**
-       * * 控件被访问
-       */
-      touched() {
-          this.node.classList.replace(AjaModel.classes.untouched, AjaModel.classes.touched);
       }
   }
 
@@ -5057,43 +4898,13 @@
               }
           }
           const model = new BindingModelBuilder(node);
-          if (model.modelAttr) {
-              if (inputp(node) || textareap(node)) {
-                  if (model.checkbox && checkboxp(model.checkbox)) {
-                      const data = getData(model.modelAttr.value, contextData);
-                      autorun(() => {
-                          model.checkboxSetup(data);
-                      });
-                      model.checkboxChangeListener(data, contextData);
-                  }
-                  else if (model.radio && radiop(model.radio)) {
-                      // 单选按钮
-                      autorun(() => {
-                          model.radioSetup(getData(model.modelAttr.value, contextData));
-                      });
-                      model.radioChangeListener(contextData);
-                  }
-                  else {
-                      // 其它
-                      autorun(() => {
-                          model.inputSetup(getData(model.modelAttr.value, contextData));
-                      });
-                      model.inputChangeListener(contextData);
-                  }
-              }
-              else if (selectp(node)) {
-                  setTimeout(() => {
-                      autorun(() => {
-                          model.selectSetup(getData(model.modelAttr.value, contextData));
-                      });
-                  });
-                  model.selectChangeListener(contextData);
-              }
-          }
+          model.setup(contextData);
       }
       _proxyState(options) {
           const state = createObject(options.state);
           this.$actions = createObject(options.actions);
+          if (!this.$actions)
+              return;
           const bounds = {};
           Object.keys(this.$actions).forEach(ac => (bounds[ac] = action.bound));
           this.$store = observable(Object.assign(state, this.$actions), bounds, {
@@ -5276,7 +5087,8 @@
                   //? 每次事件响应都解析，确保变量更改能够得到新数据
                   //? 如果放在外面，则不会响应新数据
                   const transitionArgs = parseArgsToArguments(args, contextData);
-                  this.$actions[funcName].apply(this.$store, parseArgsEvent(transitionArgs, modelChangep ? e.target.value : e));
+                  if (this.$actions)
+                      this.$actions[funcName].apply(this.$store, parseArgsEvent(transitionArgs, modelChangep ? e.target.value : e));
               });
           }
           node.removeAttribute(name);

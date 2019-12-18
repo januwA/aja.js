@@ -313,8 +313,7 @@ let vm = new Aja(".app", {
 </script>
 ```
 
-## ajaModel
-> 待优化
+## ajaModel [创建出色的表单](https://developers.google.cn/web/fundamentals/design-and-ux/input/forms/)
 
 | 状态             | 为真时的 CSS 类 | 为假时的 CSS 类 |
 | ---------------- | --------------- | --------------- |
@@ -330,13 +329,15 @@ let vm = new Aja(".app", {
   .aja-invalid {
     border-color: red;
   }
+  .aja-valid {
+    border-color: #33ff00;
+  }
 </style>
 
-
 <div class=".app">
-  <input required type="text" [(model)]="name" #nameModel="ajaModel" />
+  <input type="text" name="username"  [(model)]="name" #nameModel="ajaModel" required minlength="5" />
   <div [hidden]="nameModel.valid || nameModel.pristine">Name is required</div>
-  <button (click)="asd(nameModel)">change</button>
+  <button (click)="asd(nameModel)">click me</button>
 </div>
 <script>
   const l = console.log;
@@ -357,4 +358,3 @@ let vm = new Aja(".app", {
 ## TODO
 - 响应式表单
 - 延迟解析[(model)]
-- h5自带的表单验证
