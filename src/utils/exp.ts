@@ -14,3 +14,5 @@ export const eventEndExp = /\)$/;
 export const tempvarExp = /^#/;
 
 export const parsePipesExp = /(?<![\|])\|(?![\|])/;
+
+export const evalExp = /[!\&\|\+\-\*\%=\/<\>\^\(\)\~\:\?\;]/g;

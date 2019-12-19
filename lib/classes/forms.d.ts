@@ -1,3 +1,7 @@
+export declare const VALID = "VALID";
+export declare const INVALID = "INVALID";
+export declare const PENDING = "PENDING";
+export declare const DISABLED = "DISABLED";
 export declare type ValidationErrors = {
     [key: string]: any;
 };
@@ -8,13 +12,31 @@ export declare type ValidationErrors = {
 export interface ValidatorFn {
     (control: AbstractControl): ValidationErrors | null;
 }
+/**
+ * * 异步验证器，我这里只支持了[Promise]
+ * angular 还支持rxjs
+ */
 export interface AsyncValidatorFn {
     (control: AbstractControl): Promise<ValidationErrors | null>;
 }
+export interface AbstractControlOptions {
+    /**
+     * 同步验证器
+     */
+    validators?: ValidatorFn | ValidatorFn[] | null;
+    /**
+     * 异步验证器
+     */
+    asyncValidators?: AsyncValidatorFn | AsyncValidatorFn[] | null;
+    /**
+     * 什么时候触发验证
+     */
+    updateOn?: "change" | "blur" | "submit";
+}
 export declare abstract class AbstractControl {
-    validator: ValidatorFn[] | null;
-    asyncValidator: AsyncValidatorFn[] | null;
-    constructor(validator: ValidatorFn[] | null, asyncValidator: AsyncValidatorFn[] | null);
+    validator: ValidatorFn | null;
+    asyncValidator: AsyncValidatorFn | null;
+    constructor(validator: ValidatorFn | null, asyncValidator: AsyncValidatorFn | null);
     private _control;
     /**
      * * 控件的当前值。
@@ -87,8 +109,8 @@ export declare abstract class AbstractControl {
      * 控件没有被访问过
      */
     get untouched(): boolean;
-    setValidators(newValidator: ValidatorFn[] | null): void;
-    setAsyncValidators(newValidator: AsyncValidatorFn[] | null): void;
+    setValidators(newValidator: ValidatorFn | ValidatorFn[] | null): void;
+    setAsyncValidators(newValidator: AsyncValidatorFn | AsyncValidatorFn[] | null): void;
     clearValidators(): void;
     clearAsyncValidators(): void;
     /**
@@ -109,14 +131,6 @@ export declare abstract class AbstractControl {
      * 控件的值没发生变化
      */
     markAsPristine(): void;
-    /**
-     * 控件的值有效
-     */
-    markAsValid(): void;
-    /**
-     * 控件的值无效效
-     */
-    markAsInValid(): void;
     /**
      * 禁用控件
      */
@@ -156,7 +170,7 @@ export declare class FormControl extends AbstractControl {
      *
      * @param formState 初始值
      */
-    constructor(formState?: any, validatorOrOpts?: ValidatorFn[] | null, asyncValidator?: AsyncValidatorFn[] | null);
+    constructor(formState?: any, validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null);
     setValue(value: any): void;
     reset(value?: any): void;
 }

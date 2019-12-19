@@ -1,7 +1,8 @@
 import { interpolationExpressionExp } from "../utils/exp";
-import { parsePipe, getData } from "../utils/util";
-import { usePipes } from "../pipes/pipes";
+import { parsePipe } from "../utils/util";
+import { usePipes } from "../pipes";
 import { ContextData } from "./context-data";
+import { getData } from "../core";
 
 export class BindingTextBuilder {
   /**

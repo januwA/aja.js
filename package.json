@@ -1,6 +1,6 @@
 {
   "name": "aja.js",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "mvvm",
   "main": "lib/main.js",
   "types": "lib/main.d.ts",

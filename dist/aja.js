@@ -15,7 +15,7 @@
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
   const parsePipesExp = /(?<![\|])\|(?![\|])/;
-  //# sourceMappingURL=exp.js.map
+  const evalExp = /[!\&\|\+\-\*\%=\/<\>\^\(\)\~\:\?\;]/g;
 
   const strString = "string";
   class EventType {
@@ -47,125 +47,7 @@
    */
   const modelChangeEvent = "(modelChange)".toLowerCase();
   const formControlName = "[formControl]".toLowerCase();
-  //# sourceMappingURL=const-string.js.map
 
-  function createRoot(view) {
-      return typeof view === "string"
-          ? document.querySelector(view)
-          : view;
-  }
-  function createObject(obj) {
-      return obj ? obj : {};
-  }
-  function toArray(iterable) {
-      if (!iterable)
-          return [];
-      if (Array.from) {
-          return Array.from(iterable);
-      }
-      else {
-          return Array.prototype.slice.call(iterable);
-      }
-  }
-  const emptyString = "";
-  /**
-   * setAge( obj.age   , '        ') -> ["obj.age   ", " '        '"]
-   * @param str
-   */
-  function parseTemplateEventArgs(str) {
-      const index = str.indexOf("(");
-      // 砍掉函数名
-      // 去掉首尾圆括号
-      // 用逗号分割参数
-      return str
-          .substr(index)
-          .trim()
-          .replace(/(^\(*)|(\)$)/g, emptyString)
-          .split(",");
-  }
-  /**
-   * * 避免使用全局的eval
-   * @param this
-   * @param bodyString
-   */
-  function ourEval(bodyString) {
-      try {
-          return Function(`${bodyString}`).apply(this, arguments);
-      }
-      catch (er) {
-          throw er;
-      }
-  }
-  /**
-   * Object.prototype.toString.call({}) -> "[object Object]"
-   * @param data
-   */
-  function dataTag(data) {
-      return Object.prototype.toString.call(data);
-  }
-  /**
-   * * 将['on']转为[null]
-   * @param inputNode
-   */
-  function getCheckboxRadioValue(inputNode) {
-      let value = inputNode.value;
-      if (value === "on")
-          value = null;
-      return value;
-  }
-  /**
-   * 查找一个节点是否包含:if指令
-   * 并返回
-   */
-  function findIfAttr(node, ifInstruction) {
-      if (node.attributes && node.attributes.length) {
-          const attrs = Array.from(node.attributes);
-          return attrs.find(({ name }) => name === ifInstruction);
-      }
-  }
-  /**
-   * 查找一个节点是否包含:if指令
-   * 并返回
-   */
-  function findForAttr(node, forInstruction) {
-      if (node.attributes && node.attributes.length) {
-          const attrs = Array.from(node.attributes);
-          return attrs.find(({ name }) => name === forInstruction);
-      }
-  }
-  /**
-   * 查找一个节点是否包含[(model)]指令
-   * 并返回
-   */
-  function findModelAttr(node, modelAttr) {
-      if (node.attributes && node.attributes.length) {
-          const attrs = toArray(node.attributes);
-          return attrs.find(({ name }) => name === modelAttr);
-      }
-  }
-  /**
-   * * 检测节点上是否有绑定结构指令
-   * @param node
-   * @param modelAttr
-   */
-  function hasStructureDirective(node) {
-      if (node.attributes && node.attributes.length) {
-          const attrs = toArray(node.attributes);
-          return attrs.some(({ name }) => name.charAt(0) === structureDirectivePrefix);
-      }
-      return false;
-  }
-  /**
-   * * 从表达式中获取管道
-   * 抽空格，在分离 |
-   * @returns [ bindKey, Pipes[] ]
-   */
-  function parsePipe(key) {
-      const [bindKey, ...pipes] = key
-          .replace(spaceExp, emptyString)
-          .split(parsePipesExp);
-      return [bindKey, pipes];
-  }
   /**
    * * 1. 优先寻找模板变量
    * * 2. 在传入的state中寻找
@@ -207,6 +89,15 @@
                   _result = _result ? _result[k] : contextData.globalState[k];
               }
           }
+      }
+      if (_result === undefined) {
+          _result = myEval(bindKey, contextData.tvState);
+      }
+      if (_result === undefined) {
+          _result = myEval(bindKey, contextData.contextState);
+      }
+      if (_result === undefined) {
+          _result = myEval(bindKey, contextData.globalState);
       }
       if (_result === undefined) {
           // eval解析
@@ -293,6 +184,178 @@
               throw er;
           }
       }
+  }
+  function myEval(originString, context) {
+      if (!context)
+          return;
+      let bindKey = originString;
+      bindKey = bindKey.replace(/\s/g, "").replace(evalExp, " ");
+      let bindKeys = bindKey
+          .split(" ")
+          .map(s => s.trim())
+          .filter(e => !!e)
+          .filter(e => {
+          if (/^['"`]/.test(e)) {
+              return false;
+          }
+          // 过滤布尔值
+          if (e === "true" || e === "false") {
+              return false;
+          }
+          // 过滤number
+          if (!isNaN(+e)) {
+              return false;
+          }
+          return true;
+      });
+      let args = bindKeys.map(s => {
+          if (/\./.test(s) && /\[|\]/g.test(s)) {
+              let aindex = s.indexOf(".");
+              let bindex = s.indexOf("[");
+              let index = Math.min(aindex, bindex);
+              let obj = s.substr(0, index);
+              return obj;
+          }
+          else if (/\./.test(s)) {
+              let aindex = s.indexOf(".");
+              let obj = s.substr(0, aindex);
+              return obj;
+          }
+          else if (/\[|\]/g.test(s)) {
+              let bindex = s.indexOf("[");
+              let obj = s.substr(0, bindex);
+              return obj;
+          }
+          return s;
+      });
+      let datas = args.map(k => {
+          if (k in context) {
+              return context[k];
+          }
+      }).filter(e => !!e);
+      if (!datas.length)
+          return;
+      let funbody = `return function(${args.toString()}) {
+      return ${originString};}`;
+      return Function(funbody)()(...datas);
+  }
+  /**
+   * * 避免使用全局的eval
+   * @param this
+   * @param bodyString
+   */
+  function ourEval(bodyString) {
+      try {
+          return Function(`${bodyString}`).apply(this, arguments);
+      }
+      catch (er) {
+          throw er;
+      }
+  }
+
+  function createRoot(view) {
+      return typeof view === "string"
+          ? document.querySelector(view)
+          : view;
+  }
+  function createObject(obj) {
+      return obj ? obj : {};
+  }
+  function toArray(iterable) {
+      if (!iterable)
+          return [];
+      if (Array.from) {
+          return Array.from(iterable);
+      }
+      else {
+          return Array.prototype.slice.call(iterable);
+      }
+  }
+  const emptyString = "";
+  /**
+   * setAge( obj.age   , '        ') -> ["obj.age   ", " '        '"]
+   * @param str
+   */
+  function parseTemplateEventArgs(str) {
+      const index = str.indexOf("(");
+      // 砍掉函数名
+      // 去掉首尾圆括号
+      // 用逗号分割参数
+      return str
+          .substr(index)
+          .trim()
+          .replace(/(^\(*)|(\)$)/g, emptyString)
+          .split(",");
+  }
+  /**
+   * Object.prototype.toString.call({}) -> "[object Object]"
+   * @param data
+   */
+  function dataTag(data) {
+      return Object.prototype.toString.call(data);
+  }
+  /**
+   * * 将['on']转为[null]
+   * @param inputNode
+   */
+  function getCheckboxRadioValue(inputNode) {
+      let value = inputNode.value;
+      if (value === "on")
+          value = null;
+      return value;
+  }
+  /**
+   * 查找一个节点是否包含:if指令
+   * 并返回
+   */
+  function findIfAttr(node, ifInstruction) {
+      if (node.attributes && node.attributes.length) {
+          const attrs = Array.from(node.attributes);
+          return attrs.find(({ name }) => name === ifInstruction);
+      }
+  }
+  /**
+   * 查找一个节点是否包含:if指令
+   * 并返回
+   */
+  function findForAttr(node, forInstruction) {
+      if (node.attributes && node.attributes.length) {
+          const attrs = Array.from(node.attributes);
+          return attrs.find(({ name }) => name === forInstruction);
+      }
+  }
+  /**
+   * 查找一个节点是否包含[(model)]指令
+   * 并返回
+   */
+  function findModelAttr(node, modelAttr) {
+      if (node.attributes && node.attributes.length) {
+          const attrs = toArray(node.attributes);
+          return attrs.find(({ name }) => name === modelAttr);
+      }
+  }
+  /**
+   * * 检测节点上是否有绑定结构指令
+   * @param node
+   * @param modelAttr
+   */
+  function hasStructureDirective(node) {
+      if (node.attributes && node.attributes.length) {
+          const attrs = toArray(node.attributes);
+          return attrs.some(({ name }) => name.charAt(0) === structureDirectivePrefix);
+      }
+      return false;
+  }
+  /**
+   * * 从表达式中获取管道
+   * 抽空格，在分离 |
+   * @returns [ bindKey, Pipes[] ]
+   */
+  function parsePipe(key) {
+      const [bindKey, ...pipes] = key
+          .replace(spaceExp, emptyString)
+          .split(parsePipesExp);
+      return [bindKey, pipes];
   }
   /**
    * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
@@ -4327,7 +4390,6 @@
           return `{":if": "${!!value}"}`;
       }
   }
-  //# sourceMappingURL=binding-if-builder.js.map
 
   /**
    * * 谓词
@@ -4396,7 +4458,6 @@
   function radiop(node) {
       return node.type === "radio";
   }
-  //# sourceMappingURL=p.js.map
 
   class BindingForBuilder {
       constructor(node, contextData) {
@@ -4520,7 +4581,6 @@
           return item;
       }
   }
-  //# sourceMappingURL=binding-for-builder.js.map
 
   const ajaPipes = {
       /**
@@ -4565,7 +4625,6 @@
       }
       return _result;
   }
-  //# sourceMappingURL=pipes.js.map
 
   class BindingTextBuilder {
       constructor(node) {
@@ -4582,7 +4641,6 @@
           this.node.textContent = text;
       }
   }
-  //# sourceMappingURL=binding-text-builder.js.map
 
   class AjaModel {
       constructor(node) {
@@ -4709,7 +4767,6 @@
       valid: "aja-valid",
       invalid: "aja-invalid" // false
   };
-  //# sourceMappingURL=aja-model.js.map
 
   class BindingModelBuilder {
       constructor(node) {
@@ -4877,7 +4934,6 @@
           }
       }
   }
-  //# sourceMappingURL=binding-model-builder.js.map
 
   class BindingTempvarBuilder {
       constructor(node, templateVariables = {}) {
@@ -4936,7 +4992,6 @@
           node.removeAttribute(name);
       }
   }
-  //# sourceMappingURL=binding-tempvar-builder.js.map
 
   class ContextData {
       constructor(options) {
@@ -4964,7 +5019,6 @@
           });
       }
   }
-  //# sourceMappingURL=context-data.js.map
 
   const l = console.log;
   /**
@@ -5059,7 +5113,6 @@
       valid: "aja-valid",
       invalid: "aja-invalid" // false
   };
-  //# sourceMappingURL=form-control.service.js.map
 
   /*! *****************************************************************************
   Copyright (c) Microsoft Corporation. All rights reserved.
@@ -5424,7 +5477,6 @@
   //     throw new Error("Method not implemented.");
   //   }
   // }
-  //# sourceMappingURL=forms.js.map
 
   class Aja {
       constructor(view, options) {
@@ -5723,9 +5775,6 @@
       }
   }
   Aja.FormControl = FormControl;
-  //# sourceMappingURL=aja.js.map
-
-  //# sourceMappingURL=main.js.map
 
   return Aja;
 

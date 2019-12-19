@@ -2,9 +2,7 @@ import { AjaModel } from "./aja-model";
 import {
   toArray,
   getCheckboxRadioValue,
-  setData,
   findModelAttr,
-  getData
 } from "../utils/util";
 import {
   radiop,
@@ -17,6 +15,7 @@ import {
 import { EventType, modelDirective } from "../utils/const-string";
 import { ContextData } from "./context-data";
 import { autorun } from "mobx";
+import { getData, setData } from "../core";
 
 export class BindingModelBuilder {
   // input / textarea
@@ -106,7 +105,9 @@ export class BindingModelBuilder {
         if (arrayp(data)) {
           let ivalue = getCheckboxRadioValue(this.checkbox);
           if (this.checkbox.checked) data.push(ivalue);
-          else data.remove(ivalue);
+          else (data as {
+            [remove: string]: any
+          }).remove(ivalue);
         } else {
           if (this.modelAttr)
             setData(this.modelAttr.value, this.checkbox.checked, contextData);

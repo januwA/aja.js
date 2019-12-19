@@ -1,7 +1,7 @@
 import { numberp } from "../utils/p";
 import { Pipes } from "./interfaces/interfaces";
 import { ContextData } from "../classes/context-data";
-import { getData } from "../utils/util";
+import { getData } from "../core";
 export const ajaPipes: Pipes = {
   /**
    * * 全部大写

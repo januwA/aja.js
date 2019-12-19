@@ -5,7 +5,6 @@ import {
   parseTemplateEventArgs,
   parsePipe,
   toArray,
-  getData,
   parseArgsToArguments,
   parseArgsEvent
 } from "./utils/util";
@@ -31,7 +30,7 @@ import {
   textNodep
 } from "./utils/p";
 import { BindingModelBuilder } from "./classes/binding-model-builder";
-import { ajaPipes, usePipes } from "./pipes/pipes";
+import { ajaPipes, usePipes } from "./pipes";
 import {
   EventType,
   modelChangeEvent,
@@ -42,6 +41,7 @@ import { BindingTempvarBuilder } from "./classes/binding-tempvar-builder";
 import { ContextData } from "./classes/context-data";
 import { FormControlSerivce } from "./service/form-control.service";
 import { FormControl } from "./classes/forms";
+import { getData } from "./core";
 
 const l = console.log;
 
