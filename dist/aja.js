@@ -15,6 +15,7 @@
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
   const parsePipesExp = /(?<![\|])\|(?![\|])/;
+  //# sourceMappingURL=exp.js.map
 
   const strString = "string";
   class EventType {
@@ -46,6 +47,7 @@
    */
   const modelChangeEvent = "(modelChange)".toLowerCase();
   const formControlName = "[formControl]".toLowerCase();
+  //# sourceMappingURL=const-string.js.map
 
   function createRoot(view) {
       return typeof view === "string"
@@ -87,7 +89,9 @@
    * @param bodyString
    */
   function ourEval(bodyString) {
-      const f = new Function(bodyString);
+      const f = new Function(`
+  delete name;
+  ${bodyString}`);
       try {
           return f.apply(this, arguments);
       }
@@ -275,7 +279,11 @@
               else {
                   if (context === undefined)
                       return context;
-                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
+                  let replaceValue = "this";
+                  if (typeof context === "boolean" || context == 0) {
+                      replaceValue = context.toString();
+                  }
+                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), replaceValue);
                   let _result = ourEval.call(context, `return ${funBody}`);
                   if (_result === undefined)
                       _result = emptyString;
@@ -310,6 +318,7 @@
           return arg;
       });
   }
+  //# sourceMappingURL=util.js.map
 
   /** MobX - (c) Michel Weststrate 2015 - 2019 - MIT Licensed */
   /*! *****************************************************************************
@@ -4306,12 +4315,11 @@
        * * 这里使用了回调把template标签给渲染了
        * @param show
        */
-      checked(show, cb) {
+      checked(show) {
           if (!this.commentNode)
               return;
           if (show) {
               this.commentNode.after(this.node);
-              cb();
           }
           else {
               this.node.replaceWith(this.commentNode);
@@ -4322,6 +4330,7 @@
           return `{":if": "${!!value}"}`;
       }
   }
+  //# sourceMappingURL=binding-if-builder.js.map
 
   /**
    * * 谓词
@@ -4366,6 +4375,9 @@
   function arrayp(data) {
       return dataTag(data) === "[object Array]";
   }
+  function nullp(data) {
+      return dataTag(data) === "[object Null]";
+  }
   function elementNodep(node) {
       return node.nodeType === Node.ELEMENT_NODE;
   }
@@ -4387,6 +4399,7 @@
   function radiop(node) {
       return node.type === "radio";
   }
+  //# sourceMappingURL=p.js.map
 
   class BindingForBuilder {
       constructor(node, contextData) {
@@ -4510,6 +4523,7 @@
           return item;
       }
   }
+  //# sourceMappingURL=binding-for-builder.js.map
 
   const ajaPipes = {
       /**
@@ -4533,8 +4547,8 @@
       capitalize(str) {
           return str.charAt(0).toUpperCase() + str.substring(1);
       },
-      json(str) {
-          return JSON.stringify(str, null, " ");
+      json(data) {
+          return JSON.stringify(data, null, " ");
       },
       slice(str, start, end) {
           return str.slice(start, end);
@@ -4554,6 +4568,7 @@
       }
       return _result;
   }
+  //# sourceMappingURL=pipes.js.map
 
   class BindingTextBuilder {
       constructor(node) {
@@ -4570,6 +4585,7 @@
           this.node.textContent = text;
       }
   }
+  //# sourceMappingURL=binding-text-builder.js.map
 
   class AjaModel {
       constructor(node) {
@@ -4696,6 +4712,7 @@
       valid: "aja-valid",
       invalid: "aja-invalid" // false
   };
+  //# sourceMappingURL=aja-model.js.map
 
   class BindingModelBuilder {
       constructor(node) {
@@ -4863,6 +4880,7 @@
           }
       }
   }
+  //# sourceMappingURL=binding-model-builder.js.map
 
   class BindingTempvarBuilder {
       constructor(node, templateVariables = {}) {
@@ -4921,6 +4939,7 @@
           node.removeAttribute(name);
       }
   }
+  //# sourceMappingURL=binding-tempvar-builder.js.map
 
   class ContextData {
       constructor(options) {
@@ -4948,7 +4967,9 @@
           });
       }
   }
+  //# sourceMappingURL=context-data.js.map
 
+  const l = console.log;
   /**
    * * 将dom节点和FormControl绑定在一起
    */
@@ -4964,6 +4985,7 @@
        */
       setup() {
           // 控件同步到formControl
+          this._checkValidity();
           // 是否禁用
           if ("disabled" in this.node) {
               const inputNode = this.node;
@@ -4977,6 +4999,7 @@
               if ("value" in this.node) {
                   this.control.setValue(this.node.value);
               }
+              this._checkValidity();
               this.control.markAsDirty();
           });
           // 控件被访问了
@@ -4987,8 +5010,8 @@
               const inputNode = this.node;
               if (this.control.value !== inputNode.value) {
                   inputNode.value = this.control.value;
+                  this._checkValidity();
               }
-              this._checkValidity(inputNode);
           });
           autorun(() => {
               this.node.classList.toggle(FormControlSerivce.classes.touched, this.control.touched);
@@ -5008,19 +5031,23 @@
        * * 如果控件被禁用，则不校验
        * @param node
        */
-      _checkValidity(node) {
-          if ("checkValidity" in node) {
-              const inputNode = node;
+      _checkValidity() {
+          if ("checkValidity" in this.node) {
+              const inputNode = this.node;
               // 如果控件被禁用，这将一直返回true
               // 初始化时只会验证required
               // 只有在input期间验证，才会验证到minlength之类的
               const ok = inputNode.checkValidity();
-              if (ok)
-                  this.control.markAsValid();
-              else
-                  this.control.markAsInValid();
-              // h5验证完后启用内置的验证
-              this.control.updateValueAndValidity();
+              l(ok);
+              if (ok) {
+                  // h5验证完后启用内置的验证
+                  this.control.updateValueAndValidity();
+              }
+              else {
+                  this.control.setErrors({
+                      error: inputNode.validationMessage
+                  });
+              }
           }
       }
   }
@@ -5060,6 +5087,89 @@
       });
   }
 
+  const VALID = "VALID";
+  const INVALID = "INVALID";
+  const PENDING = "PENDING";
+  const DISABLED = "DISABLED";
+  /**
+   * 将errors数组转化为{}
+   * @param arrayOfErrors
+   */
+  function _mergeErrors(arrayOfErrors) {
+      const res = arrayOfErrors.reduce((acc, errors) => {
+          // return nullp(errors) ? acc! : { ...acc!, ...errors };
+          return nullp(errors) ? acc : Object.assign(acc, errors);
+      }, {});
+      return Object.keys(res).length === 0 ? null : res;
+  }
+  /**
+   * * 将验证器数组转化为一个验证器
+   * @param validators
+   */
+  function compose(validators) {
+      if (!validators)
+          return null;
+      // 过滤无效的验证器
+      const presentValidators = validators.filter(o => o != null);
+      if (presentValidators.length == 0)
+          return null;
+      return function (control) {
+          // 运行所有验证器，获取错误数组
+          const errors = presentValidators.map(v => v(control));
+          return _mergeErrors(errors);
+      };
+  }
+  function forkJoinPromise(promises) {
+      return __awaiter(this, void 0, void 0, function* () {
+          const errors = [];
+          for (const v of promises) {
+              const r = yield v;
+              errors.push(r);
+          }
+          return errors;
+      });
+  }
+  function composeAsync(validators) {
+      // 这里的逻辑和[compose]的差不多
+      if (!validators)
+          return null;
+      const presentValidators = validators.filter(o => o != null);
+      if (presentValidators.length == 0)
+          return null;
+      return function (control) {
+          return __awaiter(this, void 0, void 0, function* () {
+              // 一组Promise验证器数组
+              const promises = presentValidators.map(v => v(control));
+              // 获取所有错误
+              const errors = yield forkJoinPromise(promises);
+              return _mergeErrors(errors);
+          });
+      };
+  }
+  function composeValidators(validators) {
+      return nullp(validators) ? null : compose(validators);
+  }
+  function composeAsyncValidators(validators) {
+      return !nullp(validators) ? composeAsync(validators) : null;
+  }
+  function coerceToValidator(validatorOrOpts) {
+      // 如果是[AbstractControlOptions]就获取[AbstractControlOptions.validators]
+      const validator = (objectp(validatorOrOpts)
+          ? validatorOrOpts.validators
+          : validatorOrOpts);
+      return arrayp(validator) ? composeValidators(validator) : validator || null;
+  }
+  function coerceToAsyncValidator(asyncValidator, validatorOrOpts) {
+      // 如果参数是一个[AbstractControlOptions]
+      // 那么就获取[AbstractControlOptions.asyncValidators]
+      // 否则就返回 [asyncValidator]
+      const origAsyncValidator = (objectp(validatorOrOpts)
+          ? validatorOrOpts.asyncValidators
+          : asyncValidator);
+      return arrayp(origAsyncValidator)
+          ? composeAsyncValidators(origAsyncValidator)
+          : origAsyncValidator || null;
+  }
   class AbstractControl {
       // TODO
       // private _parent;
@@ -5068,14 +5178,11 @@
           this.asyncValidator = asyncValidator;
           this._control = observable({
               touched: false,
-              untouched: true,
               dirty: false,
-              pristine: true,
-              valid: false,
-              invalid: true,
               disabled: false,
-              enabled: true,
               pending: false,
+              // 没有错误 valid
+              // 有错误 invalid
               errors: null
           });
       }
@@ -5088,15 +5195,13 @@
        * 这些状态值是互斥的，因此不能进行控制,有效和无效或无效和禁用。
        */
       get status() {
-          if (this.disabled)
-              return "DISABLED";
-          if (this.pending)
-              return "PENDING";
-          if (this.valid)
-              return "VALID";
-          if (this.invalid)
-              return "INVALID";
-          return "";
+          if (!this._control.errors)
+              return VALID;
+          if (this._control.errors)
+              return INVALID;
+          if (this._control.pending)
+              return PENDING;
+          return DISABLED;
       }
       // TODO
       // readonly parent: FormGroup | FormArray;
@@ -5150,13 +5255,13 @@
        * *控件的值有效
        */
       get valid() {
-          return this._control.valid;
+          return this.status === VALID;
       }
       /**
        * 控件的值无效
        */
       get invalid() {
-          return this._control.invalid;
+          return this.status === INVALID;
       }
       /**
        * 控件被禁用
@@ -5168,7 +5273,7 @@
        * 控件被启用
        */
       get enabled() {
-          return this._control.enabled;
+          return !this.disabled;
       }
       /**
        * 控件的值变化了
@@ -5181,7 +5286,7 @@
        * 只有用户的输入才会改变这个状态
        */
       get pristine() {
-          return this._control.pristine;
+          return !this.dirty;
       }
       /**
        * 控件被访问过
@@ -5193,13 +5298,13 @@
        * 控件没有被访问过
        */
       get untouched() {
-          return this._control.untouched;
+          return !this.touched;
       }
       setValidators(newValidator) {
-          this.validator = newValidator;
+          this.validator = coerceToValidator(newValidator);
       }
       setAsyncValidators(newValidator) {
-          this.asyncValidator = newValidator;
+          this.asyncValidator = coerceToAsyncValidator(newValidator);
       }
       clearValidators() {
           this.validator = null;
@@ -5213,14 +5318,12 @@
        */
       markAsTouched() {
           this._control.touched = true;
-          this._control.untouched = false;
       }
       /**
        * 将控件标记为“未触摸”。
        * @param opts
        */
       markAsUntouched() {
-          this._control.untouched = true;
           this._control.touched = false;
       }
       /**
@@ -5228,45 +5331,24 @@
        */
       markAsDirty() {
           this._control.dirty = true;
-          this._control.pristine = false;
       }
       /**
        * 控件的值没发生变化
        */
       markAsPristine() {
           this._control.dirty = false;
-          this._control.pristine = true;
-      }
-      /**
-       * 控件的值有效
-       */
-      markAsValid() {
-          this._control.valid = true;
-          this._control.invalid = false;
-          this._control.pending = false;
-      }
-      /**
-       * 控件的值无效效
-       */
-      markAsInValid() {
-          this._control.valid = false;
-          this._control.invalid = true;
-          this._control.pending = false;
       }
       /**
        * 禁用控件
        */
       disable() {
           this._control.disabled = true;
-          this._control.enabled = false;
-          this._control.pending = false;
       }
       /**
        * 启用控件
        */
       enable() {
           this._control.disabled = false;
-          this._control.enabled = true;
       }
       /**
        * 将控件标记为“待处理”。
@@ -5279,22 +5361,15 @@
        * * 重新计算控件的值和验证状态。
        */
       updateValueAndValidity() {
-          this._runValidator();
+          // if (this.enabled) {
+          this._control.errors = this._runValidator();
+          if (this.status === VALID || this.status === PENDING) {
+              this._runAsyncValidator();
+          }
+          // }
       }
       _runValidator() {
-          if (!this.validator)
-              return;
-          for (const validatorFn of this.validator) {
-              const error = validatorFn(this);
-              // 返回了错误
-              if (error !== null) {
-                  this._control.errors = error;
-                  this.markAsInValid();
-                  return;
-              }
-          }
-          this._control.errors = null;
-          this._runAsyncValidator();
+          return this.validator ? this.validator(this) : null;
       }
       _runAsyncValidator() {
           return __awaiter(this, void 0, void 0, function* () {
@@ -5302,17 +5377,8 @@
                   return;
               // 挂起
               this.markAsPending();
-              for (const asyncValidatorFn of this.asyncValidator) {
-                  const error = yield asyncValidatorFn(this);
-                  // 返回了错误
-                  if (error !== null) {
-                      this._control.errors = error;
-                      this.markAsInValid();
-                      return;
-                  }
-              }
-              this._control.errors = null;
-              this.markAsValid();
+              this._control.errors = yield this.asyncValidator(this);
+              this._control.pending = false;
           });
       }
   }
@@ -5322,7 +5388,7 @@
        * @param formState 初始值
        */
       constructor(formState, validatorOrOpts, asyncValidator) {
-          super(validatorOrOpts || null, asyncValidator || null);
+          super(coerceToValidator(validatorOrOpts), coerceToAsyncValidator(asyncValidator, validatorOrOpts));
           this._value = observable.box("");
           this._value.set(formState || "");
       }
@@ -5336,6 +5402,31 @@
           this._value.set(value || "");
       }
   }
+  // export class FormGroup extends AbstractControl {
+  //   controls: {
+  //     [key: string]: AbstractControl;
+  //   };
+  //   constructor(
+  //     controls: {
+  //       [key: string]: AbstractControl;
+  //     },
+  //     validatorOrOpts?:
+  //       | ValidatorFn
+  //       | ValidatorFn[]
+  //       | AbstractControlOptions
+  //       | null,
+  //     asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
+  //   ) {
+  //     super();
+  //   }
+  //   setValue(value: any): void {
+  //     throw new Error("Method not implemented.");
+  //   }
+  //   reset(value?: any): void {
+  //     throw new Error("Method not implemented.");
+  //   }
+  // }
+  //# sourceMappingURL=forms.js.map
 
   class Aja {
       constructor(view, options) {
@@ -5421,22 +5512,19 @@
           if (ifBuilder.ifAttr) {
               if (boolStringp(ifBuilder.value)) {
                   show = ifBuilder.value === "true";
-                  ifBuilder.checked(show, () => {
-                      this._define(node, contextData.copyWith({
-                          tvState: contextData.tvState.copyWith(node)
-                      }));
-                  });
+                  ifBuilder.checked(show);
               }
               else {
                   const [bindKey, pipeList] = parsePipe(ifBuilder.value);
                   autorun(() => {
                       show = getData(bindKey, contextData);
                       show = usePipes(show, pipeList, contextData);
-                      ifBuilder.checked(show, () => {
+                      if (show) {
                           this._define(node, contextData.copyWith({
                               tvState: contextData.tvState.copyWith(node)
                           }));
-                      });
+                      }
+                      ifBuilder.checked(show);
                   });
               }
           }
@@ -5502,12 +5590,11 @@
                   .replace(attrEndExp, emptyString)
                   .split(".");
               const [bindKey, pipeList] = parsePipe(value);
-              autorun(() => {
-                  let data = getData(bindKey, contextData);
-                  data = usePipes(data, pipeList, contextData);
-                  let _value = data;
-                  switch (attrName) {
-                      case "style":
+              switch (attrName) {
+                  case "style":
+                      autorun(() => {
+                          let data = getData(bindKey, contextData);
+                          data = usePipes(data, pipeList, contextData);
                           if (attrChild && attrChild in node.style) {
                               node.style[attrChild] = data;
                           }
@@ -5519,47 +5606,55 @@
                                   }
                               }
                           }
-                          break;
-                      case "class":
-                          if (_value === null)
-                              _value = emptyString;
+                      });
+                      break;
+                  case "class":
+                      autorun(() => {
+                          let data = getData(bindKey, contextData);
+                          data = usePipes(data, pipeList, contextData);
+                          if (data === null)
+                              data = emptyString;
                           if (!attrChild) {
-                              if (objectp(_value)) {
-                                  for (const klass in _value) {
-                                      if (_value[klass])
+                              if (objectp(data)) {
+                                  for (const klass in data) {
+                                      if (data[klass])
                                           node.classList.add(klass);
                                       else
                                           node.classList.remove(klass);
                                   }
                               }
                               else {
-                                  node.setAttribute(attrName, _value);
+                                  node.setAttribute(attrName, data);
                               }
                           }
                           else {
-                              if (_value)
+                              if (data)
                                   node.classList.add(attrChild);
                           }
-                          break;
-                      case "html":
-                          if (data !== node.innerHTML)
-                              node.innerHTML = data;
-                          break;
-                      default:
-                          if (_value === null)
-                              _value = emptyString;
-                          if (_value) {
-                              if (node.getAttribute(attrName) !== _value) {
-                                  node.setAttribute(attrName, _value);
-                              }
+                      });
+                      break;
+                  case "html":
+                      autorun(() => {
+                          let data = getData(bindKey, contextData);
+                          data = usePipes(data, pipeList, contextData);
+                          node.innerHTML = data;
+                      });
+                      break;
+                  default:
+                      autorun(() => {
+                          let data = getData(bindKey, contextData);
+                          data = usePipes(data, pipeList, contextData);
+                          if (data === null)
+                              data = emptyString;
+                          if (data) {
+                              node.setAttribute(attrName, data);
                           }
                           else {
-                              if (node.hasAttribute(attrName))
-                                  node.removeAttribute(attrName);
+                              node.removeAttribute(attrName);
                           }
-                          break;
-                  }
-              });
+                      });
+                      break;
+              }
           }
           node.removeAttribute(name);
       }
@@ -5622,12 +5717,17 @@
        */
       _setTextContent(textNode, contextData) {
           const textBuilder = new BindingTextBuilder(textNode);
+          if (!interpolationExpressionExp.test(textBuilder.text))
+              return;
           autorun(() => {
               textBuilder.setText(contextData);
           });
       }
   }
   Aja.FormControl = FormControl;
+  //# sourceMappingURL=aja.js.map
+
+  //# sourceMappingURL=main.js.map
 
   return Aja;
 

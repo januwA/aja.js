@@ -51,7 +51,9 @@ export function parseTemplateEventArgs(str: string): string[] {
  * @param bodyString
  */
 export function ourEval(this: any, bodyString: string): any {
-  const f = new Function(bodyString);
+  const f = new Function(`
+  delete name;
+  ${bodyString}`);
   try {
     return f.apply(this, arguments);
   } catch (er) {
@@ -377,7 +379,14 @@ export function parseJsString(
         ourEval.call(context, `${funBody}`);
       } else {
         if (context === undefined) return context;
-        const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this");
+        let replaceValue = "this";
+        if (typeof context === "boolean" || context == 0) {
+          replaceValue = context.toString();
+        }
+        const funBody = key.replace(
+          new RegExp(`\\b${varName}`, "g"),
+          replaceValue
+        );
         let _result = ourEval.call(context, `return ${funBody}`);
         if (_result === undefined) _result = emptyString;
         return _result;

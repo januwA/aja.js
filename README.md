@@ -364,7 +364,7 @@ let vm = new Aja(".app", {
   [hidden] {
     display: none;
   }
-  .aja-invalid {
+  .aja-touched.aja-invalid {
     border-color: red;
   }
   .aja-valid {
@@ -374,51 +374,55 @@ let vm = new Aja(".app", {
 
 
 <div class="app">
-  <input type="text" [formControl]="name" />
-  <p [hidden]="!name.pending">异步验证中...</p>
-  <p :if="name.errors">
-    {{ name.errors | json }}
-  </p>
+  <input required type="text" [formControl]="name" />
+  <p [hidden]="!(name.pending && name.touched)">等待验证...</p>
+  <p :if="name.touched && name.errors">{{ name.errors | json }}</p>
   <button (click)="asd()">change</button>
 </div>
 
 <script>
   const l = console.log;
-
-  // 同步验证函数
   function validatorFn(control) {
-    return control.value.includes("ajanuw")
+    return control.value.includes("Ajanuw")
       ? null
       : {
-          validatorFn: "必须包含ajanuw"
+          validatorFn: "必须包含 Ajanuw"
         };
   }
 
-  // 异步验证函数
+  function validatorFn2(control) {
+    return control.value.includes("hello")
+      ? null
+      : {
+          validatorFn2: "必须包含 hello"
+        };
+  }
+
   function asyncValidatorFn(control) {
     return new Promise(res => {
       setTimeout(() => {
-        if (control.value.length > 10) {
+        if (control.value.length > 20) {
           res(null);
         } else {
           res({
-            asyncValidatorFn: "length须>10"
+            asyncValidatorFn: "length须>20"
           });
         }
-      }, 1200);
+      }, 1500);
     });
   }
+  
   let vm = new Aja(".app", {
     state: {
       name: new Aja.FormControl(
-        "ajanuw",
-        [validatorFn],
-        [asyncValidatorFn]
-      )
+        "",
+        [validatorFn, validatorFn2],
+        asyncValidatorFn
+      ),
     },
     actions: {
       asd() {
-        this.name.setValue("hello ajanuw");
+        this.name.setValue("hello Ajanuw");
       }
     }
   });

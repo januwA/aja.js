@@ -26,11 +26,10 @@ export class BindingIfBuilder {
    * * 这里使用了回调把template标签给渲染了
    * @param show
    */
-  checked(show: boolean, cb: () => void) {
+  checked(show: any) {
     if (!this.commentNode) return;
     if (show) {
       this.commentNode.after(this.node);
-      cb();
     } else {
       this.node.replaceWith(this.commentNode);
     }

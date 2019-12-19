@@ -9,8 +9,7 @@
       [hidden] {
         display: none;
       }
-
-      .aja-invalid {
+      .aja-touched.aja-invalid {
         border-color: red;
       }
       .aja-valid {
@@ -21,49 +20,54 @@
 
   <body>
     <div class="app">
-      <input type="text" [formControl]="favoriteColorControl" />
-      <p [hidden]="!favoriteColorControl.pending">异步验证中...</p>
-      <p :if="favoriteColorControl.errors">
-        {{ favoriteColorControl.errors | json }}
-      </p>
+      <input required type="text" [formControl]="name" />
+      <p [hidden]="!(name.pending && name.touched)">等待验证...</p>
+      <p :if="name.touched && name.errors">{{ name.errors | json }}</p>
       <button (click)="asd()">change</button>
     </div>
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
       function validatorFn(control) {
-        return control.value.includes("ajanuw")
+        return control.value.includes("Ajanuw")
           ? null
           : {
               validatorFn: "必须包含 Ajanuw"
             };
       }
 
+      function validatorFn2(control) {
+        return control.value.includes("hello")
+          ? null
+          : {
+              validatorFn2: "必须包含 hello"
+            };
+      }
+
       function asyncValidatorFn(control) {
         return new Promise(res => {
           setTimeout(() => {
-            if (control.value.length > 10) {
+            if (control.value.length > 20) {
               res(null);
             } else {
               res({
-                asyncValidatorFn: "length须>10"
+                asyncValidatorFn: "length须>20"
               });
             }
-          }, 1200);
+          }, 1500);
         });
       }
       let vm = new Aja(".app", {
         state: {
-          name: "",
-          favoriteColorControl: new Aja.FormControl(
-            "ajanuw",
-            [validatorFn],
-            [asyncValidatorFn]
-          )
+          name: new Aja.FormControl(
+            "",
+            [validatorFn, validatorFn2],
+            asyncValidatorFn
+          ),
         },
         actions: {
           asd() {
-            this.favoriteColorControl.setValue("hello ajanuw");
+            this.name.setValue("hello Ajanuw");
           }
         }
       });

@@ -16,7 +16,8 @@ import {
   attrStartExp,
   attrEndExp,
   eventStartExp,
-  eventEndExp
+  eventEndExp,
+  interpolationExpressionExp
 } from "./utils/exp";
 import { BindingIfBuilder } from "./classes/binding-if-builder";
 import { BindingForBuilder } from "./classes/binding-for-builder";
@@ -143,27 +144,21 @@ class Aja {
     if (ifBuilder.ifAttr) {
       if (boolStringp(ifBuilder.value)) {
         show = ifBuilder.value === "true";
-        ifBuilder.checked(show, () => {
-          this._define(
-            node,
-            contextData.copyWith({
-              tvState: contextData.tvState.copyWith(node)
-            })
-          );
-        });
+        ifBuilder.checked(show);
       } else {
         const [bindKey, pipeList] = parsePipe(ifBuilder.value);
         autorun(() => {
           show = getData(bindKey, contextData);
           show = usePipes(show, pipeList, contextData);
-          ifBuilder.checked(show, () => {
+          if (show) {
             this._define(
               node,
               contextData.copyWith({
                 tvState: contextData.tvState.copyWith(node)
               })
             );
-          });
+          }
+          ifBuilder.checked(show);
         });
       }
     }
@@ -244,13 +239,12 @@ class Aja {
         .replace(attrEndExp, emptyString)
         .split(".");
       const [bindKey, pipeList] = parsePipe(value);
-      autorun(() => {
-        let data = getData(bindKey, contextData);
-        data = usePipes(data, pipeList, contextData);
 
-        let _value = data;
-        switch (attrName) {
-          case "style":
+      switch (attrName) {
+        case "style":
+          autorun(() => {
+            let data = getData(bindKey, contextData);
+            data = usePipes(data, pipeList, contextData);
             if (attrChild && attrChild in node.style) {
               (node.style as { [k: string]: any })[attrChild] = data;
             } else {
@@ -261,38 +255,48 @@ class Aja {
                 }
               }
             }
-            break;
-          case "class":
-            if (_value === null) _value = emptyString;
+          });
+          break;
+        case "class":
+          autorun(() => {
+            let data = getData(bindKey, contextData);
+            data = usePipes(data, pipeList, contextData);
+            if (data === null) data = emptyString;
             if (!attrChild) {
-              if (objectp(_value)) {
-                for (const klass in _value) {
-                  if (_value[klass]) node.classList.add(klass);
+              if (objectp(data)) {
+                for (const klass in data) {
+                  if (data[klass]) node.classList.add(klass);
                   else node.classList.remove(klass);
                 }
               } else {
-                node.setAttribute(attrName, _value);
+                node.setAttribute(attrName, data);
               }
             } else {
-              if (_value) node.classList.add(attrChild);
+              if (data) node.classList.add(attrChild);
             }
-            break;
-          case "html":
-            if (data !== node.innerHTML) node.innerHTML = data;
-            break;
+          });
+          break;
+        case "html":
+          autorun(() => {
+            let data = getData(bindKey, contextData);
+            data = usePipes(data, pipeList, contextData);
+            node.innerHTML = data;
+          });
+          break;
 
-          default:
-            if (_value === null) _value = emptyString;
-            if (_value) {
-              if (node.getAttribute(attrName) !== _value) {
-                node.setAttribute(attrName, _value);
-              }
+        default:
+          autorun(() => {
+            let data = getData(bindKey, contextData);
+            data = usePipes(data, pipeList, contextData);
+            if (data === null) data = emptyString;
+            if (data) {
+              node.setAttribute(attrName, data);
             } else {
-              if (node.hasAttribute(attrName)) node.removeAttribute(attrName);
+              node.removeAttribute(attrName);
             }
-            break;
-        }
-      });
+          });
+          break;
+      }
     }
     node.removeAttribute(name);
   }
@@ -370,6 +374,7 @@ class Aja {
    */
   private _setTextContent(textNode: ChildNode, contextData: ContextData): void {
     const textBuilder = new BindingTextBuilder(textNode);
+    if (!interpolationExpressionExp.test(textBuilder.text)) return;
     autorun(() => {
       textBuilder.setText(contextData);
     });

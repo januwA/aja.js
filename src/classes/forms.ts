@@ -1,6 +1,118 @@
-import { observable, toJS } from "mobx";
+import { observable, toJS, runInAction } from "mobx";
+import { objectp, arrayp, nullp } from "../utils/p";
 
 const l = console.log;
+
+export const VALID = "VALID";
+export const INVALID = "INVALID";
+export const PENDING = "PENDING";
+export const DISABLED = "DISABLED";
+
+/**
+ * 将errors数组转化为{}
+ * @param arrayOfErrors
+ */
+function _mergeErrors(
+  arrayOfErrors: ValidationErrors[]
+): ValidationErrors | null {
+  const res: { [key: string]: any } = arrayOfErrors.reduce(
+    (acc: ValidationErrors | null, errors: ValidationErrors | null) => {
+      // return nullp(errors) ? acc! : { ...acc!, ...errors };
+      return nullp(errors) ? acc! : Object.assign(acc, errors);
+    },
+    {}
+  );
+  return Object.keys(res).length === 0 ? null : res;
+}
+
+/**
+ * * 将验证器数组转化为一个验证器
+ * @param validators
+ */
+function compose(
+  validators: (ValidatorFn | null | undefined)[] | null
+): ValidatorFn | null {
+  if (!validators) return null;
+  // 过滤无效的验证器
+  const presentValidators: ValidatorFn[] = validators.filter(
+    o => o != null
+  ) as any;
+  if (presentValidators.length == 0) return null;
+
+  return function(control: AbstractControl) {
+    // 运行所有验证器，获取错误数组
+    const errors: ValidationErrors[] = presentValidators.map(v =>
+      v(control)
+    ) as any[];
+    return _mergeErrors(errors);
+  };
+}
+
+async function forkJoinPromise(promises: any[]): Promise<ValidationErrors[]> {
+  const errors: any[] = [];
+  for (const v of promises) {
+    const r = await v;
+    errors.push(r);
+  }
+  return errors;
+}
+
+function composeAsync(
+  validators: (AsyncValidatorFn | null)[]
+): AsyncValidatorFn | null {
+  // 这里的逻辑和[compose]的差不多
+  if (!validators) return null;
+  const presentValidators: AsyncValidatorFn[] = validators.filter(
+    o => o != null
+  ) as any;
+  if (presentValidators.length == 0) return null;
+
+  return async function(control: AbstractControl): Promise<any> {
+    // 一组Promise验证器数组
+    const promises = presentValidators.map(v => v(control));
+
+    // 获取所有错误
+    const errors = await forkJoinPromise(promises);
+    return _mergeErrors(errors);
+  };
+}
+
+function composeValidators(validators: Array<ValidatorFn>): ValidatorFn | null {
+  return nullp(validators) ? null : compose(validators);
+}
+
+function composeAsyncValidators(
+  validators: Array<AsyncValidatorFn>
+): AsyncValidatorFn | null {
+  return !nullp(validators) ? composeAsync(validators) : null;
+}
+
+function coerceToValidator(
+  validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null
+): ValidatorFn | null {
+  // 如果是[AbstractControlOptions]就获取[AbstractControlOptions.validators]
+  const validator = (objectp(validatorOrOpts)
+    ? (validatorOrOpts as AbstractControlOptions).validators
+    : validatorOrOpts) as ValidatorFn | ValidatorFn[] | null;
+
+  return arrayp(validator) ? composeValidators(validator) : validator || null;
+}
+
+function coerceToAsyncValidator(
+  asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null,
+  validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null
+): AsyncValidatorFn | null {
+  // 如果参数是一个[AbstractControlOptions]
+  // 那么就获取[AbstractControlOptions.asyncValidators]
+  // 否则就返回 [asyncValidator]
+  const origAsyncValidator = (objectp(validatorOrOpts)
+    ? (validatorOrOpts as AbstractControlOptions).asyncValidators
+    : asyncValidator) as AsyncValidatorFn | AsyncValidatorFn | null;
+
+  return arrayp(origAsyncValidator)
+    ? composeAsyncValidators(origAsyncValidator)
+    : origAsyncValidator || null;
+}
 
 export type ValidationErrors = {
   [key: string]: any;
@@ -14,34 +126,49 @@ export interface ValidatorFn {
   (control: AbstractControl): ValidationErrors | null;
 }
 
+/**
+ * * 异步验证器，我这里只支持了[Promise]
+ * angular 还支持rxjs
+ */
 export interface AsyncValidatorFn {
   (control: AbstractControl): Promise<ValidationErrors | null>;
+}
+
+export interface AbstractControlOptions {
+  /**
+   * 同步验证器
+   */
+  validators?: ValidatorFn | ValidatorFn[] | null;
+  /**
+   * 异步验证器
+   */
+  asyncValidators?: AsyncValidatorFn | AsyncValidatorFn[] | null;
+  /**
+   * 什么时候触发验证
+   */
+  updateOn?: "change" | "blur" | "submit";
 }
 
 export abstract class AbstractControl {
   // TODO
   // private _parent;
   constructor(
-    public validator: ValidatorFn[] | null,
-    public asyncValidator: AsyncValidatorFn[] | null
+    public validator: ValidatorFn | null,
+    public asyncValidator: AsyncValidatorFn | null
   ) {}
   private _control: {
     [k: string]: any;
   } = observable({
     touched: false,
-    untouched: true,
 
     dirty: false,
-    pristine: true,
-
-    valid: false,
-    invalid: true,
 
     disabled: false,
-    enabled: true,
 
     pending: false,
 
+    // 没有错误 valid
+    // 有错误 invalid
     errors: null
   });
 
@@ -65,11 +192,10 @@ export abstract class AbstractControl {
    * 这些状态值是互斥的，因此不能进行控制,有效和无效或无效和禁用。
    */
   get status(): string {
-    if (this.disabled) return "DISABLED";
-    if (this.pending) return "PENDING";
-    if (this.valid) return "VALID";
-    if (this.invalid) return "INVALID";
-    return "";
+    if (!this._control.errors) return VALID;
+    if (this._control.errors) return INVALID;
+    if (this._control.pending) return PENDING;
+    return DISABLED;
   }
 
   // TODO
@@ -132,14 +258,14 @@ export abstract class AbstractControl {
    * *控件的值有效
    */
   get valid(): boolean {
-    return this._control.valid;
+    return this.status === VALID;
   }
 
   /**
    * 控件的值无效
    */
   get invalid(): boolean {
-    return this._control.invalid;
+    return this.status === INVALID;
   }
 
   /**
@@ -153,8 +279,9 @@ export abstract class AbstractControl {
    * 控件被启用
    */
   get enabled(): boolean {
-    return this._control.enabled;
+    return !this.disabled;
   }
+
   /**
    * 控件的值变化了
    */
@@ -167,7 +294,7 @@ export abstract class AbstractControl {
    * 只有用户的输入才会改变这个状态
    */
   get pristine(): boolean {
-    return this._control.pristine;
+    return !this.dirty;
   }
   /**
    * 控件被访问过
@@ -179,14 +306,16 @@ export abstract class AbstractControl {
    * 控件没有被访问过
    */
   get untouched(): boolean {
-    return this._control.untouched;
+    return !this.touched;
   }
 
-  setValidators(newValidator: ValidatorFn[] | null): void {
-    this.validator = newValidator;
+  setValidators(newValidator: ValidatorFn | ValidatorFn[] | null): void {
+    this.validator = coerceToValidator(newValidator);
   }
-  setAsyncValidators(newValidator: AsyncValidatorFn[] | null): void {
-    this.asyncValidator = newValidator;
+  setAsyncValidators(
+    newValidator: AsyncValidatorFn | AsyncValidatorFn[] | null
+  ): void {
+    this.asyncValidator = coerceToAsyncValidator(newValidator);
   }
 
   clearValidators(): void {
@@ -203,7 +332,6 @@ export abstract class AbstractControl {
    */
   markAsTouched(): void {
     this._control.touched = true;
-    this._control.untouched = false;
   }
 
   /**
@@ -211,7 +339,6 @@ export abstract class AbstractControl {
    * @param opts
    */
   markAsUntouched(): void {
-    this._control.untouched = true;
     this._control.touched = false;
   }
 
@@ -220,7 +347,6 @@ export abstract class AbstractControl {
    */
   markAsDirty(): void {
     this._control.dirty = true;
-    this._control.pristine = false;
   }
 
   /**
@@ -228,25 +354,6 @@ export abstract class AbstractControl {
    */
   markAsPristine(): void {
     this._control.dirty = false;
-    this._control.pristine = true;
-  }
-
-  /**
-   * 控件的值有效
-   */
-  markAsValid(): void {
-    this._control.valid = true;
-    this._control.invalid = false;
-    this._control.pending = false;
-  }
-
-  /**
-   * 控件的值无效效
-   */
-  markAsInValid(): void {
-    this._control.valid = false;
-    this._control.invalid = true;
-    this._control.pending = false;
   }
 
   /**
@@ -254,8 +361,6 @@ export abstract class AbstractControl {
    */
   disable(): void {
     this._control.disabled = true;
-    this._control.enabled = false;
-    this._control.pending = false;
   }
 
   /**
@@ -263,7 +368,6 @@ export abstract class AbstractControl {
    */
   enable(): void {
     this._control.disabled = false;
-    this._control.enabled = true;
   }
 
   /**
@@ -292,38 +396,24 @@ export abstract class AbstractControl {
    * * 重新计算控件的值和验证状态。
    */
   updateValueAndValidity(): void {
-    this._runValidator();
+    // if (this.enabled) {
+    this._control.errors = this._runValidator();
+
+    if (this.status === VALID || this.status === PENDING) {
+      this._runAsyncValidator();
+    }
+    // }
   }
   private _runValidator() {
-    if (!this.validator) return;
-
-    for (const validatorFn of this.validator) {
-      const error = validatorFn(this);
-      // 返回了错误
-      if (error !== null) {
-        this._control.errors = error;
-        this.markAsInValid();
-        return;
-      }
-    }
-    this._control.errors = null;
-    this._runAsyncValidator();
+    return this.validator ? this.validator(this) : null;
   }
+
   private async _runAsyncValidator() {
     if (!this.asyncValidator) return;
     // 挂起
     this.markAsPending();
-    for (const asyncValidatorFn of this.asyncValidator) {
-      const error = await asyncValidatorFn(this);
-      // 返回了错误
-      if (error !== null) {
-        this._control.errors = error;
-        this.markAsInValid();
-        return;
-      }
-    }
-    this._control.errors = null;
-    this.markAsValid();
+    this._control.errors = await this.asyncValidator(this);
+    this._control.pending = false;
   }
 }
 
@@ -339,10 +429,17 @@ export class FormControl extends AbstractControl {
    */
   constructor(
     formState?: any,
-    validatorOrOpts?: ValidatorFn[] | null,
-    asyncValidator?: AsyncValidatorFn[] | null
+    validatorOrOpts?:
+      | ValidatorFn
+      | ValidatorFn[]
+      | AbstractControlOptions
+      | null,
+    asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
   ) {
-    super(validatorOrOpts || null, asyncValidator || null);
+    super(
+      coerceToValidator(validatorOrOpts),
+      coerceToAsyncValidator(asyncValidator, validatorOrOpts)
+    );
     this._value.set(formState || "");
   }
 
@@ -354,3 +451,30 @@ export class FormControl extends AbstractControl {
     this._value.set(value || "");
   }
 }
+
+// export class FormGroup extends AbstractControl {
+//   controls: {
+//     [key: string]: AbstractControl;
+//   };
+
+//   constructor(
+//     controls: {
+//       [key: string]: AbstractControl;
+//     },
+//     validatorOrOpts?:
+//       | ValidatorFn
+//       | ValidatorFn[]
+//       | AbstractControlOptions
+//       | null,
+//     asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
+//   ) {
+//     super();
+//   }
+
+//   setValue(value: any): void {
+//     throw new Error("Method not implemented.");
+//   }
+//   reset(value?: any): void {
+//     throw new Error("Method not implemented.");
+//   }
+// }

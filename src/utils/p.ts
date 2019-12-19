@@ -45,11 +45,11 @@ export function objectp(data: any) {
   return dataTag(data) === "[object Object]";
 }
 
-export function arrayp(data: any) {
+export function arrayp(data: any): data is any[] {
   return dataTag(data) === "[object Array]";
 }
 
-export function nullp(data: any) {
+export function nullp(data: any): data is null {
   return dataTag(data) === "[object Null]";
 }
 

@@ -26,8 +26,8 @@ export const ajaPipes: Pipes = {
     return str.charAt(0).toUpperCase() + str.substring(1);
   },
 
-  json(str: string) {
-    return JSON.stringify(str, null, " ");
+  json(data: any) {
+    return JSON.stringify(data, null, " ");
   },
 
   slice(str: string, start: number, end: number) {

@@ -35,7 +35,7 @@ export class FormControlSerivce {
    */
   setup() {
     // 控件同步到formControl
-
+    this._checkValidity();
     // 是否禁用
     if ("disabled" in this.node) {
       const inputNode = this.node as HTMLInputElement;
@@ -48,6 +48,7 @@ export class FormControlSerivce {
       if ("value" in this.node) {
         this.control.setValue((this.node as HTMLInputElement).value);
       }
+      this._checkValidity();
       this.control.markAsDirty();
     });
 
@@ -56,15 +57,14 @@ export class FormControlSerivce {
       this.control.markAsTouched()
     );
 
-    const that = this;
     // formControl同步到控件
     autorun(() => {
       // 这个主要监听setValue()，和初始化时，将新值同步到控件中去
       const inputNode = this.node as HTMLInputElement;
       if (this.control.value !== inputNode.value) {
         inputNode.value = this.control.value;
+        this._checkValidity();
       }
-      this._checkValidity(inputNode);
     });
     autorun(() => {
       this.node.classList.toggle(
@@ -104,18 +104,22 @@ export class FormControlSerivce {
    * * 如果控件被禁用，则不校验
    * @param node
    */
-  private _checkValidity(node: HTMLElement) {
-    if ("checkValidity" in node) {
-      const inputNode = node as HTMLInputElement;
+  private _checkValidity() {
+    if ("checkValidity" in this.node) {
+      const inputNode = this.node as HTMLInputElement;
       // 如果控件被禁用，这将一直返回true
       // 初始化时只会验证required
       // 只有在input期间验证，才会验证到minlength之类的
       const ok = inputNode.checkValidity();
-      if (ok) this.control.markAsValid();
-      else this.control.markAsInValid();
-
-      // h5验证完后启用内置的验证
-      this.control.updateValueAndValidity();
+      l(ok);
+      if (ok) {
+        // h5验证完后启用内置的验证
+        this.control.updateValueAndValidity();
+      } else {
+        this.control.setErrors({
+          error: inputNode.validationMessage
+        });
+      }
     }
   }
 }
