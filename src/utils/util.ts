@@ -51,11 +51,8 @@ export function parseTemplateEventArgs(str: string): string[] {
  * @param bodyString
  */
 export function ourEval(this: any, bodyString: string): any {
-  const f = new Function(`
-  delete name;
-  ${bodyString}`);
   try {
-    return f.apply(this, arguments);
+    return Function(`${bodyString}`).apply(this, arguments);
   } catch (er) {
     throw er;
   }
@@ -275,7 +272,8 @@ export function getData(
 ): any {
   if (typeof key !== strString) return null;
   // 抽掉所有空格，再把管道排除
-  const [bindKey, pipeList] = parsePipe(key);
+  let [bindKey, pipeList] = parsePipe(key);
+
   // 在解析绑定的变量
   const bindKeys = bindKey.split(".");
   let _result: any;
@@ -363,6 +361,7 @@ export function parseJsString(
   newValue: any = ""
 ) {
   try {
+    // 在这里被指向了window
     return ourEval(`return ${key}`);
   } catch (er) {
     // 利用错误来抓取变量

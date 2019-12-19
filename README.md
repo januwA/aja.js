@@ -80,6 +80,10 @@ state: {
 ```
 
 ## 插值表达式
+<html>
+  <p style="color: red;">!!! 有重大BUG，复杂的还是用计算属性</p>
+</html>
+
 ```
 <p>{{ name }}, {{ obj.age * 10 }}</p>
 
@@ -96,7 +100,7 @@ state: {
   <p>{{ pass.value }}</p>
   <input type="text" value="pass" #pass />
 </div>
-<!-- 错误，不要使用结构型指令内部的变量，因为解构型指令有新的上下文 -->
+<!-- 错误，不要使用结构型指令内部的变量，因为上下文不一样 -->
 <p>{{ pass.value }}</p>
 ```
 

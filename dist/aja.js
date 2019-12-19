@@ -89,11 +89,8 @@
    * @param bodyString
    */
   function ourEval(bodyString) {
-      const f = new Function(`
-  delete name;
-  ${bodyString}`);
       try {
-          return f.apply(this, arguments);
+          return Function(`${bodyString}`).apply(this, arguments);
       }
       catch (er) {
           throw er;
@@ -182,7 +179,7 @@
       if (typeof key !== strString)
           return null;
       // 抽掉所有空格，再把管道排除
-      const [bindKey, pipeList] = parsePipe(key);
+      let [bindKey, pipeList] = parsePipe(key);
       // 在解析绑定的变量
       const bindKeys = bindKey.split(".");
       let _result;
@@ -260,6 +257,7 @@
    */
   function parseJsString(key, state, setState = false, newValue = "") {
       try {
+          // 在这里被指向了window
           return ourEval(`return ${key}`);
       }
       catch (er) {
@@ -318,7 +316,6 @@
           return arg;
       });
   }
-  //# sourceMappingURL=util.js.map
 
   /** MobX - (c) Michel Weststrate 2015 - 2019 - MIT Licensed */
   /*! *****************************************************************************
@@ -5062,6 +5059,7 @@
       valid: "aja-valid",
       invalid: "aja-invalid" // false
   };
+  //# sourceMappingURL=form-control.service.js.map
 
   /*! *****************************************************************************
   Copyright (c) Microsoft Corporation. All rights reserved.
