@@ -1,13 +1,10 @@
-import { spaceExp, parsePipesExp } from "./exp";
+import { parsePipesExp } from "./exp";
 import {
   objectTag,
   arrayTag,
-  strString,
+  stringString,
   structureDirectivePrefix,
-  templateEvent
 } from "./const-string";
-import { ContextData } from "../classes/context-data";
-import { getData } from "../core";
 
 export function createRoot(view: string | HTMLElement): HTMLElement | null {
   return typeof view === "string"
@@ -146,11 +143,10 @@ export function hasStructureDirective(node: HTMLElement): boolean {
  * @returns [ bindKey, Pipes[] ]
  */
 export function parsePipe(key: string): [string, string[]] {
-  const [bindKey, ...pipes] = key
-    .replace(spaceExp, emptyString)
-    .split(parsePipesExp);
-  return [bindKey, pipes];
+  const [bindKey, ...pipes] = key.split(parsePipesExp);
+  return [bindKey.trim(), pipes.map(e => e.trim())];
 }
+
 const emptyp = function (value: any) {
   return JSON.stringify(value).length === 2 ? true : false;
 };
@@ -166,7 +162,7 @@ function _equal(obj: any, other: any, equalp: boolean = false): boolean {
       otherTag !== objectTag &&
       otherTag !== arrayTag
     ) {
-      if (equalp && typeof obj === strString && typeof other === strString) {
+      if (equalp && typeof obj === stringString && typeof other === stringString) {
         return obj.toLocaleUpperCase() === other.toLocaleUpperCase();
       }
       return obj === other;
@@ -242,31 +238,5 @@ export function equal(obj: any, other: any) {
  */
 export function equalp(obj: any, other: any) {
   return _equal(obj, other, true);
-}
-
-
-
-
-
-
-/**
- * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
- * @param args
- * @param contextData
- */
-export function parseArgsToArguments(args: string[], contextData: ContextData) {
-  return args.map(arg => {
-    if (!arg) return arg;
-    let el = arg.trim();
-    if (el === templateEvent) return el;
-    return getData(el, contextData);
-  });
-}
-
-export function parseArgsEvent(args: string[], e: any) {
-  return args.map(arg => {
-    if (arg === templateEvent) return e;
-    return arg;
-  });
 }
 

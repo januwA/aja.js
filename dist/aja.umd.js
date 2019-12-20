@@ -4,20 +4,19 @@
   (global = global || self, global.Aja = factory());
 }(this, (function () { 'use strict';
 
-  //* 匹配 {{ name }} {{ obj.age }}
-  // export const interpolationExpressionExp = /{{([\w\s\.][\s\w\.]+)}}/g;
   const interpolationExpressionExp = /{{(.*?)}}/g;
-  //* 匹配空格
-  const spaceExp = /\s/g;
   const attrStartExp = /^\[/;
   const attrEndExp = /\]$/;
   const eventStartExp = /^\(/;
   const eventEndExp = /\)$/;
   const tempvarExp = /^#/;
   const parsePipesExp = /(?<![\|])\|(?![\|])/;
-  const evalExp = /[!\&\|\+\-\*\%=\/<\>\^\(\)\~\:\?\;]/g;
 
-  const strString = "string";
+  const objectTag = "[object Object]";
+  const arrayTag = "[object Array]";
+  const stringTag = "[object String]";
+  const undefinedTag = "[object Undefined]";
+  const nullTag = "[object Null]";
   class EventType {
   }
   EventType.input = "input";
@@ -47,211 +46,7 @@
    */
   const modelChangeEvent = "(modelChange)".toLowerCase();
   const formControlName = "[formControl]".toLowerCase();
-
-  /**
-   * * 1. 优先寻找模板变量
-   * * 2. 在传入的state中寻找
-   * * 3. 在this.$store中找
-   * * 'name' 'object.name'
-   * @param key
-   * @param contextData
-   * @param isDeep  添加这个参数避免堆栈溢出
-   */
-  function getData(key, contextData, isDeep = false) {
-      if (typeof key !== strString)
-          return null;
-      // 抽掉所有空格，再把管道排除
-      let [bindKey, pipeList] = parsePipe(key);
-      // 在解析绑定的变量
-      const bindKeys = bindKey.split(".");
-      let _result;
-      const firstKey = bindKeys[0];
-      // 模板变量
-      if (contextData.tvState && contextData.tvState.has(firstKey)) {
-          // 绑定的模板变量，全是小写
-          const lowerKeys = bindKeys.map(k => k.toLowerCase());
-          for (const k of lowerKeys) {
-              _result = _result ? _result[k] : contextData.tvState.get(k);
-          }
-      }
-      // state
-      if (_result === undefined) {
-          if (contextData.contextState && firstKey in contextData.contextState) {
-              for (const k of bindKeys) {
-                  _result = _result ? _result[k] : contextData.contextState[k];
-              }
-          }
-      }
-      // this.$store
-      if (_result === undefined) {
-          if (firstKey in contextData.globalState) {
-              for (const k of bindKeys) {
-                  _result = _result ? _result[k] : contextData.globalState[k];
-              }
-          }
-      }
-      if (_result === undefined) {
-          _result = myEval(bindKey, contextData.tvState);
-      }
-      if (_result === undefined) {
-          _result = myEval(bindKey, contextData.contextState);
-      }
-      if (_result === undefined) {
-          _result = myEval(bindKey, contextData.globalState);
-      }
-      if (_result === undefined) {
-          // eval解析
-          if (isDeep)
-              return undefined;
-          _result = parseJsString(bindKey, contextData);
-      }
-      return _result;
-  }
-  /**
-   * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于用户定义的 state
-   * @param key
-   * @param newValue
-   * @param state
-   */
-  function setData(key, newValue, contextData) {
-      if (typeof key !== strString)
-          return null;
-      const state = contextData.globalState;
-      const keys = key.split(".");
-      const keysSize = keys.length;
-      if (!keysSize)
-          return;
-      const firstKey = keys[0];
-      let _result;
-      if (keysSize === 1 && firstKey in state) {
-          state[firstKey] = newValue;
-          return;
-      }
-      for (let index = 0; index < keysSize - 1; index++) {
-          const k = keys[index];
-          _result = _result ? _result[k] : state[k];
-      }
-      if (_result) {
-          const lastKey = keys[keysSize - 1];
-          _result[lastKey] = newValue;
-          return;
-      }
-      parseJsString(key, state, true, newValue);
-  }
-  /**
-   * 解析一些奇怪的插值表达式
-   * {{ el['age'] }}
-   * :for="(i, el) in arr" (click)="foo( 'xxx-' + el.name  )"
-   * @param key
-   * @param state
-   * @param setState
-   */
-  function parseJsString(key, state, setState = false, newValue = "") {
-      try {
-          // 在这里被指向了window
-          return ourEval(`return ${key}`);
-      }
-      catch (er) {
-          // 利用错误来抓取变量
-          const msg = er.message;
-          if (msg.includes("is not defined")) {
-              const match = msg.match(/(.*) is not defined/);
-              if (!match)
-                  return emptyString;
-              const varName = match[1];
-              const context = getData(varName, state, true);
-              if (setState) {
-                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), "this") +
-                      `='${newValue}'`;
-                  ourEval.call(context, `${funBody}`);
-              }
-              else {
-                  if (context === undefined)
-                      return context;
-                  let replaceValue = "this";
-                  if (typeof context === "boolean" || context == 0) {
-                      replaceValue = context.toString();
-                  }
-                  const funBody = key.replace(new RegExp(`\\b${varName}`, "g"), replaceValue);
-                  let _result = ourEval.call(context, `return ${funBody}`);
-                  if (_result === undefined)
-                      _result = emptyString;
-                  return _result;
-              }
-          }
-          else {
-              console.error(er);
-              throw er;
-          }
-      }
-  }
-  function myEval(originString, context) {
-      if (!context)
-          return;
-      let bindKey = originString;
-      bindKey = bindKey.replace(/\s/g, "").replace(evalExp, " ");
-      let bindKeys = bindKey
-          .split(" ")
-          .map(s => s.trim())
-          .filter(e => !!e)
-          .filter(e => {
-          if (/^['"`]/.test(e)) {
-              return false;
-          }
-          // 过滤布尔值
-          if (e === "true" || e === "false") {
-              return false;
-          }
-          // 过滤number
-          if (!isNaN(+e)) {
-              return false;
-          }
-          return true;
-      });
-      let args = bindKeys.map(s => {
-          if (/\./.test(s) && /\[|\]/g.test(s)) {
-              let aindex = s.indexOf(".");
-              let bindex = s.indexOf("[");
-              let index = Math.min(aindex, bindex);
-              let obj = s.substr(0, index);
-              return obj;
-          }
-          else if (/\./.test(s)) {
-              let aindex = s.indexOf(".");
-              let obj = s.substr(0, aindex);
-              return obj;
-          }
-          else if (/\[|\]/g.test(s)) {
-              let bindex = s.indexOf("[");
-              let obj = s.substr(0, bindex);
-              return obj;
-          }
-          return s;
-      });
-      let datas = args.map(k => {
-          if (k in context) {
-              return context[k];
-          }
-      }).filter(e => !!e);
-      if (!datas.length)
-          return;
-      let funbody = `return function(${args.toString()}) {
-      return ${originString};}`;
-      return Function(funbody)()(...datas);
-  }
-  /**
-   * * 避免使用全局的eval
-   * @param this
-   * @param bodyString
-   */
-  function ourEval(bodyString) {
-      try {
-          return Function(`${bodyString}`).apply(this, arguments);
-      }
-      catch (er) {
-          throw er;
-      }
-  }
+  const ajaModelString = 'ajaModel';
 
   function createRoot(view) {
       return typeof view === "string"
@@ -272,21 +67,6 @@
       }
   }
   const emptyString = "";
-  /**
-   * setAge( obj.age   , '        ') -> ["obj.age   ", " '        '"]
-   * @param str
-   */
-  function parseTemplateEventArgs(str) {
-      const index = str.indexOf("(");
-      // 砍掉函数名
-      // 去掉首尾圆括号
-      // 用逗号分割参数
-      return str
-          .substr(index)
-          .trim()
-          .replace(/(^\(*)|(\)$)/g, emptyString)
-          .split(",");
-  }
   /**
    * Object.prototype.toString.call({}) -> "[object Object]"
    * @param data
@@ -352,32 +132,8 @@
    * @returns [ bindKey, Pipes[] ]
    */
   function parsePipe(key) {
-      const [bindKey, ...pipes] = key
-          .replace(spaceExp, emptyString)
-          .split(parsePipesExp);
-      return [bindKey, pipes];
-  }
-  /**
-   * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
-   * @param args
-   * @param contextData
-   */
-  function parseArgsToArguments(args, contextData) {
-      return args.map(arg => {
-          if (!arg)
-              return arg;
-          let el = arg.trim();
-          if (el === templateEvent)
-              return el;
-          return getData(el, contextData);
-      });
-  }
-  function parseArgsEvent(args, e) {
-      return args.map(arg => {
-          if (arg === templateEvent)
-              return e;
-          return arg;
-      });
+      const [bindKey, ...pipes] = key.split(parsePipesExp);
+      return [bindKey.trim(), pipes.map(e => e.trim())];
   }
 
   /** MobX - (c) Michel Weststrate 2015 - 2019 - MIT Licensed */
@@ -4356,41 +4112,6 @@
       });
   }
 
-  class BindingIfBuilder {
-      constructor(node) {
-          this.node = node;
-          let ifAttr = findIfAttr(node, structureDirectives.if);
-          if (!ifAttr)
-              return;
-          this.ifAttr = ifAttr;
-          this.commentNode = document.createComment("");
-          this.node.before(this.commentNode);
-          this.node.removeAttribute(structureDirectives.if);
-      }
-      get value() {
-          var _a;
-          return ((_a = this.ifAttr) === null || _a === void 0 ? void 0 : _a.value.trim()) || "";
-      }
-      /**
-       * * 这里使用了回调把template标签给渲染了
-       * @param show
-       */
-      checked(show) {
-          if (!this.commentNode)
-              return;
-          if (show) {
-              this.commentNode.after(this.node);
-          }
-          else {
-              this.node.replaceWith(this.commentNode);
-          }
-          this.commentNode.data = this._createIfCommentData(show);
-      }
-      _createIfCommentData(value) {
-          return `{":if": "${!!value}"}`;
-      }
-  }
-
   /**
    * * 谓词
    */
@@ -4414,10 +4135,13 @@
   function tempvarp(value) {
       return value.charAt(0) === "#";
   }
-  function numberp(str) {
-      if (typeof str === "number")
-          return true;
-      if (str && !str.trim())
+  function stringp(data) {
+      return dataTag(data) === stringTag;
+  }
+  function numberStringp(str) {
+      if (undefinedp(str))
+          return false;
+      if (!str.trim())
           return false;
       return !isNaN(+str);
   }
@@ -4429,13 +4153,16 @@
       return str === "true" || str === "false";
   }
   function objectp(data) {
-      return dataTag(data) === "[object Object]";
+      return dataTag(data) === objectTag;
   }
   function arrayp(data) {
-      return dataTag(data) === "[object Array]";
+      return Array.isArray ? Array.isArray(data) : dataTag(data) === arrayTag;
   }
   function nullp(data) {
-      return dataTag(data) === "[object Null]";
+      return dataTag(data) === nullTag;
+  }
+  function undefinedp(data) {
+      return data === undefined || dataTag(data) === undefinedTag;
   }
   function elementNodep(node) {
       return node.nodeType === Node.ELEMENT_NODE;
@@ -4453,132 +4180,63 @@
       return node.nodeName === "SELECT";
   }
   function checkboxp(node) {
-      return node.type === "checkbox";
+      return inputp(node) && node.type === "checkbox";
   }
   function radiop(node) {
-      return node.type === "radio";
+      return inputp(node) && node.type === "radio";
   }
 
-  class BindingForBuilder {
-      constructor(node, contextData) {
-          this.node = node;
-          this.contextData = contextData;
-          this.forBuffer = [];
-          let forAttr = findForAttr(node, structureDirectives.for);
-          // 没有for指令，就不构建下去了
-          if (!forAttr)
-              return;
-          this.forAttr = forAttr;
-          this.commentNode = document.createComment("");
-          this.fragment = document.createDocumentFragment();
-          node.replaceWith(this.commentNode);
-          node.removeAttribute(structureDirectives.for);
+  /**
+   * * 1. 优先寻找模板变量
+   * * 2. 在传入的state中寻找
+   * * 3. 在this.$store中找
+   * * 'name' 'object.name'
+   * @param key
+   * @param contextData
+   * @param isDeep  添加这个参数避免堆栈溢出
+   */
+  function getData(key, contextData, isDeep = false) {
+      if (!stringp(key))
+          return null;
+      // 抽掉所有空格，再把管道排除
+      let [bindKey] = parsePipe(key);
+      let _result;
+      if (contextData.tData) {
+          _result = evalFun(bindKey, contextData.tData);
       }
-      get hasForAttr() {
-          return !!this.forAttr;
+      if (undefinedp(_result) && contextData.contextState) {
+          _result = evalFun(bindKey, contextData.contextState);
       }
-      get forAttrValue() {
-          if (!this.forAttr)
-              return;
-          let [variable, bindKey] = this.forAttr.value
-              .split(/\bin|of\b/)
-              .map(s => s.trim());
-          let variables = [];
-          if (variable) {
-              variables = variable
-                  .trim()
-                  .replace(eventStartExp, emptyString)
-                  .replace(eventEndExp, emptyString)
-                  .split(",")
-                  .map(v => v.trim());
-          }
-          const p = parsePipe(bindKey);
-          return {
-              variable,
-              variables,
-              bindData: p[0],
-              pipes: p[1]
-          };
+      if (undefinedp(_result) && contextData.store) {
+          _result = evalFun(bindKey, contextData.store);
       }
-      get bindVar() {
-          return this.forAttrValue.variable || this.contextData.forLet;
+      if (undefinedp(_result))
+          _result = emptyString;
+      return _result;
+  }
+  /**
+   * 设置新数据，现在暂时在双向绑定的时候使用新数据, 数据来源于用户定义的 state
+   * @param key
+   * @param newValue
+   * @param state
+   */
+  function setData(key, newValue, contextData) {
+      if (!stringp(key))
+          return null;
+      return Function(`return function(d) {
+        with(this){
+          ${key} = d;
+        }
+      }`)().call(contextData.store, newValue);
+  }
+  function evalFun(bindKey, data) {
+      if (undefinedp(data))
+          return;
+      try {
+          const r = Function(`with(this){ return ${bindKey} }`).apply(data, arguments);
+          return r === '' ? undefined : r;
       }
-      get bindKey() {
-          return this.forAttrValue.variables[0] || this.contextData.forLet;
-      }
-      get bindValue() {
-          if (this.hasForAttr) {
-              return this.forAttrValue.variables[1];
-          }
-      }
-      get bindData() {
-          if (this.hasForAttr) {
-              return this.forAttrValue.bindData;
-          }
-      }
-      get isNumberData() {
-          if (this.hasForAttr) {
-              return numberp(this.bindData);
-          }
-      }
-      get pipes() {
-          var _a;
-          if (this.hasForAttr) {
-              return ((_a = this.forAttrValue) === null || _a === void 0 ? void 0 : _a.pipes) || [];
-          }
-          else {
-              return [];
-          }
-      }
-      /**
-       * * 将所有节点插入DOM
-       * @param data
-       */
-      draw(data) {
-          if (this.commentNode && this.fragment) {
-              this.commentNode.after(this.fragment);
-              this.commentNode.data = this.createForCommentData(data);
-          }
-      }
-      /**
-       * * 清除所有节点
-       */
-      clear() {
-          for (const forItem of this.forBuffer) {
-              forItem.remove();
-          }
-          this.forBuffer = [];
-      }
-      createForContextState(k, v = null, isNumber = true) {
-          const forState = {};
-          if (isNumber) {
-              forState[this.bindVar] = k;
-          }
-          else {
-              if (this.bindKey && this.bindValue) {
-                  forState[this.bindKey] = k;
-                  forState[this.bindValue] = v;
-              }
-              else if (this.bindKey) {
-                  forState[this.bindKey] = v;
-              }
-          }
-          return forState;
-      }
-      createForCommentData(obj) {
-          let data = obj;
-          if (arrayp(data)) {
-              data = obj.slice(0, 6);
-          }
-          return `{":for": "${data}"}`;
-      }
-      createItem() {
-          const item = this.node.cloneNode(true);
-          if (this.fragment) {
-              this.forBuffer.push(item);
-              this.fragment.append(item);
-          }
-          return item;
+      catch (error) {
       }
   }
 
@@ -4618,379 +4276,12 @@
           pipeList.forEach(pipe => {
               const [p, ...pipeArgs] = pipe.split(":");
               if (p in ajaPipes) {
-                  const parsePipeArgs = pipeArgs.map(arg => numberp(arg) ? arg : getData(arg, contextData));
+                  const parsePipeArgs = pipeArgs.map(arg => numberStringp(arg) ? arg : getData(arg, contextData));
                   _result = ajaPipes[p](_result, ...parsePipeArgs);
               }
           });
       }
       return _result;
-  }
-
-  class BindingTextBuilder {
-      constructor(node) {
-          this.node = node;
-          this.text = node.textContent || "";
-      }
-      setText(contextData) {
-          const text = this.text.replace(interpolationExpressionExp, (match, g1) => {
-              const [bindKey, pipeList] = parsePipe(g1);
-              const data = getData(bindKey, contextData);
-              const pipeData = usePipes(data, pipeList, contextData);
-              return pipeData;
-          });
-          this.node.textContent = text;
-      }
-  }
-
-  class AjaModel {
-      constructor(node) {
-          this.node = node;
-          AjaModel.classListSetup(node);
-          this.control = observable({
-              touched: this.node.classList.contains(AjaModel.classes.touched),
-              untouched: this.node.classList.contains(AjaModel.classes.untouched),
-              dirty: this.node.classList.contains(AjaModel.classes.dirty),
-              pristine: this.node.classList.contains(AjaModel.classes.pristine),
-              valid: this.node.classList.contains(AjaModel.classes.valid),
-              invalid: this.node.classList.contains(AjaModel.classes.invalid)
-          });
-          this._setup();
-      }
-      /**
-       * * 初始化class服务
-       * @param node
-       */
-      static classListSetup(node) {
-          node.classList.add(AjaModel.classes.untouched, AjaModel.classes.pristine);
-          this.checkValidity(node);
-      }
-      /**
-       * * 验证节点的值
-       * @param node
-       */
-      static checkValidity(node) {
-          if ("checkValidity" in node) {
-              const inputNode = node;
-              const ok = inputNode.checkValidity();
-              node.classList.toggle(AjaModel.classes.valid, ok);
-              node.classList.toggle(AjaModel.classes.invalid, !ok);
-              return ok;
-          }
-      }
-      /**
-       * * 节点的值发生了变化
-       * @param node
-       */
-      static valueChange(node) {
-          node.classList.replace(AjaModel.classes.pristine, AjaModel.classes.dirty);
-      }
-      /**
-       * * 节点被访问
-       */
-      static touched(node) {
-          node.classList.replace(AjaModel.classes.untouched, AjaModel.classes.touched);
-      }
-      get model() {
-          return this.node.value;
-      }
-      /**
-       * * 跟踪绑定到指令的名称。父窗体使用此名称作为键来检索此控件的值。
-       */
-      get name() {
-          return this.node.name || null;
-      }
-      get value() {
-          return this.node.value;
-      }
-      /**
-       * * 跟踪控件是否被禁用
-       */
-      get disabled() {
-          return this.node.disabled;
-      }
-      get enabled() {
-          return !this.disabled;
-      }
-      get dirty() {
-          return this.control.dirty;
-      }
-      get pristine() {
-          return this.control.pristine;
-      }
-      get valid() {
-          return this.control.valid;
-      }
-      get invalid() {
-          return this.control.invalid;
-      }
-      get touched() {
-          return this.control.touched;
-      }
-      get untouched() {
-          return this.control.untouched;
-      }
-      _setup() {
-          // 值发生变化了
-          this.node.addEventListener(EventType.input, () => {
-              this.control.pristine = false;
-              this.control.dirty = true;
-              AjaModel.valueChange(this.node);
-              const ok = AjaModel.checkValidity(this.node);
-              if (ok) {
-                  // 控件的值有效
-                  this.control.valid = true;
-                  this.control.invalid = false;
-              }
-              else {
-                  // 控件的值无效
-                  this.control.valid = false;
-                  this.control.invalid = true;
-              }
-          });
-          // 控件被访问了
-          this.node.addEventListener(EventType.blur, () => {
-              this.control.untouched = false;
-              this.control.touched = true;
-              AjaModel.touched(this.node);
-          });
-      }
-  }
-  AjaModel.classes = {
-      // 控件被访问过
-      // 一般就是监听blur事件
-      touched: "aja-touched",
-      untouched: "aja-untouched",
-      // 控件的值变化了
-      dirty: "aja-dirty",
-      pristine: "aja-pristine",
-      // 控件的值有效
-      valid: "aja-valid",
-      invalid: "aja-invalid" // false
-  };
-
-  class BindingModelBuilder {
-      constructor(node) {
-          this.node = node;
-          this.modelAttr = findModelAttr(node, modelDirective);
-          if (!this.modelAttr)
-              return;
-          this.node.removeAttribute(this.modelAttr.name);
-      }
-      get options() {
-          if (!this.select)
-              return [];
-          return toArray(this.select.options);
-      }
-      get selectValues() {
-          return this.options.filter(op => op.selected).map(op => op.value);
-      }
-      setup(contextData) {
-          if (!this.modelAttr || !this.modelAttr.value)
-              return;
-          if (inputp(this.node) || textareap(this.node)) {
-              if (checkboxp(this.node)) {
-                  this.checkbox = this.node;
-                  const data = getData(this.modelAttr.value, contextData);
-                  autorun(() => {
-                      this._checkboxSetup(data);
-                  });
-                  this._checkboxChangeListener(data, contextData);
-              }
-              else if (radiop(this.node)) {
-                  this.radio = this.node;
-                  autorun(() => {
-                      this._radioSetup(getData(this.modelAttr.value, contextData));
-                  });
-                  this._radioChangeListener(contextData);
-              }
-              else {
-                  this.input = this.node;
-                  autorun(() => {
-                      this._inputSetup(getData(this.modelAttr.value, contextData));
-                  });
-                  this._inputChangeListener(contextData);
-              }
-          }
-          else if (selectp(this.node)) {
-              this.select = this.node;
-              setTimeout(() => {
-                  autorun(() => {
-                      this._selectSetup(getData(this.modelAttr.value, contextData));
-                  });
-              });
-              this._selectChangeListener(contextData);
-          }
-          AjaModel.classListSetup(this.node);
-          // 控件被访问了
-          // 所有绑定的model的元素，都会添加这个服务
-          this.node.addEventListener(EventType.blur, () => AjaModel.touched(this.node));
-      }
-      _checkboxSetup(data) {
-          if (this.checkbox) {
-              // array 处理数组，否则处理boolean值
-              if (arrayp(data)) {
-                  let ivalue = getCheckboxRadioValue(this.checkbox);
-                  const checkde = data.some((d) => d === ivalue);
-                  this.checkbox.checked = checkde;
-              }
-              else {
-                  this.checkbox.checked = !!data;
-              }
-          }
-      }
-      _checkboxChangeListener(data, contextData) {
-          if (this.checkbox) {
-              this.checkbox.addEventListener(EventType.change, () => {
-                  if (!this.checkbox)
-                      return;
-                  if (arrayp(data)) {
-                      let ivalue = getCheckboxRadioValue(this.checkbox);
-                      if (this.checkbox.checked)
-                          data.push(ivalue);
-                      else
-                          data.remove(ivalue);
-                  }
-                  else {
-                      if (this.modelAttr)
-                          setData(this.modelAttr.value, this.checkbox.checked, contextData);
-                  }
-                  AjaModel.valueChange(this.checkbox);
-              });
-          }
-      }
-      _radioSetup(states) {
-          if (this.radio) {
-              this.radio.checked = states[0] === this.radio.value;
-          }
-      }
-      _radioChangeListener(contextData) {
-          if (this.radio) {
-              this.radio.addEventListener(EventType.change, () => {
-                  if (!this.radio)
-                      return;
-                  let newData = getCheckboxRadioValue(this.radio);
-                  this.radio.checked = true;
-                  AjaModel.valueChange(this.radio);
-                  if (this.modelAttr)
-                      setData(this.modelAttr.value, newData, contextData);
-              });
-          }
-      }
-      _inputSetup(value) {
-          if (this.input) {
-              this.input.value = value;
-          }
-      }
-      _inputChangeListener(contextData) {
-          if (this.input) {
-              // 值发生变化了
-              this.input.addEventListener(EventType.input, () => {
-                  if (this.input && this.modelAttr) {
-                      AjaModel.valueChange(this.input);
-                      AjaModel.checkValidity(this.input);
-                      setData(this.modelAttr.value, this.input.value, contextData);
-                  }
-              });
-          }
-      }
-      _selectSetup(states) {
-          if (this.select) {
-              const data = states[0];
-              const selectOptions = toArray(this.select.options);
-              // 多选参数必须为 array
-              if (this.select.multiple && arrayp(data)) {
-                  let notFind = true;
-                  this.select.selectedIndex = -1;
-                  this.options.forEach(option => {
-                      if (data.some((d) => d === option.value)) {
-                          notFind = false;
-                          option.selected = true;
-                      }
-                  });
-                  if (notFind)
-                      this.select.selectedIndex = -1;
-              }
-              else {
-                  // 没找到默认-1
-                  const index = selectOptions.findIndex(op => op.value === data);
-                  this.select.selectedIndex = index;
-              }
-          }
-      }
-      _selectChangeListener(contextData) {
-          if (this.select) {
-              this.select.addEventListener(EventType.change, () => {
-                  if (this.select && this.modelAttr) {
-                      const bindKey = this.modelAttr.value;
-                      if (this.select.multiple) {
-                          setData(bindKey, this.selectValues, contextData);
-                      }
-                      else {
-                          setData(bindKey, this.select.value, contextData);
-                      }
-                      AjaModel.valueChange(this.select);
-                  }
-              });
-          }
-      }
-  }
-
-  class BindingTempvarBuilder {
-      constructor(node, templateVariables = {}) {
-          /**
-           * * 模板变量保存的DOM
-           */
-          this.templateVariables = {};
-          // 浅克隆
-          Object.assign(this.templateVariables, templateVariables);
-          this.deepParse(node);
-      }
-      has(key) {
-          return key.toLowerCase() in this.templateVariables;
-      }
-      get(key) {
-          return this.templateVariables[key];
-      }
-      set(key, value) {
-          this.templateVariables[key] = value;
-      }
-      copyWith(node) {
-          return new BindingTempvarBuilder(node, this.templateVariables);
-      }
-      /**
-       * * 解析模板引用变量
-       * @param root
-       */
-      deepParse(root) {
-          // 如果有结构指令，则跳过
-          if (!hasStructureDirective(root)) {
-              toArray(root.attributes)
-                  .filter(({ name }) => tempvarp(name))
-                  .forEach(attr => {
-                  this._tempvarBindHandle(root, attr);
-              });
-              toArray(root.childNodes).forEach(itemNode => {
-                  if (elementNodep(itemNode))
-                      this.deepParse(itemNode);
-              });
-          }
-      }
-      /**
-       * * 处理模板变量 #input 解析
-       * @param node
-       * @param param1
-       */
-      _tempvarBindHandle(node, { name, value }) {
-          const _key = name.replace(tempvarExp, emptyString);
-          if (value === "ajaModel") {
-              // 表单元素才绑定 ajaModel
-              this.set(_key, new AjaModel(node));
-          }
-          else {
-              this.set(_key, node);
-          }
-          node.removeAttribute(name);
-      }
   }
 
   class ContextData {
@@ -5003,116 +4294,22 @@
            *     ...
            */
           this.forLet = "$_";
-          this.globalState = options.globalState;
+          this.store = options.store;
           if (options.contextState)
               this.contextState = options.contextState;
-          this.tvState = options.tvState;
+          this.tData = options.tData;
           if (options.forLet)
               this.forLet = options.forLet;
       }
       copyWith(options) {
           return new ContextData({
-              globalState: options.globalState || this.globalState,
+              store: options.globalState || this.store,
               contextState: options.contextState || this.contextState,
-              tvState: options.tvState || this.tvState,
+              tData: options.tvState || this.tData,
               forLet: options.forLet || this.forLet
           });
       }
   }
-
-  const l = console.log;
-  /**
-   * * 将dom节点和FormControl绑定在一起
-   */
-  class FormControlSerivce {
-      constructor(node, control) {
-          this.node = node;
-          this.control = control;
-          this.setup();
-      }
-      /**
-       * * 控件 <=> FormContril
-       * @param node
-       */
-      setup() {
-          // 控件同步到formControl
-          this._checkValidity();
-          // 是否禁用
-          if ("disabled" in this.node) {
-              const inputNode = this.node;
-              if (inputNode.disabled)
-                  this.control.disable();
-              else
-                  this.control.enable();
-          }
-          // 值发生变化了
-          this.node.addEventListener(EventType.input, () => {
-              if ("value" in this.node) {
-                  this.control.setValue(this.node.value);
-              }
-              this._checkValidity();
-              this.control.markAsDirty();
-          });
-          // 控件被访问了
-          this.node.addEventListener(EventType.blur, () => this.control.markAsTouched());
-          // formControl同步到控件
-          autorun(() => {
-              // 这个主要监听setValue()，和初始化时，将新值同步到控件中去
-              const inputNode = this.node;
-              if (this.control.value !== inputNode.value) {
-                  inputNode.value = this.control.value;
-                  this._checkValidity();
-              }
-          });
-          autorun(() => {
-              this.node.classList.toggle(FormControlSerivce.classes.touched, this.control.touched);
-              this.node.classList.toggle(FormControlSerivce.classes.untouched, this.control.untouched);
-              this.node.classList.toggle(FormControlSerivce.classes.pristine, this.control.pristine);
-              this.node.classList.toggle(FormControlSerivce.classes.dirty, this.control.dirty);
-              this.node.classList.toggle(FormControlSerivce.classes.valid, this.control.valid);
-              this.node.classList.toggle(FormControlSerivce.classes.invalid, this.control.invalid);
-              const inputNode = this.node;
-              if ("disabled" in inputNode) {
-                  inputNode.disabled = this.control.disabled;
-              }
-          });
-      }
-      /**
-       * * 验证节点的值
-       * * 如果控件被禁用，则不校验
-       * @param node
-       */
-      _checkValidity() {
-          if ("checkValidity" in this.node) {
-              const inputNode = this.node;
-              // 如果控件被禁用，这将一直返回true
-              // 初始化时只会验证required
-              // 只有在input期间验证，才会验证到minlength之类的
-              const ok = inputNode.checkValidity();
-              l(ok);
-              if (ok) {
-                  // h5验证完后启用内置的验证
-                  this.control.updateValueAndValidity();
-              }
-              else {
-                  this.control.setErrors({
-                      error: inputNode.validationMessage
-                  });
-              }
-          }
-      }
-  }
-  FormControlSerivce.classes = {
-      // 控件被访问过
-      touched: "aja-touched",
-      untouched: "aja-untouched",
-      // 控件的值变化了
-      dirty: "aja-dirty",
-      pristine: "aja-pristine",
-      // 控件的值有效
-      valid: "aja-valid",
-      invalid: "aja-invalid" // false
-  };
 
   /*! *****************************************************************************
   Copyright (c) Microsoft Corporation. All rights reserved.
@@ -5478,6 +4675,823 @@
   //   }
   // }
 
+  class FormControlSerivce {
+      /**
+       * * 响应式表单与dom的桥梁
+       * * dom <=> FormControl
+       */
+      constructor(node, control) {
+          this.node = node;
+          this.control = control;
+          this.setup();
+      }
+      /**
+       * * 控件 <=> FormControl
+       * @param node
+       */
+      setup() {
+          // 控件同步到formControl
+          this._checkValidity();
+          // 是否禁用
+          if ("disabled" in this.node) {
+              const inputNode = this.node;
+              if (inputNode.disabled)
+                  this.control.disable();
+              else
+                  this.control.enable();
+          }
+          // 值发生变化了
+          this.node.addEventListener(EventType.input, () => {
+              if ("value" in this.node) {
+                  this.control.setValue(this.node.value);
+              }
+              this._checkValidity();
+              this.control.markAsDirty();
+          });
+          // 控件被访问了
+          this.node.addEventListener(EventType.blur, () => this.control.markAsTouched());
+          // formControl同步到控件
+          autorun(() => {
+              // 这个主要监听setValue()，和初始化时，将新值同步到控件中去
+              const inputNode = this.node;
+              if (this.control.value !== inputNode.value) {
+                  inputNode.value = this.control.value;
+                  this._checkValidity();
+              }
+          });
+          autorun(() => {
+              this.node.classList.toggle(FormControlSerivce.classes.touched, this.control.touched);
+              this.node.classList.toggle(FormControlSerivce.classes.untouched, this.control.untouched);
+              this.node.classList.toggle(FormControlSerivce.classes.pristine, this.control.pristine);
+              this.node.classList.toggle(FormControlSerivce.classes.dirty, this.control.dirty);
+              this.node.classList.toggle(FormControlSerivce.classes.valid, this.control.valid);
+              this.node.classList.toggle(FormControlSerivce.classes.invalid, this.control.invalid);
+              const inputNode = this.node;
+              if ("disabled" in inputNode) {
+                  inputNode.disabled = this.control.disabled;
+              }
+          });
+      }
+      /**
+       * * 验证节点的值
+       * @param node
+       */
+      _checkValidity() {
+          if ("checkValidity" in this.node) {
+              const inputNode = this.node;
+              // 如果控件被禁用，h5将一直返回true
+              // 初始化时只会验证required
+              // 只有在input期间验证，才会验证到minlength之类的
+              const ok = inputNode.checkValidity();
+              if (ok) {
+                  // h5验证完后启用用户提供的验证
+                  this.control.updateValueAndValidity();
+              }
+              else {
+                  this.control.setErrors({
+                      error: inputNode.validationMessage
+                  });
+              }
+          }
+      }
+  }
+  FormControlSerivce.classes = {
+      // 控件被访问过
+      touched: "aja-touched",
+      untouched: "aja-untouched",
+      // 控件的值变化了
+      dirty: "aja-dirty",
+      pristine: "aja-pristine",
+      // 控件的值有效
+      valid: "aja-valid",
+      invalid: "aja-invalid" // false
+  };
+
+  class AjaModel {
+      constructor(node) {
+          this.node = node;
+          AjaModel.classListSetup(node);
+          this.control = observable({
+              touched: this.node.classList.contains(AjaModel.classes.touched),
+              untouched: this.node.classList.contains(AjaModel.classes.untouched),
+              dirty: this.node.classList.contains(AjaModel.classes.dirty),
+              pristine: this.node.classList.contains(AjaModel.classes.pristine),
+              valid: this.node.classList.contains(AjaModel.classes.valid),
+              invalid: this.node.classList.contains(AjaModel.classes.invalid)
+          });
+          this._setup();
+      }
+      /**
+       * * 初始化class服务
+       * @param node
+       */
+      static classListSetup(node) {
+          node.classList.add(AjaModel.classes.untouched, AjaModel.classes.pristine);
+          this.checkValidity(node);
+      }
+      /**
+       * * 验证节点的值
+       * @param node
+       */
+      static checkValidity(node) {
+          if ("checkValidity" in node) {
+              const inputNode = node;
+              const ok = inputNode.checkValidity();
+              node.classList.toggle(AjaModel.classes.valid, ok);
+              node.classList.toggle(AjaModel.classes.invalid, !ok);
+              return ok;
+          }
+      }
+      /**
+       * * 节点的值发生了变化
+       * @param node
+       */
+      static valueChange(node) {
+          node.classList.replace(AjaModel.classes.pristine, AjaModel.classes.dirty);
+      }
+      /**
+       * * 节点被访问
+       */
+      static touched(node) {
+          node.classList.replace(AjaModel.classes.untouched, AjaModel.classes.touched);
+      }
+      get model() {
+          return this.node.value;
+      }
+      /**
+       * * 跟踪绑定到指令的名称。父窗体使用此名称作为键来检索此控件的值。
+       */
+      get name() {
+          return this.node.name || null;
+      }
+      get value() {
+          return this.node.value;
+      }
+      /**
+       * * 跟踪控件是否被禁用
+       */
+      get disabled() {
+          return this.node.disabled;
+      }
+      get enabled() {
+          return !this.disabled;
+      }
+      get dirty() {
+          return this.control.dirty;
+      }
+      get pristine() {
+          return this.control.pristine;
+      }
+      get valid() {
+          return this.control.valid;
+      }
+      get invalid() {
+          return this.control.invalid;
+      }
+      get touched() {
+          return this.control.touched;
+      }
+      get untouched() {
+          return this.control.untouched;
+      }
+      _setup() {
+          // 值发生变化了
+          this.node.addEventListener(EventType.input, () => {
+              this.control.pristine = false;
+              this.control.dirty = true;
+              AjaModel.valueChange(this.node);
+              const ok = AjaModel.checkValidity(this.node);
+              if (ok) {
+                  // 控件的值有效
+                  this.control.valid = true;
+                  this.control.invalid = false;
+              }
+              else {
+                  // 控件的值无效
+                  this.control.valid = false;
+                  this.control.invalid = true;
+              }
+          });
+          // 控件被访问了
+          this.node.addEventListener(EventType.blur, () => {
+              this.control.untouched = false;
+              this.control.touched = true;
+              AjaModel.touched(this.node);
+          });
+      }
+  }
+  AjaModel.classes = {
+      // 控件被访问过
+      // 一般就是监听blur事件
+      touched: "aja-touched",
+      untouched: "aja-untouched",
+      // 控件的值变化了
+      dirty: "aja-dirty",
+      pristine: "aja-pristine",
+      // 控件的值有效
+      valid: "aja-valid",
+      invalid: "aja-invalid" // false
+  };
+
+  class BindingBuilder {
+      constructor(attr, contextData) {
+          this.attr = attr;
+          this.contextData = contextData;
+      }
+      get name() {
+          return this.attr.name;
+      }
+      get value() {
+          return this.attr.value;
+      }
+      get _parsePipe() {
+          return parsePipe(this.attr.value);
+      }
+      get bindKey() {
+          return this._parsePipe[0];
+      }
+      get pipeList() {
+          return this._parsePipe[1];
+      }
+      /**
+       * 自动将数据使用管道过滤后返回
+       */
+      getPipeData() {
+          return usePipes(getData(this.bindKey, this.contextData), this.pipeList, this.contextData);
+      }
+  }
+  class BindingAttrBuilder extends BindingBuilder {
+      constructor(node, attr, contextData) {
+          super(attr, contextData);
+          this.node = node;
+          this.attr = attr;
+          this.contextData = contextData;
+          if (this.isFormControl) {
+              this._formControlSetup();
+          }
+          else {
+              switch (this.attrName) {
+                  case "style":
+                      this._styleSetup();
+                      break;
+                  case "class":
+                      this._classSetup();
+                      break;
+                  case "html":
+                      this._innerHTMLSetup();
+                      break;
+                  default:
+                      this._otherAttrSetup();
+                      break;
+              }
+          }
+          node.removeAttribute(this.name);
+      }
+      get isFormControl() {
+          return this.name === formControlName;
+      }
+      // [style.coloe] => [style, coloe]
+      get _parseAttr() {
+          return this.name
+              .replace(attrStartExp, emptyString)
+              .replace(attrEndExp, emptyString)
+              .split(".");
+      }
+      get attrName() {
+          return this._parseAttr[0];
+      }
+      get attrChild() {
+          return this._parseAttr[1];
+      }
+      _formControlSetup() {
+          const formControl = getData(this.value, this.contextData);
+          new FormControlSerivce(this.node, formControl);
+      }
+      _styleSetup() {
+          autorun(() => {
+              let data = this.getPipeData();
+              if (this.attrChild && this.attrChild in this.node.style) {
+                  this.node.style[this.attrChild] = data;
+              }
+              else {
+                  const styles = data;
+                  for (const key in styles) {
+                      if (Object.getOwnPropertyDescriptor(this.node.style, key)) {
+                          this.node.style[key] = styles[key];
+                      }
+                  }
+              }
+          });
+      }
+      _classSetup() {
+          autorun(() => {
+              let data = this.getPipeData();
+              if (data === null)
+                  data = emptyString;
+              if (!this.attrChild) {
+                  if (objectp(data)) {
+                      for (const klass in data) {
+                          if (data[klass])
+                              this.node.classList.add(klass);
+                          else
+                              this.node.classList.remove(klass);
+                      }
+                  }
+                  else {
+                      this.node.setAttribute(this.attrName, data);
+                  }
+              }
+              else {
+                  if (data)
+                      this.node.classList.add(this.attrChild);
+              }
+          });
+      }
+      _innerHTMLSetup() {
+          autorun(() => {
+              this.node.innerHTML = this.getPipeData();
+          });
+      }
+      _otherAttrSetup() {
+          autorun(() => {
+              let data = this.getPipeData();
+              if (data === null)
+                  data = emptyString;
+              if (data) {
+                  this.node.setAttribute(this.attrName, data);
+              }
+              else {
+                  this.node.removeAttribute(this.attrName);
+              }
+          });
+      }
+  }
+  class BindingTextBuilder {
+      constructor(node, contextData) {
+          this.node = node;
+          this.contextData = contextData;
+          this.text = node.textContent || "";
+          this._setup();
+      }
+      _setup() {
+          if (!interpolationExpressionExp.test(this.text))
+              return;
+          autorun(() => {
+              const text = this.text.replace(interpolationExpressionExp, (match, g1) => {
+                  const pipeData = this.getPipeData(g1);
+                  return pipeData;
+              });
+              this.node.textContent = text;
+          });
+      }
+      getPipeData(key) {
+          const [bindKey, pipeList] = parsePipe(key);
+          return usePipes(getData(bindKey, this.contextData), pipeList, this.contextData);
+      }
+  }
+  class BindingModelBuilder {
+      constructor(node, contextData) {
+          this.node = node;
+          this.contextData = contextData;
+          this.attr = findModelAttr(node, modelDirective);
+          if (!this.attr)
+              return;
+          this.node.removeAttribute(this.attr.name);
+          this.setup();
+      }
+      get options() {
+          if (!this.select)
+              return [];
+          return toArray(this.select.options);
+      }
+      get selectValues() {
+          return this.options.filter(op => op.selected).map(op => op.value);
+      }
+      setup() {
+          if (!this.attr || !this.attr.value)
+              return;
+          if (inputp(this.node) || textareap(this.node)) {
+              if (checkboxp(this.node)) {
+                  this.checkbox = this.node;
+                  const data = getData(this.attr.value, this.contextData);
+                  autorun(() => {
+                      this._checkboxSetup(data);
+                  });
+                  this._checkboxChangeListener(data, this.contextData);
+              }
+              else if (radiop(this.node)) {
+                  this.radio = this.node;
+                  autorun(() => {
+                      this._radioSetup(getData(this.attr.value, this.contextData));
+                  });
+                  this._radioChangeListener(this.contextData);
+              }
+              else {
+                  // this.input = this.node;
+                  autorun(() => {
+                      this._inputSetup(getData(this.attr.value, this.contextData));
+                  });
+                  this._inputChangeListener(this.contextData);
+              }
+          }
+          else if (selectp(this.node)) {
+              this.select = this.node;
+              setTimeout(() => {
+                  autorun(() => {
+                      this._selectSetup(getData(this.attr.value, this.contextData));
+                  });
+              });
+              this._selectChangeListener(this.contextData);
+          }
+          AjaModel.classListSetup(this.node);
+          // 控件被访问了
+          // 所有绑定的model的元素，都会添加这个服务
+          this.node.addEventListener(EventType.blur, () => AjaModel.touched(this.node));
+      }
+      _checkboxSetup(data) {
+          if (this.checkbox) {
+              // array 处理数组，否则处理boolean值
+              if (arrayp(data)) {
+                  let ivalue = getCheckboxRadioValue(this.checkbox);
+                  const checkde = data.some((d) => d === ivalue);
+                  this.checkbox.checked = checkde;
+              }
+              else {
+                  this.checkbox.checked = !!data;
+              }
+          }
+      }
+      _checkboxChangeListener(data, contextData) {
+          if (this.checkbox) {
+              this.checkbox.addEventListener(EventType.change, () => {
+                  if (!this.checkbox)
+                      return;
+                  if (arrayp(data)) {
+                      let ivalue = getCheckboxRadioValue(this.checkbox);
+                      if (this.checkbox.checked)
+                          data.push(ivalue);
+                      else
+                          data.remove(ivalue);
+                  }
+                  else {
+                      if (this.attr)
+                          setData(this.attr.value, this.checkbox.checked, contextData);
+                  }
+                  AjaModel.valueChange(this.checkbox);
+              });
+          }
+      }
+      _radioSetup(states) {
+          if (this.radio) {
+              this.radio.checked = states[0] === this.radio.value;
+          }
+      }
+      _radioChangeListener(contextData) {
+          if (this.radio) {
+              this.radio.addEventListener(EventType.change, () => {
+                  if (!this.radio)
+                      return;
+                  let newData = getCheckboxRadioValue(this.radio);
+                  this.radio.checked = true;
+                  AjaModel.valueChange(this.radio);
+                  if (this.attr)
+                      setData(this.attr.value, newData, contextData);
+              });
+          }
+      }
+      _inputSetup(value) {
+          if (this.input) {
+              this.input.value = value;
+          }
+      }
+      _inputChangeListener(contextData) {
+          if (this.input) {
+              // 值发生变化了
+              this.input.addEventListener(EventType.input, () => {
+                  if (this.input && this.attr) {
+                      AjaModel.valueChange(this.input);
+                      AjaModel.checkValidity(this.input);
+                      setData(this.attr.value, this.input.value, contextData);
+                  }
+              });
+          }
+      }
+      _selectSetup(states) {
+          if (this.select) {
+              const data = states[0];
+              const selectOptions = toArray(this.select.options);
+              // 多选参数必须为 array
+              if (this.select.multiple && arrayp(data)) {
+                  let notFind = true;
+                  this.select.selectedIndex = -1;
+                  this.options.forEach(option => {
+                      if (data.some((d) => d === option.value)) {
+                          notFind = false;
+                          option.selected = true;
+                      }
+                  });
+                  if (notFind)
+                      this.select.selectedIndex = -1;
+              }
+              else {
+                  // 没找到默认-1
+                  const index = selectOptions.findIndex(op => op.value === data);
+                  this.select.selectedIndex = index;
+              }
+          }
+      }
+      _selectChangeListener(contextData) {
+          if (this.select) {
+              this.select.addEventListener(EventType.change, () => {
+                  if (this.select && this.attr) {
+                      const bindKey = this.attr.value;
+                      if (this.select.multiple) {
+                          setData(bindKey, this.selectValues, contextData);
+                      }
+                      else {
+                          setData(bindKey, this.select.value, contextData);
+                      }
+                      AjaModel.valueChange(this.select);
+                  }
+              });
+          }
+      }
+  }
+  class BindingIfBuilder {
+      constructor(node) {
+          this.node = node;
+          let ifAttr = findIfAttr(node, structureDirectives.if);
+          if (!ifAttr)
+              return;
+          this.attr = ifAttr;
+          this.commentNode = document.createComment("");
+          this.node.before(this.commentNode);
+          this.node.removeAttribute(structureDirectives.if);
+      }
+      get value() {
+          var _a;
+          return ((_a = this.attr) === null || _a === void 0 ? void 0 : _a.value.trim()) || "";
+      }
+      /**
+       * * 这里使用了回调把template标签给渲染了
+       * @param show
+       */
+      checked(show) {
+          if (!this.commentNode)
+              return;
+          if (show) {
+              this.commentNode.after(this.node);
+          }
+          else {
+              this.node.replaceWith(this.commentNode);
+          }
+          this.commentNode.data = this._createIfCommentData(show);
+      }
+      _createIfCommentData(value) {
+          return `{":if": "${!!value}"}`;
+      }
+  }
+  class BindingEventBuilder {
+      constructor(node, attr, contextData, actions) {
+          this.node = node;
+          this.attr = attr;
+          this.contextData = contextData;
+          this.actions = actions;
+          this.type = attr.name.replace(eventStartExp, emptyString)
+              .replace(eventEndExp, emptyString);
+          this.funcName = attr.value;
+          let args = [];
+          if (this.attr.value.includes("(")) {
+              // 带参数的函数
+              const index = this.attr.value.indexOf("(");
+              // 砍出函数名
+              this.funcName = this.attr.value.substr(0, index);
+              args = this._parseTemplateEventArgs(this.attr.value);
+          }
+          const modelChangep = name === modelChangeEvent;
+          if (modelChangep)
+              this.type = EventType.input;
+          if (this.actions && this.funcName in this.actions) {
+              // 每次只需把新的event传入就行了
+              node.addEventListener(this.type, e => {
+                  if (!this.actions)
+                      return;
+                  //? 每次事件响应都解析，确保变量更改能够得到新数据
+                  //? 如果放在外面，则不会响应新数据
+                  const transitionArgs = this._parseArgsToArguments(args);
+                  this.actions[this.funcName].apply(this.contextData.store, this._parseArgsEvent(transitionArgs, modelChangep ? e.target.value : e));
+              });
+          }
+          node.removeAttribute(name);
+      }
+      /**
+       * 砍掉函数名
+       * 去掉首尾圆括号
+       * 用逗号分割参数
+       * @param str
+       */
+      _parseTemplateEventArgs(str) {
+          const index = str.indexOf("(");
+          return str
+              .substr(index)
+              .trim()
+              .replace(/(^\(*)|(\)$)/g, emptyString)
+              .split(",");
+      }
+      _parseArgsToArguments(args) {
+          return args.map(arg => {
+              if (!arg)
+                  return arg;
+              let el = arg.trim().toLowerCase();
+              if (el === templateEvent)
+                  return el;
+              return getData(el, this.contextData);
+          });
+      }
+      _parseArgsEvent(args, e) {
+          return args.map(arg => (arg === templateEvent) ? e : arg);
+      }
+  }
+  class BindingForBuilder {
+      constructor(node, contextData) {
+          this.node = node;
+          this.contextData = contextData;
+          this.forBuffer = [];
+          let forAttr = findForAttr(node, structureDirectives.for);
+          // 没有for指令，就不构建下去了
+          if (!forAttr)
+              return;
+          this.forAttr = forAttr;
+          this.commentNode = document.createComment("");
+          this.fragment = document.createDocumentFragment();
+          node.replaceWith(this.commentNode);
+          node.removeAttribute(structureDirectives.for);
+      }
+      get hasForAttr() {
+          return !!this.forAttr;
+      }
+      get forAttrValue() {
+          if (!this.forAttr)
+              return;
+          let [variable, bindKey] = this.forAttr.value
+              .split(/\bin|of\b/)
+              .map(s => s.trim());
+          let variables = [];
+          if (variable) {
+              variables = variable
+                  .trim()
+                  .replace(eventStartExp, emptyString)
+                  .replace(eventEndExp, emptyString)
+                  .split(",")
+                  .map(v => v.trim());
+          }
+          const p = parsePipe(bindKey);
+          return {
+              variable,
+              variables,
+              bindData: p[0],
+              pipes: p[1]
+          };
+      }
+      get bindVar() {
+          return this.forAttrValue.variable || this.contextData.forLet;
+      }
+      get bindKey() {
+          return this.forAttrValue.variables[0] || this.contextData.forLet;
+      }
+      get bindValue() {
+          if (this.hasForAttr) {
+              return this.forAttrValue.variables[1];
+          }
+      }
+      get bindData() {
+          if (this.hasForAttr) {
+              return this.forAttrValue.bindData;
+          }
+      }
+      get isNumberData() {
+          if (this.hasForAttr) {
+              return numberStringp(this.bindData);
+          }
+      }
+      get pipes() {
+          var _a;
+          if (this.hasForAttr) {
+              return ((_a = this.forAttrValue) === null || _a === void 0 ? void 0 : _a.pipes) || [];
+          }
+          else {
+              return [];
+          }
+      }
+      /**
+       * * 将所有节点插入DOM
+       * @param data
+       */
+      draw(data) {
+          if (this.commentNode && this.fragment) {
+              this.commentNode.after(this.fragment);
+              this.commentNode.data = this.createForCommentData(data);
+          }
+      }
+      /**
+       * * 清除所有节点
+       */
+      clear() {
+          for (const forItem of this.forBuffer) {
+              forItem.remove();
+          }
+          this.forBuffer = [];
+      }
+      createForContextState(k, v = null, isNumber = true) {
+          const forState = {};
+          if (isNumber) {
+              forState[this.bindVar] = k;
+          }
+          else {
+              if (this.bindKey && this.bindValue) {
+                  forState[this.bindKey] = k;
+                  forState[this.bindValue] = v;
+              }
+              else if (this.bindKey) {
+                  forState[this.bindKey] = v;
+              }
+          }
+          return forState;
+      }
+      createForCommentData(obj) {
+          let data = obj;
+          if (arrayp(data)) {
+              data = obj.slice(0, 6);
+          }
+          return `{":for": "${data}"}`;
+      }
+      createItem() {
+          const item = this.node.cloneNode(true);
+          if (this.fragment) {
+              this.forBuffer.push(item);
+              this.fragment.append(item);
+          }
+          return item;
+      }
+  }
+  class BindingTempvarBuilder {
+      constructor(node, templateVariables = {}) {
+          /**
+           * * 模板变量保存的DOM
+           */
+          this.templateVariables = {};
+          // 浅克隆
+          Object.assign(this.templateVariables, templateVariables);
+          this.deepParse(node);
+      }
+      has(key) {
+          return key.toLowerCase() in this.templateVariables;
+      }
+      get(key) {
+          return this.templateVariables[key];
+      }
+      set(key, value) {
+          this.templateVariables[key] = value;
+      }
+      copyWith(node) {
+          return new BindingTempvarBuilder(node, this.templateVariables);
+      }
+      /**
+       * * 解析模板引用变量
+       * @param root
+       */
+      deepParse(root) {
+          // 如果有结构指令，则跳过
+          if (!hasStructureDirective(root)) {
+              toArray(root.attributes)
+                  .filter(({ name }) => tempvarp(name))
+                  .forEach(attr => {
+                  this._tempvarBindHandle(root, attr);
+              });
+              toArray(root.childNodes).forEach(itemNode => {
+                  if (elementNodep(itemNode))
+                      this.deepParse(itemNode);
+              });
+          }
+      }
+      /**
+       * * 处理模板变量 #input 解析
+       * @param node
+       * @param param1
+       */
+      _tempvarBindHandle(node, { name, value }) {
+          const _key = name.replace(tempvarExp, emptyString);
+          if (value === ajaModelString) {
+              // 表单元素才绑定 ajaModel
+              this.set(_key, new AjaModel(node));
+          }
+          else {
+              this.set(_key, node);
+          }
+          node.removeAttribute(name);
+      }
+  }
+
   class Aja {
       constructor(view, options) {
           if (!options || !view)
@@ -5491,16 +5505,16 @@
           if (options.initState)
               options.initState.call(this.$store);
           const contextData = new ContextData({
-              globalState: this.$store,
-              tvState: new BindingTempvarBuilder(root)
+              store: this.$store,
+              tData: new BindingTempvarBuilder(root)
           });
-          this._define(root, contextData);
+          this._scan(root, contextData);
       }
       /**
        * 扫描绑定
        * @param root
        */
-      _define(root, contextData) {
+      _scan(root, contextData) {
           let depath = true;
           // 没有attrs就不解析了
           if (root.attributes && root.attributes.length) {
@@ -5528,17 +5542,16 @@
               const { name } = attr;
               // [title]='xxx'
               if (attrp(name)) {
-                  this._attrBindHandle(node, attr, contextData);
+                  new BindingAttrBuilder(node, attr, contextData);
                   continue;
               }
               // (click)="echo('hello',$event)"
               if (eventp(name)) {
-                  this._eventBindHandle(node, attr, contextData);
+                  new BindingEventBuilder(node, attr, contextData, this.$actions);
                   continue;
               }
           }
-          const model = new BindingModelBuilder(node);
-          model.setup(contextData);
+          new BindingModelBuilder(node, contextData);
       }
       _proxyState(options) {
           const state = createObject(options.state);
@@ -5559,7 +5572,7 @@
       _parseBindIf(node, contextData) {
           let show = true;
           const ifBuilder = new BindingIfBuilder(node);
-          if (ifBuilder.ifAttr) {
+          if (ifBuilder.attr) {
               if (boolStringp(ifBuilder.value)) {
                   show = ifBuilder.value === "true";
                   ifBuilder.checked(show);
@@ -5570,8 +5583,8 @@
                       show = getData(bindKey, contextData);
                       show = usePipes(show, pipeList, contextData);
                       if (show) {
-                          this._define(node, contextData.copyWith({
-                              tvState: contextData.tvState.copyWith(node)
+                          this._scan(node, contextData.copyWith({
+                              tvState: contextData.tData.copyWith(node)
                           }));
                       }
                       ifBuilder.checked(show);
@@ -5595,9 +5608,9 @@
                   for (let v = 0; v < _data; v++) {
                       const item = forBuilder.createItem();
                       const forLet = contextData.forLet + "_";
-                      this._define(item, contextData.copyWith({
+                      this._scan(item, contextData.copyWith({
                           contextState: forBuilder.createForContextState(v),
-                          tvState: contextData.tvState.copyWith(node),
+                          tvState: contextData.tData.copyWith(node),
                           forLet: forLet
                       }));
                   }
@@ -5611,9 +5624,9 @@
                       forBuilder.clear();
                       for (const k in _data) {
                           const item = forBuilder.createItem();
-                          _that._define(item, contextData.copyWith({
+                          _that._scan(item, contextData.copyWith({
                               contextState: forBuilder.createForContextState(k, _data[k], false),
-                              tvState: contextData.tvState.copyWith(node),
+                              tvState: contextData.tData.copyWith(node),
                               forLet: contextData.forLet + "_"
                           }));
                       }
@@ -5622,126 +5635,6 @@
               }
           }
           return !forBuilder.hasForAttr;
-      }
-      /**
-       * 处理 [title]='xxx' 解析
-       * @param node
-       * @param param1
-       */
-      _attrBindHandle(node, { name, value }, contextData) {
-          if (name === formControlName) {
-              const formControl = getData(value, contextData);
-              new FormControlSerivce(node, formControl);
-          }
-          else {
-              // [style.coloe] => [style, coloe]
-              let [attrName, attrChild] = name
-                  .replace(attrStartExp, emptyString)
-                  .replace(attrEndExp, emptyString)
-                  .split(".");
-              const [bindKey, pipeList] = parsePipe(value);
-              switch (attrName) {
-                  case "style":
-                      autorun(() => {
-                          let data = getData(bindKey, contextData);
-                          data = usePipes(data, pipeList, contextData);
-                          if (attrChild && attrChild in node.style) {
-                              node.style[attrChild] = data;
-                          }
-                          else {
-                              const styles = data;
-                              for (const key in styles) {
-                                  if (Object.getOwnPropertyDescriptor(node.style, key)) {
-                                      node.style[key] = styles[key];
-                                  }
-                              }
-                          }
-                      });
-                      break;
-                  case "class":
-                      autorun(() => {
-                          let data = getData(bindKey, contextData);
-                          data = usePipes(data, pipeList, contextData);
-                          if (data === null)
-                              data = emptyString;
-                          if (!attrChild) {
-                              if (objectp(data)) {
-                                  for (const klass in data) {
-                                      if (data[klass])
-                                          node.classList.add(klass);
-                                      else
-                                          node.classList.remove(klass);
-                                  }
-                              }
-                              else {
-                                  node.setAttribute(attrName, data);
-                              }
-                          }
-                          else {
-                              if (data)
-                                  node.classList.add(attrChild);
-                          }
-                      });
-                      break;
-                  case "html":
-                      autorun(() => {
-                          let data = getData(bindKey, contextData);
-                          data = usePipes(data, pipeList, contextData);
-                          node.innerHTML = data;
-                      });
-                      break;
-                  default:
-                      autorun(() => {
-                          let data = getData(bindKey, contextData);
-                          data = usePipes(data, pipeList, contextData);
-                          if (data === null)
-                              data = emptyString;
-                          if (data) {
-                              node.setAttribute(attrName, data);
-                          }
-                          else {
-                              node.removeAttribute(attrName);
-                          }
-                      });
-                      break;
-              }
-          }
-          node.removeAttribute(name);
-      }
-      /**
-       * 处理 (click)="echo('hello',$event)" 解析
-       * @param node
-       * @param param1
-       */
-      _eventBindHandle(node, { name, value }, contextData) {
-          let type = name
-              .replace(eventStartExp, emptyString)
-              .replace(eventEndExp, emptyString);
-          // 函数名
-          let funcName = value;
-          // 函数参数
-          let args = [];
-          if (value.includes("(")) {
-              // 带参数的函数
-              const index = value.indexOf("(");
-              // 砍出函数名
-              funcName = value.substr(0, index);
-              args = parseTemplateEventArgs(value);
-          }
-          const modelChangep = name === modelChangeEvent;
-          if (modelChangep)
-              type = EventType.input;
-          if (this.$actions && funcName in this.$actions) {
-              // 每次只需把新的event传入就行了
-              node.addEventListener(type, e => {
-                  //? 每次事件响应都解析，确保变量更改能够得到新数据
-                  //? 如果放在外面，则不会响应新数据
-                  const transitionArgs = parseArgsToArguments(args, contextData);
-                  if (this.$actions)
-                      this.$actions[funcName].apply(this.$store, parseArgsEvent(transitionArgs, modelChangep ? e.target.value : e));
-              });
-          }
-          node.removeAttribute(name);
       }
       /**
        * * 递归解析子节点
@@ -5753,25 +5646,12 @@
               return;
           let node = childNodes[0];
           if (elementNodep(node)) {
-              this._define(node, contextData);
+              this._scan(node, contextData);
           }
           if (textNodep(node)) {
-              this._setTextContent(node, contextData);
+              new BindingTextBuilder(node, contextData);
           }
           return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
-      }
-      /**
-       * * 解析文本节点的插值表达式
-       * @param textNode
-       * @param contextData
-       */
-      _setTextContent(textNode, contextData) {
-          const textBuilder = new BindingTextBuilder(textNode);
-          if (!interpolationExpressionExp.test(textBuilder.text))
-              return;
-          autorun(() => {
-              textBuilder.setText(contextData);
-          });
       }
   }
   Aja.FormControl = FormControl;
@@ -5779,4 +5659,4 @@
   return Aja;
 
 })));
-//# sourceMappingURL=aja.js.map
+//# sourceMappingURL=aja.umd.js.map

@@ -1,45 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Aja</title>
-    <style>
-      [hidden] {
-        display: none;
-      }
-      .aja-touched.aja-invalid {
-        border-color: red;
-      }
-      .aja-valid {
-        border-color: #33ff00;
-      }
-    </style>
-  </head>
 
-  <body>
-    <div class="app">
-      <p>{{ {name: 'ajanuw'} | json }}</p>
-      <button (click)="asd()">change</button>
-    </div>
-    <script src="../dist/aja.js"></script>
-    <script>
-      const l = console.log;
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Aja</title>
+  <style>
+    [hidden] {
+      display: none;
+    }
 
-      let vm = new Aja(".app", {
-        state: {
-          name: {
-            show: false
-          },
-          x: true,
-        },
-        actions: {
-          asd() {
-            this.name.show = !this.name.show;
-          }
+    .aja-touched.aja-invalid {
+      border-color: red;
+    }
+
+    .aja-touched.aja-valid {
+      border-color: #33ff00;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <input type="checkbox" id="jack" value="Jack" [(model)]="checkedNames" />
+    <label for="jack">Jack</label>
+    <input type="checkbox" id="john" value="John" [(model)]="checkedNames" />
+    <label for="john">John</label>
+    <input type="checkbox" id="mike" value="Mike" [(model)]="checkedNames" />
+    <label for="mike">Mike</label>
+    <br />
+    <span>Checked names: {{ checkedNames }}</span>
+    <button (click)="asd()">change</button>
+  </div>
+  <script src="../dist/aja.umd.js"></script>
+  <script>
+    const l = console.log;
+
+    let vm = new Aja(".app", {
+      state: {
+        checkedNames: []
+      },
+      actions: {
+        asd() {
+          // l(this.name.value)
+          // this.show = !this.show;
         }
-      });
-    </script>
-  </body>
+      }
+    });
+  </script>
+</body>
+
 </html>

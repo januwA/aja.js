@@ -7,7 +7,7 @@ export default {
   input: "./src/main.ts",
   output: {
     name: "Aja",
-    file: "dist/aja.js",
+    file: "dist/aja.umd.js",
     format: "umd",
     sourcemap: true
   },
@@ -16,6 +16,7 @@ export default {
     commonjs(),
     typescript({
       exclude: "node_modules/**",
+      "rootDir": "./src",
       typescript: require("typescript"),
       declaration: true
     }),

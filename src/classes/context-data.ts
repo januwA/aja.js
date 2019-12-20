@@ -1,10 +1,10 @@
-import { BindingTempvarBuilder } from "./binding-tempvar-builder";
+import { BindingTempvarBuilder } from "./binding-builder";
 
-export interface ContextDataOptions {
+export interface ContextDataOpts {
   /**
    * * 用户通过state传递进来，被代理的数据
    */
-  globalState: any;
+  store: any;
 
   /**
    * * 结构型指令产生的上下文变量
@@ -14,8 +14,8 @@ export interface ContextDataOptions {
   /**
    * * 模板引用变量上下文, 也将被结构型指令分割
    */
-  tvState: any;
-  
+  tData: any;
+
   /**
    * * for结构指令，默认的上下文变量
    * :for="of arr" -> :for="$_ of arr"
@@ -39,7 +39,7 @@ export class ContextData {
   /**
    * * 用户通过state传递进来，被代理的数据
    */
-  globalState: any;
+  store: any;
 
   /**
    * * 结构型指令产生的上下文变量
@@ -49,12 +49,12 @@ export class ContextData {
   /**
    * * 模板引用变量上下文, 也将被结构型指令分割
    */
-  tvState: BindingTempvarBuilder;
+  tData: BindingTempvarBuilder;
 
-  constructor(options: ContextDataOptions) {
-    this.globalState = options.globalState;
+  constructor(options: ContextDataOpts) {
+    this.store = options.store;
     if (options.contextState) this.contextState = options.contextState;
-    this.tvState = options.tvState;
+    this.tData = options.tData;
     if (options.forLet) this.forLet = options.forLet;
   }
 
@@ -63,11 +63,11 @@ export class ContextData {
     contextState?: any;
     tvState?: any;
     forLet?: string;
-  }) {
+  }): ContextData {
     return new ContextData({
-      globalState: options.globalState || this.globalState,
+      store: options.globalState || this.store,
       contextState: options.contextState || this.contextState,
-      tvState: options.tvState || this.tvState,
+      tData: options.tvState || this.tData,
       forLet: options.forLet || this.forLet
     });
   }

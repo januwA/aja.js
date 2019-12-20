@@ -1,49 +1,36 @@
 import {
   createRoot,
   createObject,
-  emptyString,
-  parseTemplateEventArgs,
   parsePipe,
   toArray,
-  parseArgsToArguments,
-  parseArgsEvent
 } from "./utils/util";
 
 import { observable, autorun, action } from "mobx";
-
-import {
-  attrStartExp,
-  attrEndExp,
-  eventStartExp,
-  eventEndExp,
-  interpolationExpressionExp
-} from "./utils/exp";
-import { BindingIfBuilder } from "./classes/binding-if-builder";
-import { BindingForBuilder } from "./classes/binding-for-builder";
-import { BindingTextBuilder } from "./classes/binding-text-builder";
 import {
   eventp,
-  objectp,
   boolStringp,
   attrp,
   elementNodep,
   textNodep
 } from "./utils/p";
-import { BindingModelBuilder } from "./classes/binding-model-builder";
 import { ajaPipes, usePipes } from "./pipes";
-import {
-  EventType,
-  modelChangeEvent,
-  formControlName
-} from "./utils/const-string";
-import { OptionsInterface } from "./interfaces/interfaces";
-import { BindingTempvarBuilder } from "./classes/binding-tempvar-builder";
 import { ContextData } from "./classes/context-data";
-import { FormControlSerivce } from "./service/form-control.service";
 import { FormControl } from "./classes/forms";
 import { getData } from "./core";
+import { Pipes } from "./pipes/interfaces/interfaces";
+import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder } from "./classes/binding-builder";
 
 const l = console.log;
+
+
+export interface AjaConfigOpts {
+  state?: any;
+  actions?: {
+    [name: string]: Function;
+  };
+  initState?: Function;
+  pipes?: Pipes;
+}
 
 class Aja {
   static FormControl = FormControl;
@@ -53,7 +40,7 @@ class Aja {
     [name: string]: Function;
   };
 
-  constructor(view?: string | HTMLElement, options?: OptionsInterface) {
+  constructor(view?: string | HTMLElement, options?: AjaConfigOpts) {
     if (!options || !view) return;
     const root = createRoot(view);
     if (root === null) return;
@@ -62,17 +49,17 @@ class Aja {
     if (options.initState) options.initState.call(this.$store);
 
     const contextData = new ContextData({
-      globalState: this.$store,
-      tvState: new BindingTempvarBuilder(root)
+      store: this.$store,
+      tData: new BindingTempvarBuilder(root)
     });
-    this._define(root, contextData);
+    this._scan(root, contextData);
   }
 
   /**
    * 扫描绑定
    * @param root
    */
-  private _define(root: HTMLElement, contextData: ContextData): void {
+  private _scan(root: HTMLElement, contextData: ContextData): void {
     let depath = true;
     // 没有attrs就不解析了
     if (root.attributes && root.attributes.length) {
@@ -106,21 +93,20 @@ class Aja {
 
       // [title]='xxx'
       if (attrp(name)) {
-        this._attrBindHandle(node, attr, contextData);
+        new BindingAttrBuilder(node, attr, contextData);
         continue;
       }
 
       // (click)="echo('hello',$event)"
       if (eventp(name)) {
-        this._eventBindHandle(node, attr, contextData);
+        new BindingEventBuilder(node, attr, contextData, this.$actions);
         continue;
       }
     }
-    const model = new BindingModelBuilder(node);
-    model.setup(contextData);
+    new BindingModelBuilder(node, contextData);
   }
 
-  private _proxyState(options: OptionsInterface): void {
+  private _proxyState(options: AjaConfigOpts): void {
     const state = createObject<any>(options.state);
     this.$actions = createObject<any>(options.actions);
 
@@ -141,7 +127,7 @@ class Aja {
   private _parseBindIf(node: HTMLElement, contextData: ContextData): boolean {
     let show = true;
     const ifBuilder = new BindingIfBuilder(node);
-    if (ifBuilder.ifAttr) {
+    if (ifBuilder.attr) {
       if (boolStringp(ifBuilder.value)) {
         show = ifBuilder.value === "true";
         ifBuilder.checked(show);
@@ -151,10 +137,10 @@ class Aja {
           show = getData(bindKey, contextData);
           show = usePipes(show, pipeList, contextData);
           if (show) {
-            this._define(
+            this._scan(
               node,
               contextData.copyWith({
-                tvState: contextData.tvState.copyWith(node)
+                tvState: contextData.tData.copyWith(node)
               })
             );
           }
@@ -181,11 +167,11 @@ class Aja {
         for (let v = 0; v < _data; v++) {
           const item = forBuilder.createItem();
           const forLet = contextData.forLet + "_";
-          this._define(
+          this._scan(
             item as HTMLElement,
             contextData.copyWith({
               contextState: forBuilder.createForContextState(v),
-              tvState: contextData.tvState.copyWith(node),
+              tvState: contextData.tData.copyWith(node),
               forLet: forLet
             })
           );
@@ -199,7 +185,7 @@ class Aja {
           forBuilder.clear();
           for (const k in _data) {
             const item = forBuilder.createItem();
-            _that._define(
+            _that._scan(
               item as HTMLElement,
               contextData.copyWith({
                 contextState: forBuilder.createForContextState(
@@ -207,7 +193,7 @@ class Aja {
                   _data[k],
                   false
                 ),
-                tvState: contextData.tvState.copyWith(node),
+                tvState: contextData.tData.copyWith(node),
                 forLet: contextData.forLet + "_"
               })
             );
@@ -218,135 +204,6 @@ class Aja {
     }
     return !forBuilder.hasForAttr;
   }
-
-  /**
-   * 处理 [title]='xxx' 解析
-   * @param node
-   * @param param1
-   */
-  private _attrBindHandle(
-    node: HTMLElement,
-    { name, value }: Attr,
-    contextData: ContextData
-  ): void {
-    if (name === formControlName) {
-      const formControl: FormControl = getData(value, contextData);
-      new FormControlSerivce(node, formControl);
-    } else {
-      // [style.coloe] => [style, coloe]
-      let [attrName, attrChild] = name
-        .replace(attrStartExp, emptyString)
-        .replace(attrEndExp, emptyString)
-        .split(".");
-      const [bindKey, pipeList] = parsePipe(value);
-
-      switch (attrName) {
-        case "style":
-          autorun(() => {
-            let data = getData(bindKey, contextData);
-            data = usePipes(data, pipeList, contextData);
-            if (attrChild && attrChild in node.style) {
-              (node.style as { [k: string]: any })[attrChild] = data;
-            } else {
-              const styles: CSSStyleDeclaration = data;
-              for (const key in styles) {
-                if (Object.getOwnPropertyDescriptor(node.style, key)) {
-                  node.style[key] = styles[key];
-                }
-              }
-            }
-          });
-          break;
-        case "class":
-          autorun(() => {
-            let data = getData(bindKey, contextData);
-            data = usePipes(data, pipeList, contextData);
-            if (data === null) data = emptyString;
-            if (!attrChild) {
-              if (objectp(data)) {
-                for (const klass in data) {
-                  if (data[klass]) node.classList.add(klass);
-                  else node.classList.remove(klass);
-                }
-              } else {
-                node.setAttribute(attrName, data);
-              }
-            } else {
-              if (data) node.classList.add(attrChild);
-            }
-          });
-          break;
-        case "html":
-          autorun(() => {
-            let data = getData(bindKey, contextData);
-            data = usePipes(data, pipeList, contextData);
-            node.innerHTML = data;
-          });
-          break;
-
-        default:
-          autorun(() => {
-            let data = getData(bindKey, contextData);
-            data = usePipes(data, pipeList, contextData);
-            if (data === null) data = emptyString;
-            if (data) {
-              node.setAttribute(attrName, data);
-            } else {
-              node.removeAttribute(attrName);
-            }
-          });
-          break;
-      }
-    }
-    node.removeAttribute(name);
-  }
-
-  /**
-   * 处理 (click)="echo('hello',$event)" 解析
-   * @param node
-   * @param param1
-   */
-  private _eventBindHandle(
-    node: HTMLElement,
-    { name, value }: Attr,
-    contextData: ContextData
-  ): void {
-    let type: string = name
-      .replace(eventStartExp, emptyString)
-      .replace(eventEndExp, emptyString);
-    // 函数名
-    let funcName: string = value;
-    // 函数参数
-    let args: string[] = [];
-    if (value.includes("(")) {
-      // 带参数的函数
-      const index = value.indexOf("(");
-      // 砍出函数名
-      funcName = value.substr(0, index);
-      args = parseTemplateEventArgs(value);
-    }
-    const modelChangep: boolean = name === modelChangeEvent;
-    if (modelChangep) type = EventType.input;
-    if (this.$actions && funcName in this.$actions) {
-      // 每次只需把新的event传入就行了
-      node.addEventListener(type, e => {
-        //? 每次事件响应都解析，确保变量更改能够得到新数据
-        //? 如果放在外面，则不会响应新数据
-        const transitionArgs = parseArgsToArguments(args, contextData);
-        if (this.$actions)
-          this.$actions[funcName].apply(
-            this.$store,
-            parseArgsEvent(
-              transitionArgs,
-              modelChangep ? (e.target as HTMLInputElement).value : e
-            )
-          );
-      });
-    }
-
-    node.removeAttribute(name);
-  }
-
   /**
    * * 递归解析子节点
    * @param childNodes
@@ -359,25 +216,12 @@ class Aja {
     if (!childNodes.length) return;
     let node: ChildNode = childNodes[0];
     if (elementNodep(node)) {
-      this._define(node as HTMLElement, contextData);
+      this._scan(node as HTMLElement, contextData);
     }
     if (textNodep(node)) {
-      this._setTextContent(node, contextData);
+      new BindingTextBuilder(node, contextData);
     }
     return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
-  }
-
-  /**
-   * * 解析文本节点的插值表达式
-   * @param textNode
-   * @param contextData
-   */
-  private _setTextContent(textNode: ChildNode, contextData: ContextData): void {
-    const textBuilder = new BindingTextBuilder(textNode);
-    if (!interpolationExpressionExp.test(textBuilder.text)) return;
-    autorun(() => {
-      textBuilder.setText(contextData);
-    });
   }
 }
 

@@ -130,12 +130,16 @@
         "signature": "0c9ea8c2028047f39a3f66752682604f543c08be8806258c3d95c93e75a43255"
       },
       "./src/utils/exp.ts": {
-        "version": "f24795d0a52e35c32598a054277ca6a686150e2a6b921aba650ea3458d7d0117",
-        "signature": "4f0c8276597071fe0feba5e65ace1c6d63b80a364f612ca17307438b02373541"
+        "version": "26fe57c3b1d7fa37277901a0ff2926f01ebf2b6d4cc60fd889a7a21b44dada08",
+        "signature": "bb9d38af1faa24548ee3ad0c97ef476c6635cfef3ab0cf5ec9b70131e007680b"
       },
       "./src/utils/const-string.ts": {
-        "version": "d14777826718b348a54ed41c422358a17705b30d41040903fd56387310aebe58",
-        "signature": "08f6516817765f4e45d3e5c199098b6c9f6416733b1ab215b3ec3c6dfe6e1164"
+        "version": "b2c7eb2259e7f83083ffc6475543cc0dddef84cfcf54e81af7f647e5125c4ff4",
+        "signature": "6ec90b1bbd023989346d0b2f1dd004a72fdc8ad521cc46507ddab411b5965cd5"
+      },
+      "./src/utils/util.ts": {
+        "version": "166241dde120a500d53e3933a5909c8e8202d5f3fe8b295acb6f6d9c27d93c21",
+        "signature": "564621e12d764239a6f368af757512d5d160609ef9b9cb6402a9783823925100"
       },
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/utils.d.ts": {
         "version": "07ea0bbb6da4811de93a99425c2375d2bf2d7e2573316093e926a3e9d24d9daf",
@@ -325,69 +329,45 @@
         "version": "fb8e8e664c26078702764fa8efe1ba1a3125f1c32995821800a94f01a3273fa1",
         "signature": "fb8e8e664c26078702764fa8efe1ba1a3125f1c32995821800a94f01a3273fa1"
       },
-      "./src/classes/aja-model.ts": {
-        "version": "c79f49b658e8ee790f6162e422b91aaf0ef98a5e5bd19f38189c9f0218d0277d",
-        "signature": "bc2779006c1e5d0e9093dde25ac895fdca2b7d41a8a25dc84fbe12f55d42ec81"
-      },
       "./src/utils/p.ts": {
-        "version": "abe0ff6ef53430cfd2204d4ca6181a6ef5432530c0c9da9042abc9a41fe0e649",
-        "signature": "fd31444ce4768fdd05a09df40f0a3d080ebf9d34a15598cf072783fc8a799cb2"
-      },
-      "./src/classes/binding-tempvar-builder.ts": {
-        "version": "27b174b243fde83f2f16dd02e6ec528b3f873b03e7b539e776ea774f11ff200c",
-        "signature": "753b81706216c014e6359506c8b148efe2518e80ca185320bf204abf9878227a"
-      },
-      "./src/classes/context-data.ts": {
-        "version": "6e9cc823d0dcc02975535e9da64e9a7c958394f1c495987b74f1176283684376",
-        "signature": "50d30a2d311b389738ada7d592f95a5c1c2f585c8d95206cba70f478ce112c99"
-      },
-      "./src/core/index.ts": {
-        "version": "58ff382ab0446d8d4adf45749f2d31346bb77aed51d36186ad99edfa0874bca7",
-        "signature": "d35e4fa298426e76202f88dd6626d3fb1eb29862679bc9728bca331ee2796095"
-      },
-      "./src/utils/util.ts": {
-        "version": "6c8e79dce1391b603e1320a2146030767132d092d849684b63349647e32be860",
-        "signature": "8a30a36b38c3847fbebdf4ddfac225d7767c31a9fec4efa9878a70aefd791e61"
-      },
-      "./src/classes/binding-if-builder.ts": {
-        "version": "09347567af2056ced5fcd40c8e673155134f3830d411e94ea4460664a84b5862",
-        "signature": "b38607443d293766f2a7cb5ee4efc7dbab0fe9e3071dbc523c00f41b094b548f"
-      },
-      "./src/classes/binding-for-builder.ts": {
-        "version": "5ebf711c4e0d36199a4e138b289038d78c538ea324f05c81197ce2a04420e5ab",
-        "signature": "217397473eed933a2942324e64096d51cdd2904a1c6d4fe10313aafbc0825e3a"
+        "version": "8fca37649703fab69a24eab88b95bf4ca53e1407b1417cb7bff9772e36c33357",
+        "signature": "ffa4c79f76d793a5055366d0d3c9958d6fc79a670c6f34bc043afccddbbf7ca6"
       },
       "./src/pipes/interfaces/interfaces.ts": {
         "version": "5f24b06fa987c17d41cd55a167f6b6ee6875fcd3bdbc78140d3be390f79b49d3",
         "signature": "8dc26c1a30663def52cb2a062044f6f4310351ff74b866032d25f079f483ef5e"
       },
-      "./src/pipes/index.ts": {
-        "version": "26f73cd53fcf72a1c80735f64dd1a84e08daa0638293b6c1266a7e7599149ddd",
-        "signature": "15ed606a2d4d3415fa2376d72a79145ff0125601a5948a5237fdee419d48be54"
-      },
-      "./src/classes/binding-text-builder.ts": {
-        "version": "1cf1adcba1864aaeb7465a9938045cc429b694afb6adcf283a410fe17f00d28d",
-        "signature": "53413a6ea32f84b451e4062644992fa599dc23cb6fa422443d33fcefb26c945f"
-      },
-      "./src/classes/binding-model-builder.ts": {
-        "version": "25c07c0289f40d484aa30b557a0bc76b1576ae1570d3f30305a3e89c03bde0b4",
-        "signature": "9129cc306b7d81e22584a657b6f91b4ac18d5274bd8e2c609ab450500de77a0c"
-      },
-      "./src/interfaces/interfaces.ts": {
-        "version": "b57ea39bed80faa885c1183b7cc7b7a90f717a527a335315dfb73613f8c87425",
-        "signature": "2c6f4ae19091ecae602f4d495675699503eeeb06b272584f66e729164484cb88"
+      "./src/core/index.ts": {
+        "version": "c281e4eae526b61e32defca0d8527985516bf225909f74a5f3511f94feeb935b",
+        "signature": "b1dfb5ad93b2faf97c3568f8a11a637510943a60f22abaab996acd192405a36b"
       },
       "./src/classes/forms.ts": {
         "version": "689c52ecfc87d573118838cfc64b7d0fb841dac8564953eb9a3583f3ef9c71d0",
         "signature": "cc2331cfcaff5b6d31727c5fe8802cd4be20d9a8c3389444fe93c1d613726552"
       },
       "./src/service/form-control.service.ts": {
-        "version": "03ae4b24566c1f9d82e5714b8fca6caba6c005090cab1a0373478f229d632d33",
-        "signature": "24424fd2e7c9b1b02339ff8ceadb345105373ef856f3b8d7e099c7da1f65516f"
+        "version": "054eadd220b1a0960aa48d471cb370f0377f8253ff60e0e299865e3f2bd21da2",
+        "signature": "23ca48427d1b1610ee3023c832c7489cbde7be146a782ff02de76eca12ab03b3"
+      },
+      "./src/classes/aja-model.ts": {
+        "version": "c79f49b658e8ee790f6162e422b91aaf0ef98a5e5bd19f38189c9f0218d0277d",
+        "signature": "bc2779006c1e5d0e9093dde25ac895fdca2b7d41a8a25dc84fbe12f55d42ec81"
+      },
+      "./src/classes/binding-builder.ts": {
+        "version": "6027b972276afdb790dab62d377ea1af311bb9526967276664b6ef62dd5d021c",
+        "signature": "83c6daa2f406e73f314a2006dbd521b9a1a0d9fbf11db5fef2fc903dc954574a"
+      },
+      "./src/classes/context-data.ts": {
+        "version": "1c461d2ee97cde2df1c1b2a1ac79dc291ddf5eae011e7e6182178718e07c1d67",
+        "signature": "1edca2b4e894669ec9edb538f5a54991a83c4d75956c605117de6bec5b7b727e"
+      },
+      "./src/pipes/index.ts": {
+        "version": "836edb628f9f56fe8295c7464c6fbaf1f7b59e408b6d02d58c405993f63ca80b",
+        "signature": "15ed606a2d4d3415fa2376d72a79145ff0125601a5948a5237fdee419d48be54"
       },
       "./src/aja.ts": {
-        "version": "88c5506d3374f6d8661191e8ec698b0fdfe4fb2b6779984e969cf0138a0f0984",
-        "signature": "b39accdd10e7cecc9e0aca7f3e19acddfd338d1b24ff60443569ab2d815ec261"
+        "version": "5f452dd31596c5f0ee313fbfd401fbe24a123df413ca1d2e5567591149c62947",
+        "signature": "95b1247cee7cdf073d68a6087bd6db8707c3712563d7f871c534138f7ff46502"
       },
       "./src/main.ts": {
         "version": "1f2746984e6558f7bc5078133ba3ded40e4923485d6f3a12c67cecb02e6b99fd",
@@ -806,6 +786,14 @@
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
+      "./src/utils/util.ts": [
+        "./src/utils/exp.ts",
+        "./src/utils/const-string.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/utils.d.ts": [
         "./node_modules/_mobx@5.15.1@mobx/lib/internal.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
@@ -1166,72 +1154,9 @@
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
-      "./src/classes/aja-model.ts": [
-        "./src/utils/const-string.ts",
-        "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
       "./src/utils/p.ts": [
         "./src/utils/util.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/classes/binding-tempvar-builder.ts": [
-        "./src/classes/aja-model.ts",
-        "./src/utils/util.ts",
-        "./src/utils/p.ts",
-        "./src/utils/exp.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/classes/context-data.ts": [
-        "./src/classes/binding-tempvar-builder.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/core/index.ts": [
-        "./src/classes/context-data.ts",
         "./src/utils/const-string.ts",
-        "./src/utils/util.ts",
-        "./src/utils/exp.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/utils/util.ts": [
-        "./src/utils/exp.ts",
-        "./src/utils/const-string.ts",
-        "./src/classes/context-data.ts",
-        "./src/core/index.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/classes/binding-if-builder.ts": [
-        "./src/utils/util.ts",
-        "./src/utils/const-string.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/classes/binding-for-builder.ts": [
-        "./src/utils/util.ts",
-        "./src/utils/exp.ts",
-        "./src/utils/p.ts",
-        "./src/utils/const-string.ts",
-        "./src/classes/context-data.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -1243,42 +1168,10 @@
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
-      "./src/pipes/index.ts": [
-        "./src/utils/p.ts",
-        "./src/pipes/interfaces/interfaces.ts",
+      "./src/core/index.ts": [
         "./src/classes/context-data.ts",
-        "./src/core/index.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/classes/binding-text-builder.ts": [
-        "./src/utils/exp.ts",
-        "./src/utils/util.ts",
-        "./src/pipes/index.ts",
-        "./src/classes/context-data.ts",
-        "./src/core/index.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/classes/binding-model-builder.ts": [
-        "./src/classes/aja-model.ts",
         "./src/utils/util.ts",
         "./src/utils/p.ts",
-        "./src/utils/const-string.ts",
-        "./src/classes/context-data.ts",
-        "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
-        "./src/core/index.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
-        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/interfaces/interfaces.ts": [
-        "./src/pipes/interfaces/interfaces.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -1301,23 +1194,58 @@
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
+      "./src/classes/aja-model.ts": [
+        "./src/utils/const-string.ts",
+        "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
+      "./src/classes/binding-builder.ts": [
+        "./src/classes/context-data.ts",
+        "./src/core/index.ts",
+        "./src/pipes/index.ts",
+        "./src/classes/forms.ts",
+        "./src/service/form-control.service.ts",
+        "./src/utils/exp.ts",
+        "./src/utils/util.ts",
+        "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
+        "./src/classes/aja-model.ts",
+        "./src/utils/p.ts",
+        "./src/utils/const-string.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
+      "./src/classes/context-data.ts": [
+        "./src/classes/binding-builder.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
+      "./src/pipes/index.ts": [
+        "./src/utils/p.ts",
+        "./src/pipes/interfaces/interfaces.ts",
+        "./src/classes/context-data.ts",
+        "./src/core/index.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
+        "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
+      ],
       "./src/aja.ts": [
         "./src/utils/util.ts",
         "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
-        "./src/utils/exp.ts",
-        "./src/classes/binding-if-builder.ts",
-        "./src/classes/binding-for-builder.ts",
-        "./src/classes/binding-text-builder.ts",
         "./src/utils/p.ts",
-        "./src/classes/binding-model-builder.ts",
         "./src/pipes/index.ts",
-        "./src/utils/const-string.ts",
-        "./src/interfaces/interfaces.ts",
-        "./src/classes/binding-tempvar-builder.ts",
         "./src/classes/context-data.ts",
-        "./src/service/form-control.service.ts",
         "./src/classes/forms.ts",
         "./src/core/index.ts",
+        "./src/pipes/interfaces/interfaces.ts",
+        "./src/classes/binding-builder.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -2262,33 +2190,26 @@
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
       ],
-      "./src/classes/binding-tempvar-builder.ts": [
-        "./src/classes/aja-model.ts"
-      ],
-      "./src/classes/context-data.ts": [
-        "./src/classes/binding-tempvar-builder.ts"
-      ],
-      "./src/utils/util.ts": [
+      "./src/core/index.ts": [
         "./src/classes/context-data.ts"
-      ],
-      "./src/classes/binding-for-builder.ts": [
-        "./src/classes/context-data.ts"
-      ],
-      "./src/classes/binding-text-builder.ts": [
-        "./src/classes/context-data.ts"
-      ],
-      "./src/classes/binding-model-builder.ts": [
-        "./src/classes/context-data.ts"
-      ],
-      "./src/interfaces/interfaces.ts": [
-        "./src/pipes/interfaces/interfaces.ts"
       ],
       "./src/service/form-control.service.ts": [
         "./src/classes/forms.ts"
       ],
+      "./src/classes/binding-builder.ts": [
+        "./src/classes/context-data.ts",
+        "./src/classes/aja-model.ts"
+      ],
+      "./src/classes/context-data.ts": [
+        "./src/classes/binding-builder.ts"
+      ],
+      "./src/pipes/index.ts": [
+        "./src/pipes/interfaces/interfaces.ts",
+        "./src/classes/context-data.ts"
+      ],
       "./src/aja.ts": [
-        "./src/classes/forms.ts",
-        "./src/interfaces/interfaces.ts"
+        "./src/pipes/interfaces/interfaces.ts",
+        "./src/classes/forms.ts"
       ],
       "./src/main.ts": [
         "./src/aja.ts"
@@ -2662,13 +2583,6 @@
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/util.d.ts"
-      ],
-      "./src/core/index.ts": [
-        "./src/classes/context-data.ts"
-      ],
-      "./src/pipes/index.ts": [
-        "./src/pipes/interfaces/interfaces.ts",
-        "./src/classes/context-data.ts"
       ]
     },
     "semanticDiagnosticsPerFile": [
@@ -2704,7 +2618,6 @@
       "./node_modules/_typescript@3.7.3@typescript/lib/lib.es2018.regexp.d.ts",
       "./node_modules/_typescript@3.7.3@typescript/lib/lib.esnext.intl.d.ts",
       "./node_modules/_typescript@3.7.3@typescript/lib/lib.esnext.bigint.d.ts",
-      "./src/utils/const-string.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/utils.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/core/atom.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/comparer.d.ts",
@@ -2752,9 +2665,7 @@
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/iterable.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/internal.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
-      "./src/classes/aja-model.ts",
       "./src/pipes/interfaces/interfaces.ts",
-      "./src/interfaces/interfaces.ts",
       "./node_modules/_@types_estree@0.0.39@@types/estree/index.d.ts",
       "./node_modules/_@types_node@12.12.18@@types/node/globals.d.ts",
       "./node_modules/_@types_node@12.12.18@@types/node/assert.d.ts",
@@ -2803,19 +2714,17 @@
       "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/index.d.ts",
       "./node_modules/_@types_resolve@0.0.8@@types/resolve/index.d.ts",
       "./src/utils/exp.ts",
-      "./src/classes/binding-text-builder.ts",
-      "./src/classes/binding-for-builder.ts",
       "./src/utils/util.ts",
-      "./src/store/store.ts",
-      "./src/classes/binding-model-builder.ts",
-      "./src/classes/binding-if-builder.ts",
-      "./src/core/index.ts",
-      "./src/pipes/index.ts",
-      "./src/classes/binding-tempvar-builder.ts",
-      "./src/classes/context-data.ts",
-      "./src/utils/p.ts",
-      "./src/classes/forms.ts",
+      "./src/utils/const-string.ts",
+      "./src/classes/aja-model.ts",
       "./src/service/form-control.service.ts",
+      "./src/utils/p.ts",
+      "./src/store/store.ts",
+      "./src/classes/forms.ts",
+      "./src/classes/context-data.ts",
+      "./src/core/index.ts",
+      "./src/classes/binding-builder.ts",
+      "./src/pipes/index.ts",
       "./src/aja.ts",
       "./src/main.ts"
     ]

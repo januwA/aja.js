@@ -1,9 +1,9 @@
-import { BindingTempvarBuilder } from "./binding-tempvar-builder";
-export interface ContextDataOptions {
+import { BindingTempvarBuilder } from "./binding-builder";
+export interface ContextDataOpts {
     /**
      * * 用户通过state传递进来，被代理的数据
      */
-    globalState: any;
+    store: any;
     /**
      * * 结构型指令产生的上下文变量
      */
@@ -11,7 +11,7 @@ export interface ContextDataOptions {
     /**
      * * 模板引用变量上下文, 也将被结构型指令分割
      */
-    tvState: any;
+    tData: any;
     /**
      * * for结构指令，默认的上下文变量
      * :for="of arr" -> :for="$_ of arr"
@@ -33,7 +33,7 @@ export declare class ContextData {
     /**
      * * 用户通过state传递进来，被代理的数据
      */
-    globalState: any;
+    store: any;
     /**
      * * 结构型指令产生的上下文变量
      */
@@ -43,8 +43,8 @@ export declare class ContextData {
     /**
      * * 模板引用变量上下文, 也将被结构型指令分割
      */
-    tvState: BindingTempvarBuilder;
-    constructor(options: ContextDataOptions);
+    tData: BindingTempvarBuilder;
+    constructor(options: ContextDataOpts);
     copyWith(options: {
         globalState?: any;
         contextState?: any;

@@ -1,4 +1,3 @@
-import { ContextData } from "../classes/context-data";
 export declare function createRoot(view: string | HTMLElement): HTMLElement | null;
 export declare function createObject<T>(obj?: T): T;
 export declare function toArray<T>(iterable: Iterable<T> | ArrayLike<T>): T[];
@@ -64,10 +63,3 @@ export declare function equal(obj: any, other: any): boolean;
  * @param other
  */
 export declare function equalp(obj: any, other: any): boolean;
-/**
- * ['obj.age', 12, false, '"   "', alert('xxx')] -> [22, 12, false, "   ", eval(<other>)]
- * @param args
- * @param contextData
- */
-export declare function parseArgsToArguments(args: string[], contextData: ContextData): any[];
-export declare function parseArgsEvent(args: string[], e: any): any[];

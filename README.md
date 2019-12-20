@@ -7,6 +7,7 @@
   <body>
     <div class="app">
       <p>{{ text }}</p>
+      <p>{{ hello }}</p>
       <button (click)="change($event)">change</button>
     </div>
     <script src="../dist/aja.js"></script>
@@ -14,12 +15,19 @@
       const l = console.log;
       let vm = new Aja(".app", {
         state: {
-          text: "hello..."
+          
+          // 需要绑定在节点中的数据, 可以初始化为null，不要初始化为undefined
+          text: "hello...",
+          
+          // 计算函数，大量的运算符比写在节点中的效率高
           get hello() {
             return this.text + 'xxx';
           }
+
         },
         actions: {
+
+          // 绑定在节点中的事件
           change(e) {
             l(e);
             this.text = "x";
@@ -81,7 +89,7 @@ state: {
 
 ## 插值表达式
 <html>
-  <p style="color: red;">!!! 有重大BUG，复杂的还是用计算属性</p>
+  <p style="color: red;">!!!复杂的表达式还是推荐使用计算属性，速度快点</p>
 </html>
 
 ```

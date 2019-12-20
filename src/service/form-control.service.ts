@@ -4,9 +4,7 @@ import { AbstractControl } from "../classes/forms";
 
 const l = console.log;
 
-/**
- * * 将dom节点和FormControl绑定在一起
- */
+
 export class FormControlSerivce {
   static classes = {
     // 控件被访问过
@@ -22,6 +20,10 @@ export class FormControlSerivce {
     invalid: "aja-invalid" // false
   };
 
+  /**
+   * * 响应式表单与dom的桥梁
+   * * dom <=> FormControl
+   */
   constructor(
     public readonly node: HTMLElement,
     public control: AbstractControl
@@ -30,7 +32,7 @@ export class FormControlSerivce {
   }
 
   /**
-   * * 控件 <=> FormContril
+   * * 控件 <=> FormControl
    * @param node
    */
   setup() {
@@ -101,19 +103,17 @@ export class FormControlSerivce {
 
   /**
    * * 验证节点的值
-   * * 如果控件被禁用，则不校验
    * @param node
    */
   private _checkValidity() {
     if ("checkValidity" in this.node) {
       const inputNode = this.node as HTMLInputElement;
-      // 如果控件被禁用，这将一直返回true
+      // 如果控件被禁用，h5将一直返回true
       // 初始化时只会验证required
       // 只有在input期间验证，才会验证到minlength之类的
       const ok = inputNode.checkValidity();
-      l(ok);
       if (ok) {
-        // h5验证完后启用内置的验证
+        // h5验证完后启用用户提供的验证
         this.control.updateValueAndValidity();
       } else {
         this.control.setErrors({

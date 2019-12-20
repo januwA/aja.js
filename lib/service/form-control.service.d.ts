@@ -1,7 +1,4 @@
 import { AbstractControl } from "../classes/forms";
-/**
- * * 将dom节点和FormControl绑定在一起
- */
 export declare class FormControlSerivce {
     readonly node: HTMLElement;
     control: AbstractControl;
@@ -13,15 +10,18 @@ export declare class FormControlSerivce {
         valid: string;
         invalid: string;
     };
+    /**
+     * * 响应式表单与dom的桥梁
+     * * dom <=> FormControl
+     */
     constructor(node: HTMLElement, control: AbstractControl);
     /**
-     * * 控件 <=> FormContril
+     * * 控件 <=> FormControl
      * @param node
      */
     setup(): void;
     /**
      * * 验证节点的值
-     * * 如果控件被禁用，则不校验
      * @param node
      */
     private _checkValidity;

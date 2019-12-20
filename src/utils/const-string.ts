@@ -1,7 +1,11 @@
 export const objectTag = "[object Object]";
 export const arrayTag = "[object Array]";
+export const stringTag = "[object String]";
+export const numberTag = "[object Number]";
+export const undefinedTag = "[object Undefined]";
+export const nullTag = "[object Null]";
 
-export const strString = "string";
+export const stringString = "string";
 
 export class EventType {
   static readonly input = "input";
@@ -37,3 +41,5 @@ export let modelDirective: string = "[(model)]".toLowerCase();
 export const modelChangeEvent = "(modelChange)".toLowerCase();
 
 export const formControlName = "[formControl]".toLowerCase();
+
+export const ajaModelString = 'ajaModel';

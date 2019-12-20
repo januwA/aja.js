@@ -1,17 +1,25 @@
-import { OptionsInterface } from "./interfaces/interfaces";
 import { FormControl } from "./classes/forms";
+import { Pipes } from "./pipes/interfaces/interfaces";
+export interface AjaConfigOpts {
+    state?: any;
+    actions?: {
+        [name: string]: Function;
+    };
+    initState?: Function;
+    pipes?: Pipes;
+}
 declare class Aja {
     static FormControl: typeof FormControl;
     $store?: any;
     $actions?: {
         [name: string]: Function;
     };
-    constructor(view?: string | HTMLElement, options?: OptionsInterface);
+    constructor(view?: string | HTMLElement, options?: AjaConfigOpts);
     /**
      * 扫描绑定
      * @param root
      */
-    private _define;
+    private _scan;
     /**
      * * 解析指定HTMLElement的属性
      * @param node
@@ -33,28 +41,10 @@ declare class Aja {
      */
     private _parseBindFor;
     /**
-     * 处理 [title]='xxx' 解析
-     * @param node
-     * @param param1
-     */
-    private _attrBindHandle;
-    /**
-     * 处理 (click)="echo('hello',$event)" 解析
-     * @param node
-     * @param param1
-     */
-    private _eventBindHandle;
-    /**
      * * 递归解析子节点
      * @param childNodes
      * @param contextData
      */
     private _bindingChildNodesAttrs;
-    /**
-     * * 解析文本节点的插值表达式
-     * @param textNode
-     * @param contextData
-     */
-    private _setTextContent;
 }
 export default Aja;

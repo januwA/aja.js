@@ -1,4 +1,4 @@
-import { numberp } from "../utils/p";
+import { numberStringp } from "../utils/p";
 import { Pipes } from "./interfaces/interfaces";
 import { ContextData } from "../classes/context-data";
 import { getData } from "../core";
@@ -47,7 +47,7 @@ export function usePipes(
       const [p, ...pipeArgs] = pipe.split(":");
       if (p in ajaPipes) {
         const parsePipeArgs = pipeArgs.map(arg =>
-          numberp(arg) ? arg : getData(arg, contextData)
+          numberStringp(arg) ? arg : getData(arg, contextData)
         );
         _result = ajaPipes[p](_result, ...parsePipeArgs);
       }
