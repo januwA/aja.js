@@ -24,5 +24,5 @@ export declare class FormControlSerivce {
      * * 验证节点的值
      * @param node
      */
-    private _checkValidity;
+    private _h5CheckValidity;
 }

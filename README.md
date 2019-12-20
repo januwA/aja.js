@@ -441,6 +441,45 @@ let vm = new Aja(".app", {
 </script>
 ```
 
+## FormGroup
+```html
+<div class="app">
+  <form [formGroup]="profileForm">
+
+    <label>
+      First Name:
+      <input required type="text" [formControlName]="firstName">
+    </label>
+
+    <label>
+      Last Name:
+      <input type="text" [formControlName]="lastName">
+    </label>
+
+    <input type="submit" [disabled]="!profileForm.valid" value="submit" />
+
+  </form>
+  <button (click)="asd()">change</button>
+</div>
+
+<script>
+  const l = console.log;
+  let vm = new Aja(".app", {
+    state: {
+      profileForm: new Aja.FormGroup({
+        firstName: new Aja.FormControl('a'),
+        lastName: new Aja.FormControl('b'),
+      }),
+    },
+    actions: {
+      asd() {
+        l(this.profileForm.value)
+      }
+    }
+  });
+</script>
+```
+
 
 ## TODO
 - 响应式表单

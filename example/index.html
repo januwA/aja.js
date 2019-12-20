@@ -23,14 +23,21 @@
 
 <body>
   <div class="app">
-    <input type="checkbox" id="jack" value="Jack" [(model)]="checkedNames" />
-    <label for="jack">Jack</label>
-    <input type="checkbox" id="john" value="John" [(model)]="checkedNames" />
-    <label for="john">John</label>
-    <input type="checkbox" id="mike" value="Mike" [(model)]="checkedNames" />
-    <label for="mike">Mike</label>
-    <br />
-    <span>Checked names: {{ checkedNames }}</span>
+    <form [formGroup]="profileForm">
+
+      <label>
+        First Name:
+        <input required type="text" [formControlName]="firstName">
+      </label>
+
+      <label>
+        Last Name:
+        <input type="text" [formControlName]="lastName">
+      </label>
+
+      <input type="submit" [disabled]="!profileForm.valid" value="submit" />
+
+    </form>
     <button (click)="asd()">change</button>
   </div>
   <script src="../dist/aja.umd.js"></script>
@@ -39,12 +46,14 @@
 
     let vm = new Aja(".app", {
       state: {
-        checkedNames: []
+        profileForm: new Aja.FormGroup({
+          firstName: new Aja.FormControl('a'),
+          lastName: new Aja.FormControl('b'),
+        }),
       },
       actions: {
         asd() {
-          // l(this.name.value)
-          // this.show = !this.show;
+          l(this.profileForm.value)
         }
       }
     });

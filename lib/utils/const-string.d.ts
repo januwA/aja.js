@@ -33,5 +33,7 @@ export declare let modelDirective: string;
  * * (modelChange)="f()"
  */
 export declare const modelChangeEvent: string;
-export declare const formControlName: string;
+export declare const formControlAttrName: string;
 export declare const ajaModelString = "ajaModel";
+export declare const formGroupAttrName: string;
+export declare const formControlNameAttrName: string;

@@ -36,8 +36,26 @@ export interface AbstractControlOptions {
 export declare abstract class AbstractControl {
     validator: ValidatorFn | null;
     asyncValidator: AsyncValidatorFn | null;
+    private _parent?;
+    /**
+     * 当控件组发生改变，将调用这个回调
+     */
+    _onCollectionChange: () => void;
+    /**
+     * * 默认注册一个全新的回调函数
+     * @param fn
+     */
+    _registerOnCollectionChange(fn?: () => void): void;
     constructor(validator: ValidatorFn | null, asyncValidator: AsyncValidatorFn | null);
-    private _control;
+    get parent(): FormGroup | undefined;
+    setParent(parent: FormGroup): void;
+    _control: {
+        touched: boolean;
+        dirty: boolean;
+        disabled: boolean;
+        pending: boolean;
+        errors: null | any;
+    };
     /**
      * * 控件的当前值。
      * * 对于`FormControl`，当前值。
@@ -57,7 +75,12 @@ export declare abstract class AbstractControl {
      * 这些状态值是互斥的，因此不能进行控制,有效和无效或无效和禁用。
      */
     get status(): string;
-    get(path: Array<string | number> | string): AbstractControl | null;
+    /**
+     * this.profileForm.get('firstName')
+     * this.profileForm.get('firstName/xxx')
+     * @param path
+     */
+    get(path: string): AbstractControl | null;
     /**
      * 包含验证失败产生的任何错误的对象，
      * 如果没有错误，则返回null。
@@ -68,8 +91,12 @@ export declare abstract class AbstractControl {
      * @param errorCode
      * @param path
      */
-    getError(errorCode: string, path?: Array<string | number> | string): any;
-    hasError(errorCode: string, path?: Array<string | number> | string): boolean;
+    getError(errorCode: string, path?: string): any;
+    hasError(errorCode: string, path?: string): boolean;
+    /**
+     * 获取最顶层的父级
+     */
+    get root(): AbstractControl;
     setErrors(errors: ValidationErrors | null): void;
     /**
      * * 当控件的`status`为 `PENDING`时，控件为`pending`
@@ -150,6 +177,7 @@ export declare abstract class AbstractControl {
      * @param options
      */
     abstract setValue(value: any): void;
+    abstract patchValue(value: any, options?: Object): void;
     /**
      * * 初始化控件
      * @param value
@@ -172,5 +200,88 @@ export declare class FormControl extends AbstractControl {
      */
     constructor(formState?: any, validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null);
     setValue(value: any): void;
+    patchValue(value: any): void;
     reset(value?: any): void;
+}
+export declare class FormGroup extends AbstractControl {
+    controls: {
+        [key: string]: AbstractControl;
+    };
+    get value(): {
+        [k: string]: any;
+    } & {
+        [x: string]: any;
+    };
+    constructor(controls: {
+        [key: string]: AbstractControl;
+    }, validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null);
+    /**
+     * 在组的控件列表中注册一个控件。
+     * 此方法不会更新控件的值或有效性。
+     * @param name
+     * @param control
+     */
+    registerControl(name: string, control: AbstractControl): AbstractControl;
+    /**
+     * 将控件添加到该组。
+     * 此方法还会更新控件的值和有效性。
+     * @param name
+     * @param control
+     */
+    addControl(name: string, control: AbstractControl): void;
+    /**
+     * 从该组中删除一个控件。
+     * @param name
+     */
+    removeControl(name: string): void;
+    /**
+     * 替换现有的控件。
+     * @param name
+     * @param control
+     */
+    setControl(name: string, control: AbstractControl): void;
+    /**
+     * 检查组中是否存在具有给定名称的已启用控件。
+     * 对于禁用控件，报告为false。 如果您想检查组中是否存在可以使用 [get]
+     * @param controlName
+     */
+    contains(controlName: string): boolean;
+    /**
+     * 设置formGroup的值
+     * @param value
+     * @param options
+     * `onlySelf` When true, each change only affects this control, and not its parent. Default is
+     */
+    setValue(value: {
+        [key: string]: any;
+    }, options?: {
+        onlySelf?: boolean;
+        emitEvent?: boolean;
+    }): void;
+    /**
+     * 设置任意个值
+     * @param value
+     */
+    patchValue(value: {
+        [key: string]: any;
+    }): void;
+    /**
+     *  重置所有的control
+     * @param value
+     */
+    reset(value?: any): void;
+    /**
+     * * 循环自身的formControls
+     * @param cb
+     */
+    _forEachChild(cb: (v: any, k: string) => void): void;
+    /**
+     * * 设置自己的父元素
+     */
+    _setUpControls(): void;
+    /**
+     * * 检查设置的新值，是否存在
+     * @param value
+     */
+    _checkAllValuesPresent(value: any): void;
 }

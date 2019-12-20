@@ -108,3 +108,7 @@ export function checkboxp(node: Node): node is HTMLInputElement {
 export function radiop(node: Node): node is HTMLInputElement {
   return inputp(node) && node.type === "radio";
 }
+
+export function formp(node: Node): node is HTMLFormElement {
+  return node.nodeName === "FORM";
+}

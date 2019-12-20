@@ -1,4 +1,4 @@
-import { FormControl } from "./classes/forms";
+import { FormControl, FormGroup } from "./classes/forms";
 import { Pipes } from "./pipes/interfaces/interfaces";
 export interface AjaConfigOpts {
     state?: any;
@@ -10,6 +10,7 @@ export interface AjaConfigOpts {
 }
 declare class Aja {
     static FormControl: typeof FormControl;
+    static FormGroup: typeof FormGroup;
     $store?: any;
     $actions?: {
         [name: string]: Function;

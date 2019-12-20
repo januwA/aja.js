@@ -45,8 +45,10 @@
    * * (modelChange)="f()"
    */
   const modelChangeEvent = "(modelChange)".toLowerCase();
-  const formControlName = "[formControl]".toLowerCase();
+  const formControlAttrName = "[formControl]".toLowerCase();
   const ajaModelString = 'ajaModel';
+  const formGroupAttrName = '[formGroup]'.toLowerCase();
+  const formControlNameAttrName = '[formControlName]'.toLowerCase();
 
   function createRoot(view) {
       return typeof view === "string"
@@ -4185,6 +4187,9 @@
   function radiop(node) {
       return inputp(node) && node.type === "radio";
   }
+  function formp(node) {
+      return node.nodeName === "FORM";
+  }
 
   /**
    * * 1. 优先寻找模板变量
@@ -4300,13 +4305,16 @@
           this.tData = options.tData;
           if (options.forLet)
               this.forLet = options.forLet;
+          if (options.formGroup)
+              this.formGroup = options.formGroup;
       }
       copyWith(options) {
           return new ContextData({
               store: options.globalState || this.store,
               contextState: options.contextState || this.contextState,
               tData: options.tvState || this.tData,
-              forLet: options.forLet || this.forLet
+              forLet: options.forLet || this.forLet,
+              formGroup: options.formGroup || this.formGroup
           });
       }
   }
@@ -4339,6 +4347,17 @@
   const INVALID = "INVALID";
   const PENDING = "PENDING";
   const DISABLED = "DISABLED";
+  function _find(control, paths) {
+      return paths.reduce((v, name) => {
+          if (v instanceof FormGroup) {
+              return v.controls.hasOwnProperty(name) ? v.controls[name] : null;
+          }
+          // if (v instanceof FormArray) {
+          //   return v.at(<number>name) || null;
+          // }
+          return null;
+      }, control);
+  }
   /**
    * 将errors数组转化为{}
    * @param arrayOfErrors
@@ -4419,11 +4438,13 @@
           : origAsyncValidator || null;
   }
   class AbstractControl {
-      // TODO
-      // private _parent;
       constructor(validator, asyncValidator) {
           this.validator = validator;
           this.asyncValidator = asyncValidator;
+          /**
+           * 当控件组发生改变，将调用这个回调
+           */
+          this._onCollectionChange = () => { };
           this._control = observable({
               touched: false,
               dirty: false,
@@ -4433,6 +4454,19 @@
               // 有错误 invalid
               errors: null
           });
+      }
+      /**
+       * * 默认注册一个全新的回调函数
+       * @param fn
+       */
+      _registerOnCollectionChange(fn = () => { }) {
+          this._onCollectionChange = fn;
+      }
+      get parent() {
+          return this._parent;
+      }
+      setParent(parent) {
+          this._parent = parent;
       }
       /**
        * * 控件的确认状态。 有四种可能
@@ -4451,13 +4485,18 @@
               return PENDING;
           return DISABLED;
       }
-      // TODO
-      // readonly parent: FormGroup | FormArray;
-      // TODO
-      // setParent(parent: FormGroup | FormArray): void {}
-      // TODO
-      get(path) {
-          return null;
+      /**
+       * this.profileForm.get('firstName')
+       * this.profileForm.get('firstName/xxx')
+       * @param path
+       */
+      get(path /* a/b/c */) {
+          if (!path)
+              return null;
+          const paths = path.split('/').map(p => p.trim());
+          if (paths.length === 0)
+              return null;
+          return _find(this, paths);
       }
       /**
        * 包含验证失败产生的任何错误的对象，
@@ -4472,22 +4511,21 @@
        * @param path
        */
       getError(errorCode, path) {
-          if (!path) {
-              if (!this.errors)
-                  return null;
-              return this.errors[errorCode];
-          }
-          // TODO: 添加path解析
-          return null;
+          const control = path ? this.get(path) : this;
+          return control && control.errors ? control.errors[errorCode] : null;
       }
       hasError(errorCode, path) {
-          if (!path) {
-              if (!this.errors)
-                  return false;
-              return errorCode in this.errors;
+          return !!this.getError(errorCode, path);
+      }
+      /**
+       * 获取最顶层的父级
+       */
+      get root() {
+          let x = this;
+          while (x._parent) {
+              x = x._parent;
           }
-          // TODO: 添加path
-          return false;
+          return x;
       }
       setErrors(errors) {
           this._control.errors = errors;
@@ -4638,42 +4676,160 @@
       constructor(formState, validatorOrOpts, asyncValidator) {
           super(coerceToValidator(validatorOrOpts), coerceToAsyncValidator(asyncValidator, validatorOrOpts));
           this._value = observable.box("");
-          this._value.set(formState || "");
+          this.setValue(formState || "");
       }
       get value() {
           return this._value.get();
       }
       setValue(value) {
           this._value.set(value);
+          this.updateValueAndValidity();
+      }
+      patchValue(value) {
+          this.setValue(value);
       }
       reset(value) {
-          this._value.set(value || "");
+          this._control.dirty = false;
+          this._control.touched = false;
+          this.setValue(value || "");
       }
   }
-  // export class FormGroup extends AbstractControl {
-  //   controls: {
-  //     [key: string]: AbstractControl;
-  //   };
-  //   constructor(
-  //     controls: {
-  //       [key: string]: AbstractControl;
-  //     },
-  //     validatorOrOpts?:
-  //       | ValidatorFn
-  //       | ValidatorFn[]
-  //       | AbstractControlOptions
-  //       | null,
-  //     asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
-  //   ) {
-  //     super();
-  //   }
-  //   setValue(value: any): void {
-  //     throw new Error("Method not implemented.");
-  //   }
-  //   reset(value?: any): void {
-  //     throw new Error("Method not implemented.");
-  //   }
-  // }
+  class FormGroup extends AbstractControl {
+      constructor(controls, validatorOrOpts, asyncValidator) {
+          super(coerceToValidator(validatorOrOpts), coerceToAsyncValidator(asyncValidator, validatorOrOpts));
+          this.controls = controls;
+          this._setUpControls();
+      }
+      get value() {
+          return Object.keys(this.controls).reduce((acc, item) => {
+              return Object.assign(acc, {
+                  [item]: this.controls[item].value
+              });
+          }, {});
+      }
+      /**
+       * 在组的控件列表中注册一个控件。
+       * 此方法不会更新控件的值或有效性。
+       * @param name
+       * @param control
+       */
+      registerControl(name, control) {
+          if (this.controls[name])
+              return this.controls[name];
+          this.controls[name] = control;
+          control.setParent(this);
+          control._registerOnCollectionChange(this._onCollectionChange);
+          return control;
+      }
+      /**
+       * 将控件添加到该组。
+       * 此方法还会更新控件的值和有效性。
+       * @param name
+       * @param control
+       */
+      addControl(name, control) {
+          this.registerControl(name, control);
+          this.updateValueAndValidity();
+          this._onCollectionChange();
+      }
+      /**
+       * 从该组中删除一个控件。
+       * @param name
+       */
+      removeControl(name) {
+          if (this.controls[name])
+              this.controls[name]._registerOnCollectionChange();
+          delete (this.controls[name]);
+          this.updateValueAndValidity();
+          this._onCollectionChange();
+      }
+      /**
+       * 替换现有的控件。
+       * @param name
+       * @param control
+       */
+      setControl(name, control) {
+          if (this.controls[name])
+              this.controls[name]._registerOnCollectionChange();
+          delete (this.controls[name]);
+          if (control)
+              this.registerControl(name, control);
+          this.updateValueAndValidity();
+          this._onCollectionChange();
+      }
+      /**
+       * 检查组中是否存在具有给定名称的已启用控件。
+       * 对于禁用控件，报告为false。 如果您想检查组中是否存在可以使用 [get]
+       * @param controlName
+       */
+      contains(controlName) {
+          return this.controls.hasOwnProperty(controlName) && this.controls[controlName].enabled;
+      }
+      /**
+       * 设置formGroup的值
+       * @param value
+       * @param options
+       * `onlySelf` When true, each change only affects this control, and not its parent. Default is
+       */
+      setValue(value, options = {}) {
+          this._checkAllValuesPresent(value);
+          Object.keys(value).forEach(name => {
+              this.controls[name].setValue(value[name]);
+          });
+          this.updateValueAndValidity();
+      }
+      /**
+       * 设置任意个值
+       * @param value
+       */
+      patchValue(value) {
+          Object.keys(value).forEach(name => {
+              if (this.controls[name]) {
+                  this.controls[name].patchValue(value[name]);
+              }
+          });
+          this.updateValueAndValidity();
+      }
+      /**
+       *  重置所有的control
+       * @param value
+       */
+      reset(value = {}) {
+          this._forEachChild((control, name) => {
+              control.reset(value[name]);
+          });
+          this._control.dirty = false;
+          this._control.touched = false;
+          this.updateValueAndValidity();
+      }
+      /**
+       * * 循环自身的formControls
+       * @param cb
+       */
+      _forEachChild(cb) {
+          Object.keys(this.controls).forEach(k => cb(this.controls[k], k));
+      }
+      /**
+       * * 设置自己的父元素
+       */
+      _setUpControls() {
+          this._forEachChild((control) => {
+              control.setParent(this);
+              control._registerOnCollectionChange(this._onCollectionChange);
+          });
+      }
+      /**
+       * * 检查设置的新值，是否存在
+       * @param value
+       */
+      _checkAllValuesPresent(value) {
+          this._forEachChild((control, name) => {
+              if (value[name] === undefined) {
+                  throw new Error(`Must supply a value for form control with name: '${name}'.`);
+              }
+          });
+      }
+  }
 
   class FormControlSerivce {
       /**
@@ -4690,12 +4846,16 @@
        * @param node
        */
       setup() {
+          autorun(() => {
+              if (inputp(this.node)) {
+                  this.node.value = this.control.value;
+              }
+          });
           // 控件同步到formControl
-          this._checkValidity();
+          this._h5CheckValidity();
           // 是否禁用
-          if ("disabled" in this.node) {
-              const inputNode = this.node;
-              if (inputNode.disabled)
+          if (inputp(this.node)) {
+              if (this.node.disabled)
                   this.control.disable();
               else
                   this.control.enable();
@@ -4705,20 +4865,11 @@
               if ("value" in this.node) {
                   this.control.setValue(this.node.value);
               }
-              this._checkValidity();
+              this._h5CheckValidity();
               this.control.markAsDirty();
           });
           // 控件被访问了
           this.node.addEventListener(EventType.blur, () => this.control.markAsTouched());
-          // formControl同步到控件
-          autorun(() => {
-              // 这个主要监听setValue()，和初始化时，将新值同步到控件中去
-              const inputNode = this.node;
-              if (this.control.value !== inputNode.value) {
-                  inputNode.value = this.control.value;
-                  this._checkValidity();
-              }
-          });
           autorun(() => {
               this.node.classList.toggle(FormControlSerivce.classes.touched, this.control.touched);
               this.node.classList.toggle(FormControlSerivce.classes.untouched, this.control.untouched);
@@ -4726,9 +4877,8 @@
               this.node.classList.toggle(FormControlSerivce.classes.dirty, this.control.dirty);
               this.node.classList.toggle(FormControlSerivce.classes.valid, this.control.valid);
               this.node.classList.toggle(FormControlSerivce.classes.invalid, this.control.invalid);
-              const inputNode = this.node;
-              if ("disabled" in inputNode) {
-                  inputNode.disabled = this.control.disabled;
+              if (inputp(this.node)) {
+                  this.node.disabled = this.control.disabled;
               }
           });
       }
@@ -4736,18 +4886,14 @@
        * * 验证节点的值
        * @param node
        */
-      _checkValidity() {
+      _h5CheckValidity() {
           if ("checkValidity" in this.node) {
               const inputNode = this.node;
               // 如果控件被禁用，h5将一直返回true
               // 初始化时只会验证required
               // 只有在input期间验证，才会验证到minlength之类的
               const ok = inputNode.checkValidity();
-              if (ok) {
-                  // h5验证完后启用用户提供的验证
-                  this.control.updateValueAndValidity();
-              }
-              else {
+              if (!ok) {
                   this.control.setErrors({
                       error: inputNode.validationMessage
                   });
@@ -4926,8 +5072,18 @@
           this.node = node;
           this.attr = attr;
           this.contextData = contextData;
-          if (this.isFormControl) {
+          if (this.name === formControlAttrName) {
               this._formControlSetup();
+          }
+          else if (this.name === formGroupAttrName && formp(this.node)) {
+              const formGroup = getData(this.value, this.contextData);
+              contextData.formGroup = formGroup;
+          }
+          else if (this.name === formControlNameAttrName) {
+              if (contextData.formGroup && this.value in contextData.formGroup.controls) {
+                  const formControl = contextData.formGroup.controls[this.value];
+                  new FormControlSerivce(this.node, formControl);
+              }
           }
           else {
               switch (this.attrName) {
@@ -4946,9 +5102,6 @@
               }
           }
           node.removeAttribute(this.name);
-      }
-      get isFormControl() {
-          return this.name === formControlName;
       }
       // [style.coloe] => [style, coloe]
       get _parseAttr() {
@@ -5655,6 +5808,7 @@
       }
   }
   Aja.FormControl = FormControl;
+  Aja.FormGroup = FormGroup;
 
   return Aja;
 

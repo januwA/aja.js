@@ -18,7 +18,6 @@ export declare class BindingAttrBuilder extends BindingBuilder {
     readonly node: HTMLElement;
     readonly attr: Attr;
     readonly contextData: ContextData;
-    get isFormControl(): boolean;
     private get _parseAttr();
     get attrName(): string;
     get attrChild(): string | undefined;

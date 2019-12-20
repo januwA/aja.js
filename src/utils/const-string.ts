@@ -40,6 +40,8 @@ export let modelDirective: string = "[(model)]".toLowerCase();
  */
 export const modelChangeEvent = "(modelChange)".toLowerCase();
 
-export const formControlName = "[formControl]".toLowerCase();
+export const formControlAttrName = "[formControl]".toLowerCase();
 
 export const ajaModelString = 'ajaModel';
+export const formGroupAttrName = '[formGroup]'.toLowerCase();
+export const formControlNameAttrName = '[formControlName]'.toLowerCase();

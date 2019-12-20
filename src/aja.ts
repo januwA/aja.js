@@ -15,7 +15,7 @@ import {
 } from "./utils/p";
 import { ajaPipes, usePipes } from "./pipes";
 import { ContextData } from "./classes/context-data";
-import { FormControl } from "./classes/forms";
+import { FormControl, FormGroup } from "./classes/forms";
 import { getData } from "./core";
 import { Pipes } from "./pipes/interfaces/interfaces";
 import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder } from "./classes/binding-builder";
@@ -34,6 +34,7 @@ export interface AjaConfigOpts {
 
 class Aja {
   static FormControl = FormControl;
+  static FormGroup = FormGroup;
 
   $store?: any;
   $actions?: {

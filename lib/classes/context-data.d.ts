@@ -1,4 +1,5 @@
 import { BindingTempvarBuilder } from "./binding-builder";
+import { FormGroup } from "./forms";
 export interface ContextDataOpts {
     /**
      * * 用户通过state传递进来，被代理的数据
@@ -20,6 +21,10 @@ export interface ContextDataOpts {
      *     ...
      */
     forLet?: string;
+    /**
+     * * 方便再上下文找到
+     */
+    formGroup?: FormGroup;
 }
 export declare class ContextData {
     /**
@@ -44,11 +49,13 @@ export declare class ContextData {
      * * 模板引用变量上下文, 也将被结构型指令分割
      */
     tData: BindingTempvarBuilder;
+    formGroup?: FormGroup;
     constructor(options: ContextDataOpts);
     copyWith(options: {
         globalState?: any;
         contextState?: any;
         tvState?: any;
         forLet?: string;
+        formGroup?: FormGroup;
     }): ContextData;
 }

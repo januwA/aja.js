@@ -40,3 +40,4 @@ export declare function textareap(node: Node): node is HTMLTextAreaElement;
 export declare function selectp(node: Node): node is HTMLSelectElement;
 export declare function checkboxp(node: Node): node is HTMLInputElement;
 export declare function radiop(node: Node): node is HTMLInputElement;
+export declare function formp(node: Node): node is HTMLFormElement;

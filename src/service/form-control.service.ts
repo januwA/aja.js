@@ -1,6 +1,7 @@
 import { EventType } from "../utils/const-string";
 import { autorun } from "mobx";
 import { AbstractControl } from "../classes/forms";
+import { inputp } from "../utils/p";
 
 const l = console.log;
 
@@ -36,21 +37,28 @@ export class FormControlSerivce {
    * @param node
    */
   setup() {
+
+    autorun(() => {
+      if (inputp(this.node)) {
+        this.node.value = this.control.value;
+      }
+    })
+
     // 控件同步到formControl
-    this._checkValidity();
+    this._h5CheckValidity();
+
     // 是否禁用
-    if ("disabled" in this.node) {
-      const inputNode = this.node as HTMLInputElement;
-      if (inputNode.disabled) this.control.disable();
+    if (inputp(this.node)) {
+      if (this.node.disabled) this.control.disable();
       else this.control.enable();
     }
 
     // 值发生变化了
     this.node.addEventListener(EventType.input, () => {
       if ("value" in this.node) {
-        this.control.setValue((this.node as HTMLInputElement).value);
+        this.control.setValue((<HTMLInputElement>this.node).value);
       }
-      this._checkValidity();
+      this._h5CheckValidity();
       this.control.markAsDirty();
     });
 
@@ -59,15 +67,6 @@ export class FormControlSerivce {
       this.control.markAsTouched()
     );
 
-    // formControl同步到控件
-    autorun(() => {
-      // 这个主要监听setValue()，和初始化时，将新值同步到控件中去
-      const inputNode = this.node as HTMLInputElement;
-      if (this.control.value !== inputNode.value) {
-        inputNode.value = this.control.value;
-        this._checkValidity();
-      }
-    });
     autorun(() => {
       this.node.classList.toggle(
         FormControlSerivce.classes.touched,
@@ -94,9 +93,8 @@ export class FormControlSerivce {
         this.control.invalid
       );
 
-      const inputNode = this.node as HTMLInputElement;
-      if ("disabled" in inputNode) {
-        inputNode.disabled = this.control.disabled;
+      if (inputp(this.node)) {
+        this.node.disabled = this.control.disabled;
       }
     });
   }
@@ -105,17 +103,14 @@ export class FormControlSerivce {
    * * 验证节点的值
    * @param node
    */
-  private _checkValidity() {
+  private _h5CheckValidity() {
     if ("checkValidity" in this.node) {
       const inputNode = this.node as HTMLInputElement;
       // 如果控件被禁用，h5将一直返回true
       // 初始化时只会验证required
       // 只有在input期间验证，才会验证到minlength之类的
       const ok = inputNode.checkValidity();
-      if (ok) {
-        // h5验证完后启用用户提供的验证
-        this.control.updateValueAndValidity();
-      } else {
+      if (!ok) {
         this.control.setErrors({
           error: inputNode.validationMessage
         });

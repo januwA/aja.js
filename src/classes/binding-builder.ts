@@ -2,7 +2,7 @@ import { ContextData } from "./context-data";
 import { getData, setData } from "../core";
 import { usePipes } from "../pipes";
 
-import { FormControl } from "./forms";
+import { FormControl, FormGroup } from "./forms";
 import { FormControlSerivce } from "../service/form-control.service";
 import { attrStartExp, attrEndExp, interpolationExpressionExp, eventStartExp, eventEndExp, tempvarExp } from "../utils/exp";
 import { emptyString, findIfAttr, findForAttr, hasStructureDirective } from "../utils/util";
@@ -20,9 +20,9 @@ import {
     textareap,
     inputp,
     checkboxp,
-    arrayp, objectp, numberStringp, elementNodep, tempvarp
+    arrayp, objectp, numberStringp, elementNodep, tempvarp, formp
 } from "../utils/p";
-import { EventType, modelDirective, formControlName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString } from "../utils/const-string";
+import { EventType, modelDirective, formControlAttrName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString, formGroupAttrName, formControlNameAttrName } from "../utils/const-string";
 
 const l = console.log;
 
@@ -62,10 +62,6 @@ export abstract class BindingBuilder {
 
 
 export class BindingAttrBuilder extends BindingBuilder {
-    get isFormControl(): boolean {
-        return this.name === formControlName;
-    }
-
     // [style.coloe] => [style, coloe]
     private get _parseAttr() {
         return this.name
@@ -89,8 +85,16 @@ export class BindingAttrBuilder extends BindingBuilder {
         public readonly contextData: ContextData,
     ) {
         super(attr, contextData);
-        if (this.isFormControl) {
+        if (this.name === formControlAttrName) {
             this._formControlSetup();
+        } else if (this.name === formGroupAttrName && formp(this.node)) {
+            const formGroup = getData(this.value, this.contextData)
+            contextData.formGroup = formGroup;
+        } else if (this.name === formControlNameAttrName) {
+            if (contextData.formGroup && this.value in contextData.formGroup.controls) {
+                const formControl = contextData.formGroup.controls[this.value];
+                new FormControlSerivce(this.node, formControl);
+            }
         } else {
             switch (this.attrName) {
                 case "style":

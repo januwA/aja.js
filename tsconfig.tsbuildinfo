@@ -134,8 +134,8 @@
         "signature": "bb9d38af1faa24548ee3ad0c97ef476c6635cfef3ab0cf5ec9b70131e007680b"
       },
       "./src/utils/const-string.ts": {
-        "version": "b2c7eb2259e7f83083ffc6475543cc0dddef84cfcf54e81af7f647e5125c4ff4",
-        "signature": "6ec90b1bbd023989346d0b2f1dd004a72fdc8ad521cc46507ddab411b5965cd5"
+        "version": "a881a0a35d209340edb9b8d814a4980cb0c3a65e77fa578b4cb1be9f8e4efe7d",
+        "signature": "a2a6a33addbb32bca2d3402e23a97e76beaa1dcd5813ecbd2d2a323c86e8f8de"
       },
       "./src/utils/util.ts": {
         "version": "166241dde120a500d53e3933a5909c8e8202d5f3fe8b295acb6f6d9c27d93c21",
@@ -330,8 +330,8 @@
         "signature": "fb8e8e664c26078702764fa8efe1ba1a3125f1c32995821800a94f01a3273fa1"
       },
       "./src/utils/p.ts": {
-        "version": "8fca37649703fab69a24eab88b95bf4ca53e1407b1417cb7bff9772e36c33357",
-        "signature": "ffa4c79f76d793a5055366d0d3c9958d6fc79a670c6f34bc043afccddbbf7ca6"
+        "version": "4b80177215749812dae93a6d9332e19eeb825c72122664f4fab55fd888668ac1",
+        "signature": "92d51bf2505168241d5dc81594070b63b807c7500f95877918eb4cf6092face6"
       },
       "./src/pipes/interfaces/interfaces.ts": {
         "version": "5f24b06fa987c17d41cd55a167f6b6ee6875fcd3bdbc78140d3be390f79b49d3",
@@ -342,32 +342,32 @@
         "signature": "b1dfb5ad93b2faf97c3568f8a11a637510943a60f22abaab996acd192405a36b"
       },
       "./src/classes/forms.ts": {
-        "version": "689c52ecfc87d573118838cfc64b7d0fb841dac8564953eb9a3583f3ef9c71d0",
-        "signature": "cc2331cfcaff5b6d31727c5fe8802cd4be20d9a8c3389444fe93c1d613726552"
+        "version": "716a37be59bbf037fe637e170340132c9d56d4e69cfa0879d309a41365f3d2f2",
+        "signature": "9ad9a5ee896828842e1a2ab7f6f8abc519331d9543025db7b6fcffd14b05412c"
       },
       "./src/service/form-control.service.ts": {
-        "version": "054eadd220b1a0960aa48d471cb370f0377f8253ff60e0e299865e3f2bd21da2",
-        "signature": "23ca48427d1b1610ee3023c832c7489cbde7be146a782ff02de76eca12ab03b3"
+        "version": "6742d1b8d1d40e287df3bc0ccb714668fd2cacd65d76dd05826668a54c1163b6",
+        "signature": "59a59e2eb48c6740921c1c4661cf67c2a1b79df4ae4eba23ff94a2d5229ffc70"
       },
       "./src/classes/aja-model.ts": {
         "version": "c79f49b658e8ee790f6162e422b91aaf0ef98a5e5bd19f38189c9f0218d0277d",
         "signature": "bc2779006c1e5d0e9093dde25ac895fdca2b7d41a8a25dc84fbe12f55d42ec81"
       },
       "./src/classes/binding-builder.ts": {
-        "version": "6027b972276afdb790dab62d377ea1af311bb9526967276664b6ef62dd5d021c",
-        "signature": "83c6daa2f406e73f314a2006dbd521b9a1a0d9fbf11db5fef2fc903dc954574a"
+        "version": "8d671dbd99fc94485ecf8fd571e8625c4701f7f089ec73bbee4bce4a001ee54a",
+        "signature": "4881d4cadb808d9565e41400ecd9a1eeb1145756bf1eb076d8bc7fdace1b618d"
       },
       "./src/classes/context-data.ts": {
-        "version": "1c461d2ee97cde2df1c1b2a1ac79dc291ddf5eae011e7e6182178718e07c1d67",
-        "signature": "1edca2b4e894669ec9edb538f5a54991a83c4d75956c605117de6bec5b7b727e"
+        "version": "ce0e0e326fdbef533c708426c65b16df5f3ce50245184d3f8802a78466f515bc",
+        "signature": "5f56e5791a5ed51a31433119a132fca599c077da67ff03959d9b78568b2165b6"
       },
       "./src/pipes/index.ts": {
         "version": "836edb628f9f56fe8295c7464c6fbaf1f7b59e408b6d02d58c405993f63ca80b",
         "signature": "15ed606a2d4d3415fa2376d72a79145ff0125601a5948a5237fdee419d48be54"
       },
       "./src/aja.ts": {
-        "version": "5f452dd31596c5f0ee313fbfd401fbe24a123df413ca1d2e5567591149c62947",
-        "signature": "95b1247cee7cdf073d68a6087bd6db8707c3712563d7f871c534138f7ff46502"
+        "version": "d2e3a994e704df7349ddf5ace53c5c1872e0dd41ed40b710227b3671ae7ec8de",
+        "signature": "77483ceb069155b01c05a7bf9bb98f17da9fc7769f66fcde3ca9c58ec39c969e"
       },
       "./src/main.ts": {
         "version": "1f2746984e6558f7bc5078133ba3ded40e4923485d6f3a12c67cecb02e6b99fd",
@@ -1189,6 +1189,7 @@
         "./src/utils/const-string.ts",
         "./node_modules/_mobx@5.15.1@mobx/lib/mobx.d.ts",
         "./src/classes/forms.ts",
+        "./src/utils/p.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -1221,6 +1222,7 @@
       ],
       "./src/classes/context-data.ts": [
         "./src/classes/binding-builder.ts",
+        "./src/classes/forms.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/fs.d.ts",
         "./node_modules/_@types_node@12.12.18@@types/node/util.d.ts",
@@ -2201,6 +2203,7 @@
         "./src/classes/aja-model.ts"
       ],
       "./src/classes/context-data.ts": [
+        "./src/classes/forms.ts",
         "./src/classes/binding-builder.ts"
       ],
       "./src/pipes/index.ts": [
@@ -2618,6 +2621,7 @@
       "./node_modules/_typescript@3.7.3@typescript/lib/lib.es2018.regexp.d.ts",
       "./node_modules/_typescript@3.7.3@typescript/lib/lib.esnext.intl.d.ts",
       "./node_modules/_typescript@3.7.3@typescript/lib/lib.esnext.bigint.d.ts",
+      "./src/utils/exp.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/utils.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/core/atom.d.ts",
       "./node_modules/_mobx@5.15.1@mobx/lib/utils/comparer.d.ts",
@@ -2713,17 +2717,16 @@
       "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/globals.d.ts",
       "./node_modules/_@types_node@12.12.18@@types/node/ts3.2/index.d.ts",
       "./node_modules/_@types_resolve@0.0.8@@types/resolve/index.d.ts",
-      "./src/utils/exp.ts",
-      "./src/utils/util.ts",
       "./src/utils/const-string.ts",
       "./src/classes/aja-model.ts",
       "./src/service/form-control.service.ts",
       "./src/utils/p.ts",
       "./src/store/store.ts",
       "./src/classes/forms.ts",
-      "./src/classes/context-data.ts",
+      "./src/utils/util.ts",
       "./src/core/index.ts",
       "./src/classes/binding-builder.ts",
+      "./src/classes/context-data.ts",
       "./src/pipes/index.ts",
       "./src/aja.ts",
       "./src/main.ts"

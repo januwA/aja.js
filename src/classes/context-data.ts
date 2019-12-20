@@ -1,4 +1,5 @@
 import { BindingTempvarBuilder } from "./binding-builder";
+import { FormGroup } from "./forms";
 
 export interface ContextDataOpts {
   /**
@@ -24,6 +25,11 @@ export interface ContextDataOpts {
    *     ...
    */
   forLet?: string;
+
+  /**
+   * * 方便再上下文找到
+   */
+  formGroup?: FormGroup;
 }
 
 export class ContextData {
@@ -51,11 +57,14 @@ export class ContextData {
    */
   tData: BindingTempvarBuilder;
 
+  formGroup?: FormGroup;
+
   constructor(options: ContextDataOpts) {
     this.store = options.store;
     if (options.contextState) this.contextState = options.contextState;
     this.tData = options.tData;
     if (options.forLet) this.forLet = options.forLet;
+    if (options.formGroup) this.formGroup = options.formGroup;
   }
 
   copyWith(options: {
@@ -63,12 +72,14 @@ export class ContextData {
     contextState?: any;
     tvState?: any;
     forLet?: string;
+    formGroup?: FormGroup;
   }): ContextData {
     return new ContextData({
       store: options.globalState || this.store,
       contextState: options.contextState || this.contextState,
       tData: options.tvState || this.tData,
-      forLet: options.forLet || this.forLet
+      forLet: options.forLet || this.forLet,
+      formGroup: options.formGroup || this.formGroup
     });
   }
 }
