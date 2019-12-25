@@ -35,25 +35,56 @@
         <input type="text" [formControlName]="lastName">
       </label>
 
-      <input type="submit" [disabled]="!profileForm.valid" value="submit" />
+      <div [formGroupName]="address">
+        <h3>Address</h3>
+
+        <label>
+          Street:
+          <input type="text" [formControlName]="street">
+        </label>
+
+        <label>
+          City:
+          <input type="text" [formControlName]="city">
+        </label>
+
+        <label>
+          State:
+          <input type="text" [formControlName]="state">
+        </label>
+
+        <label>
+          Zip Code:
+          <input type="text" [formControlName]="zip">
+        </label>
+      </div>
+
+      <input type="submit" [disabled]="profileForm.invalid" value="submit" />
 
     </form>
     <button (click)="asd()">change</button>
   </div>
-  <script src="../dist/aja.umd.js"></script>
+  <script src="../dist/dist/aja.umd.js"></script>
   <script>
     const l = console.log;
+    const { FormGroup, FormControl, fb } = Aja;
 
     let vm = new Aja(".app", {
       state: {
-        profileForm: new Aja.FormGroup({
-          firstName: new Aja.FormControl('a'),
-          lastName: new Aja.FormControl('b'),
-        }),
+        profileForm: fb.group({
+          firstName: ['asdasd'],
+          lastName: [''],
+          address: fb.group({
+            street: [''],
+            city: ['x'],
+            state: ['a'],
+            zip: 's'
+          }),
+        })
       },
       actions: {
         asd() {
-          l(this.profileForm.value)
+          l(this.profileForm)
         }
       }
     });

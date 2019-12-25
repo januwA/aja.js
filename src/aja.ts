@@ -13,11 +13,10 @@ import {
   elementNodep,
   textNodep
 } from "./utils/p";
-import { ajaPipes, usePipes } from "./pipes";
+import { ajaPipes, usePipes, Pipes } from "./pipes";
 import { ContextData } from "./classes/context-data";
-import { FormControl, FormGroup } from "./classes/forms";
+import { FormControl, FormGroup, FormBuilder, FormArray } from "./classes/forms";
 import { getData } from "./core";
-import { Pipes } from "./pipes/interfaces/interfaces";
 import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder } from "./classes/binding-builder";
 
 const l = console.log;
@@ -35,6 +34,8 @@ export interface AjaConfigOpts {
 class Aja {
   static FormControl = FormControl;
   static FormGroup = FormGroup;
+  static FormArray = FormArray;
+  static fb = FormBuilder
 
   $store?: any;
   $actions?: {

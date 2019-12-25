@@ -22,7 +22,7 @@ import {
     checkboxp,
     arrayp, objectp, numberStringp, elementNodep, tempvarp, formp
 } from "../utils/p";
-import { EventType, modelDirective, formControlAttrName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString, formGroupAttrName, formControlNameAttrName } from "../utils/const-string";
+import { EventType, modelDirective, formControlAttrName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString, formGroupAttrName, formControlNameAttrName, formGroupNameAttrName, formArrayNameAttrName } from "../utils/const-string";
 
 const l = console.log;
 
@@ -86,14 +86,31 @@ export class BindingAttrBuilder extends BindingBuilder {
     ) {
         super(attr, contextData);
         if (this.name === formControlAttrName) {
+            // [formControl]
             this._formControlSetup();
         } else if (this.name === formGroupAttrName && formp(this.node)) {
+            // [formGroup]
             const formGroup = getData(this.value, this.contextData)
+            new FormControlSerivce(this.node, formGroup);
             contextData.formGroup = formGroup;
         } else if (this.name === formControlNameAttrName) {
+            // [formControlName]
             if (contextData.formGroup && this.value in contextData.formGroup.controls) {
                 const formControl = contextData.formGroup.controls[this.value];
                 new FormControlSerivce(this.node, formControl);
+            }
+        } else if (this.name === formGroupNameAttrName) {
+            // [formGroupName]
+            if (contextData.formGroup && this.value in contextData.formGroup.controls) {
+                const formGroup = contextData.formGroup.controls[this.value];
+                new FormControlSerivce(this.node, formGroup);
+                contextData.formGroup = formGroup as FormGroup;
+            }
+        } else if (this.name === formArrayNameAttrName) {
+            // [formArrayName]
+            if (contextData.formGroup && this.value in contextData.formGroup.controls) {
+                const formArray = contextData.formGroup.controls[this.value];
+                new FormControlSerivce(this.node, formArray);
             }
         } else {
             switch (this.attrName) {

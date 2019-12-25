@@ -10,8 +10,8 @@
     "experimentalDecorators": true /* 装饰器 */,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "rootDir": "./src" /* 用于表示源代码的位置src */,
-    "outDir": "./lib",
+    "rootDir": "." /* 用于表示源代码的位置src */,
+    "outDir": "./dist",
     "sourceMap": true,
     "incremental": true
   },

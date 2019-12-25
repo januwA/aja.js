@@ -129,13 +129,17 @@ function coerceToAsyncValidator(
     : origAsyncValidator || null;
 }
 
+/**
+ * 验证失败返回的错误对象
+ */
 export type ValidationErrors = {
   [key: string]: any;
 };
 
 /**
- * * 返回null验证成功
- * * 否则返回一个error对象
+ * 同步验证函数
+ * 成功返回[null]
+ * 失败返回[ValidationErrors]
  */
 export interface ValidatorFn {
   (control: AbstractControl): ValidationErrors | null;
@@ -165,7 +169,7 @@ export interface AbstractControlOptions {
 }
 
 export abstract class AbstractControl {
-  private _parent?: FormGroup;
+  private _parent?: FormGroup | FormArray;
 
   /**
    * 当控件组发生改变，将调用这个回调
@@ -187,7 +191,7 @@ export abstract class AbstractControl {
   get parent() {
     return this._parent;
   }
-  setParent(parent: FormGroup) {
+  setParent(parent: FormGroup | FormArray) {
     this._parent = parent;
   }
 
@@ -371,82 +375,155 @@ export abstract class AbstractControl {
 
   /**
    * 将控件标记为“已触摸”。
-   * @param opts
+   * [opts.onlySelf]：为true时，仅标记此控件。 如果为假或未提供
+   * 标志着所有[parent]。 默认为false。
+   * 
+   * ?什么时候可能为[true]，当父级更新子级时
+   * ?什么时候可能为[false]，当控件与control同步时
    */
-  markAsTouched(): void {
+  markAsTouched(opts: { onlySelf?: boolean } = {}): void {
     this._control.touched = true;
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent.markAsTouched(opts);
+    }
+  }
+
+  /**
+   * 将控件及其所有后代控件标记为“已触摸”。
+   */
+  markAllAsTouched(): void {
+    this.markAsTouched({ onlySelf: true });
+
+    this._forEachChild((control: AbstractControl) => control.markAllAsTouched());
   }
 
   /**
    * 将控件标记为“未触摸”。
+   * 
+   * 如果控件有children，也将所有children都标记为“未修改”, 并重新计算所有父控件的“触摸”状态。
    * @param opts
    */
-  markAsUntouched(): void {
+  markAsUntouched(opts: { onlySelf?: boolean } = {}): void {
     this._control.touched = false;
+
+    this._forEachChild(
+      (control: AbstractControl) => { control.markAsUntouched({ onlySelf: true }); });
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent._updateTouched(opts);
+    }
   }
 
   /**
    * 控件的值变化
    */
-  markAsDirty(): void {
+  markAsDirty(opts: { onlySelf?: boolean } = {}): void {
     this._control.dirty = true;
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent.markAsDirty(opts);
+    }
   }
 
   /**
-   * 控件的值没发生变化
+   * 将控件标记为“原始(未发生变化)”。
+   * 如果控件有任何子控件，则将所有子控件标记为“原始”，并重新计算所有父控件的“原始”状态。
    */
-  markAsPristine(): void {
+  markAsPristine(opts: { onlySelf?: boolean } = {}): void {
     this._control.dirty = false;
+
+    this._forEachChild((control: AbstractControl) => { control.markAsPristine({ onlySelf: true }); });
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent._updatePristine(opts);
+    }
   }
 
   /**
-   * 禁用控件
-   */
-  disable(): void {
-    this._control.disabled = true;
-  }
-
-  /**
-   * 启用控件
-   */
-  enable(): void {
-    this._control.disabled = false;
-  }
-
-  /**
-   * 将控件标记为“待处理”。
-   * 当控件执行异步验证时，该控件处于挂起状态。
-   */
-  markAsPending(): void {
+ * 将控件标记为“待处理”。
+ * 当控件执行异步验证时，该控件处于挂起状态。
+ */
+  markAsPending(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
     this._control.pending = true;
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent.markAsPending(opts);
+    }
   }
+
+  /**
+   * 禁用控件。 
+   * 这意味着该控件免于进行验证检查，并从任何父级的合计值中排除。 
+   * 其状态为“已禁用”。
+   * 
+   * 如果控件有孩子，则所有孩子也将被禁用。
+   */
+  disable(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+    this._control.disabled = true;
+    this._control.errors = null;
+    this._forEachChild(
+      (control: AbstractControl) => { control.disable({ ...opts, onlySelf: true }); });
+  }
+
+  /**
+   * 启用控件。 
+   * 这意味着控件包含在验证检查中，并且其父级的合计值。 根据其值重新计算其状态，其验证者。
+   * 默认情况下，如果控件有孩子，则启用所有孩子。
+   */
+  enable(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+    this._control.disabled = false;
+    this._forEachChild(
+      (control: AbstractControl) => { control.enable({ ...opts, onlySelf: true }); });
+
+    this.updateValueAndValidity({ onlySelf: true, emitEvent: opts.emitEvent });
+  }
+
+
 
   /**
    * * 值的变动将通知控件, 会跳过相同的值
    * @param value
    * @param options
    */
-  abstract setValue(value: any): void;
+  abstract setValue(value: any, options?: Object): void;
   abstract patchValue(value: any, options?: Object): void;
-
   /**
    * * 初始化控件
    * @param value
    * @param options
    */
-  abstract reset(value?: any): void;
+  abstract reset(value?: any, options?: Object): void;
+
+  /**
+   * 循环子级
+   * @param cb 
+   */
+  abstract _forEachChild(cb: Function): void;
+
+  /**
+   * * 当有一个[condition()]为[true]就返回[true]，否则返回[false]
+   * @param condition 
+   */
+  abstract _anyControls(condition: Function): boolean;
+
+
 
   /**
    * * 重新计算控件的值和验证状态。
    */
-  updateValueAndValidity(): void {
-    // if (this.enabled) {
-    this._control.errors = this._runValidator();
+  updateValueAndValidity(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+    if (this.enabled) {
+      this._control.errors = this._runValidator();
 
-    if (this.status === VALID || this.status === PENDING) {
-      this._runAsyncValidator();
+      if (this.status === VALID || this.status === PENDING) {
+        this._runAsyncValidator();
+      }
     }
-    // }
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent.updateValueAndValidity(opts);
+    }
   }
   private _runValidator() {
     return this.validator ? this.validator(this) : null;
@@ -459,9 +536,38 @@ export abstract class AbstractControl {
     this._control.errors = await this.asyncValidator(this);
     this._control.pending = false;
   }
+
+  _anyControlsTouched(): boolean {
+    return this._anyControls((control: AbstractControl) => control.touched);
+  }
+
+  _updateTouched(opts: { onlySelf?: boolean } = {}): void {
+    this._control.touched = this._anyControlsTouched();
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent._updateTouched(opts);
+    }
+  }
+
+  _anyControlsDirty(): boolean {
+    return this._anyControls((control: AbstractControl) => control.dirty);
+  }
+
+  _updatePristine(opts: { onlySelf?: boolean } = {}): void {
+    this._control.dirty = this._anyControlsDirty();
+
+    if (this._parent && !opts.onlySelf) {
+      this._parent._updatePristine(opts);
+    }
+  }
 }
 
 export class FormControl extends AbstractControl {
+  _anyControls(condition: Function): boolean {
+    return false;
+  }
+  _forEachChild(cb: Function): void {
+  }
 
   private _value = observable.box("");
 
@@ -505,6 +611,14 @@ export class FormControl extends AbstractControl {
 }
 
 export class FormGroup extends AbstractControl {
+
+  _anyControls(cb: Function): boolean {
+    let res = false;
+    this._forEachChild((control: AbstractControl, name: string) => {
+      res = res || (this.contains(name) && cb(control));
+    });
+    return res;
+  }
 
   get value() {
     return Object.keys(this.controls).reduce((acc: { [k: string]: any }, item: string) => {
@@ -659,4 +773,185 @@ export class FormGroup extends AbstractControl {
       }
     });
   }
+}
+
+
+export class FormArray extends AbstractControl {
+  constructor(
+    public controls: AbstractControl[],
+    validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null,
+    asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
+  ) {
+    super(
+      coerceToValidator(validatorOrOpts),
+      coerceToAsyncValidator(asyncValidator, validatorOrOpts));
+
+    this.updateValueAndValidity({ onlySelf: true, emitEvent: false });
+  }
+
+  /**
+   * 在数组中给定的索引处获取AbstractControl
+   * @param index 
+   */
+  at(index: number): AbstractControl { return this.controls[index]; }
+
+  /**
+   * 添加一个新控制器
+   * @param control 
+   */
+  push(control: AbstractControl): void {
+    this.controls.push(control);
+    this._registerControl(control);
+    this.updateValueAndValidity();
+    this._onCollectionChange();
+  }
+
+  /**
+   * 在指定位置插入一个新控制器
+   * @param index 
+   * @param control 
+   */
+  insert(index: number, control: AbstractControl): void {
+    this.controls.splice(index, 0, control);
+
+    this._registerControl(control);
+    this.updateValueAndValidity();
+  }
+
+  removeAt(index: number): void {
+    if (this.controls[index]) this.controls[index]._registerOnCollectionChange(() => { });
+    this.controls.splice(index, 1);
+    this.updateValueAndValidity();
+  }
+
+  /**
+   * 替换现有的控件
+   * @param index 
+   * @param control 
+   */
+  setControl(index: number, control: AbstractControl): void {
+    if (this.controls[index]) this.controls[index]._registerOnCollectionChange(() => { });
+    this.controls.splice(index, 1);
+
+    if (control) {
+      this.controls.splice(index, 0, control);
+      this._registerControl(control);
+    }
+
+    this.updateValueAndValidity();
+    this._onCollectionChange();
+  }
+
+  /**
+   * 返回控制器个数
+   */
+  get length(): number { return this.controls.length; }
+
+  setValue(value: any[], options: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+    this._checkAllValuesPresent(value);
+    value.forEach((newValue: any, index: number) => {
+      if (this.at(index)) this.at(index).setValue(newValue, { onlySelf: true, emitEvent: options.emitEvent });
+    });
+    this.updateValueAndValidity(options);
+  }
+  patchValue(value: any[], options: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+    value.forEach((newValue: any, index: number) => {
+      if (this.at(index)) {
+        this.at(index).patchValue(newValue, { onlySelf: true, emitEvent: options.emitEvent });
+      }
+    });
+    this.updateValueAndValidity(options);
+  }
+  reset(value: any = [], options: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+    this._forEachChild((control: AbstractControl, index: number) => {
+      control.reset(value[index], { onlySelf: true, emitEvent: options.emitEvent });
+    });
+    this._updatePristine(options);
+    this._updateTouched(options);
+    this.updateValueAndValidity(options);
+  }
+
+  /**
+   * 获取所有孩子的值,包括禁用的
+   */
+  getRawValue(): any[] {
+    return this.controls.map((control: AbstractControl) => {
+      return control instanceof FormControl ? control.value : (<any>control).getRawValue();
+    });
+  }
+
+  /**
+   * 删除“ FormArray”中的所有控件
+   */
+  clear(): void {
+    if (this.controls.length < 1) return;
+    this._forEachChild((control: AbstractControl) => control._registerOnCollectionChange(() => { }));
+    this.controls.splice(0);
+    this.updateValueAndValidity();
+  }
+
+  _forEachChild(cb: Function): void {
+    this.controls.forEach((control: AbstractControl, index: number) => { cb(control, index); });
+  }
+
+  _anyControls(condition: Function): boolean {
+    return this.controls.some((control: AbstractControl) => control.enabled && condition(control));
+  }
+
+
+  /**
+   * 检查新值
+   * @param value 
+   */
+  _checkAllValuesPresent(value: any): void {
+    this._forEachChild((control: AbstractControl, i: number) => {
+      if (value[i] === undefined) {
+        throw new Error(`Must supply a value for form control at index: ${i}.`);
+      }
+    });
+  }
+
+  private _registerControl(control: AbstractControl) {
+    control.setParent(this);
+    control._registerOnCollectionChange(this._onCollectionChange);
+  }
+}
+
+
+export class FormBuilder {
+  static group(
+    controlsConfig: {
+      [key: string]: any;
+    }, options?: AbstractControlOptions | {
+      [key: string]: any;
+    } | null): FormGroup {
+    const controls = Object.keys(controlsConfig).reduce((acc, name) => Object.assign(acc, { [name]: this._el(controlsConfig[name]) }), {} as {
+      [key: string]: AbstractControl;
+    })
+    return new FormGroup(controls, options);
+  }
+
+
+  static control(formState: any, validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null): FormControl {
+    return new FormControl(formState, validatorOrOpts, asyncValidator);
+  };
+
+
+  static array(controlsConfig: any[], validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null): FormArray {
+    return new FormArray(controlsConfig.map(this._el), validatorOrOpts, asyncValidator);
+  };
+
+
+  private static _el(el: any) {
+    if (el instanceof FormControl || el instanceof FormArray || el instanceof FormGroup) {
+      return el;
+    }
+
+    if (arrayp(el)) {
+      return this.control(el[0] || null, el[1], el[2]);
+    }
+
+    return this.control(el);
+  }
+
 }

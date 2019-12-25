@@ -480,7 +480,78 @@ let vm = new Aja(".app", {
 </script>
 ```
 
+## fb
+```html
+<div class="app">
+  <form [formGroup]="profileForm">
+
+    <label>
+      First Name:
+      <input required type="text" [formControlName]="firstName">
+    </label>
+
+    <label>
+      Last Name:
+      <input type="text" [formControlName]="lastName">
+    </label>
+
+    <div [formGroupName]="address">
+      <h3>Address</h3>
+
+      <label>
+        Street:
+        <input type="text" [formControlName]="street">
+      </label>
+
+      <label>
+        City:
+        <input type="text" [formControlName]="city">
+      </label>
+
+      <label>
+        State:
+        <input type="text" [formControlName]="state">
+      </label>
+
+      <label>
+        Zip Code:
+        <input type="text" [formControlName]="zip">
+      </label>
+    </div>
+
+    <input type="submit" [disabled]="profileForm.invalid" value="submit" />
+
+  </form>
+  <button (click)="asd()">change</button>
+</div>
+<script src="aja.umd.js"></script>
+<script>
+  const l = console.log;
+  const { FormGroup, FormControl, FormArray,  fb } = Aja;
+
+  let vm = new Aja(".app", {
+    state: {
+      profileForm: fb.group({
+        firstName: ['asdasd'],
+        lastName: [''],
+        address: fb.group({
+          street: [''],
+          city: ['x'],
+          state: fb.control('h'),
+          zip: 's'
+        }),
+      })
+    },
+    actions: {
+      asd() {
+        l(this.profileForm)
+      }
+    }
+  });
+</script>
+```
+
 
 ## TODO
-- 响应式表单
 - 延迟解析[(model)]
+- 响应式表单系列可能存在BUG

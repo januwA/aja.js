@@ -7,7 +7,7 @@ export default {
   input: "./src/main.ts",
   output: {
     name: "Aja",
-    file: "dist/aja.umd.js",
+    file: "dist/dist/aja.umd.js",
     format: "umd",
     sourcemap: true
   },

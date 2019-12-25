@@ -1,20 +1,20 @@
 {
   "name": "aja.js",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "mvvm",
-  "main": "lib/main.js",
-  "types": "lib/main.d.ts",
+  "private": true,
   "directories": {
     "example": "example"
   },
   "scripts": {
-    "build": "rm -rf lib && tsc && rollup -c",
-    "build:ts": "rm -rf lib && tsc -w",
+    "build": "rm -rf ./dist/src && tsc && rollup -c",
+    "build:ts": "rm -rf ./dist/src && tsc -w",
     "build:web": "rollup -c --watch"
   },
   "keywords": [
     "ajanuw",
-    "aja"
+    "aja",
+    "aja.js"
   ],
   "author": "Ajanuw",
   "license": "MIT",

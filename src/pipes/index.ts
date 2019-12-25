@@ -1,7 +1,16 @@
 import { numberStringp } from "../utils/p";
-import { Pipes } from "./interfaces/interfaces";
 import { ContextData } from "../classes/context-data";
 import { getData } from "../core";
+
+export interface Pipe {
+  (...value: any[]): any;
+}
+
+export interface Pipes {
+  [pipeName: string]: Pipe;
+}
+
+
 export const ajaPipes: Pipes = {
   /**
    * * 全部大写
