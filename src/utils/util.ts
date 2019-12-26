@@ -4,6 +4,7 @@ import {
   arrayTag,
   stringString,
   structureDirectivePrefix,
+  structureDirectives,
 } from "./const-string";
 
 export function createRoot(view: string | HTMLElement): HTMLElement | null {
@@ -80,19 +81,7 @@ export function getCheckboxRadioValue(
   return value;
 }
 
-/**
- * 查找一个节点是否包含:if指令
- * 并返回
- */
-export function findIfAttr(
-  node: HTMLElement,
-  ifInstruction: string
-): Attr | undefined {
-  if (node.attributes && node.attributes.length) {
-    const attrs = Array.from(node.attributes);
-    return attrs.find(({ name }) => name === ifInstruction);
-  }
-}
+
 
 /**
  * 查找一个节点是否包含:if指令
@@ -239,4 +228,22 @@ export function equal(obj: any, other: any) {
 export function equalp(obj: any, other: any) {
   return _equal(obj, other, true);
 }
+export function getAttrs(node: HTMLElement): Attr[] {
+  return toArray(node.attributes);
+}
 
+/**
+ * 查找一个节点是否包含:if指令
+ * 并返回
+ */
+export function findIfAttr(node: HTMLElement): Attr | undefined {
+  return getAttrs(node).find(({ name }) => name === structureDirectives.if);
+}
+
+export function findElseAttr(node: HTMLElement): Attr | undefined {
+  return getAttrs(node).find(({ name }) => name === structureDirectives.else);
+}
+
+export function eachChildNodes(node: HTMLElement, callbackfn: (value: ChildNode, index: number, array: ChildNode[]) => void) {
+  toArray(node.childNodes).forEach(callbackfn);
+}

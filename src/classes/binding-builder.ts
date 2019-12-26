@@ -5,7 +5,7 @@ import { usePipes } from "../pipes";
 import { FormControl, FormGroup } from "./forms";
 import { FormControlSerivce } from "../service/form-control.service";
 import { attrStartExp, attrEndExp, interpolationExpressionExp, eventStartExp, eventEndExp, tempvarExp } from "../utils/exp";
-import { emptyString, findIfAttr, findForAttr, hasStructureDirective } from "../utils/util";
+import { emptyString, findIfAttr, findForAttr, hasStructureDirective, findElseAttr, getAttrs, eachChildNodes } from "../utils/util";
 import { autorun } from "mobx";
 import { AjaModel } from "./aja-model";
 import {
@@ -31,7 +31,7 @@ export abstract class BindingBuilder {
         return this.attr.name;
     }
     get value() {
-        return this.attr.value;
+        return this.attr.value.trim();
     }
     constructor(
         public readonly attr: Attr,
@@ -41,7 +41,7 @@ export abstract class BindingBuilder {
     }
 
     private get _parsePipe() {
-        return parsePipe(this.attr.value);
+        return parsePipe(this.value);
     }
 
     get bindKey(): string {
@@ -407,43 +407,73 @@ export class BindingModelBuilder {
 }
 
 
-export class BindingIfBuilder {
+export class BindingIfBuilder extends BindingBuilder {
     /**
      * * 一个注释节点
      */
-    commentNode?: Comment;
+    commentNode: Comment = document.createComment("");
 
-    attr?: Attr;
+    /**
+     * 重写[value]的解析
+     */
+    get value() {
+        return this.attr.value.split(';')[0];
+    }
 
-    constructor(public node: HTMLElement) {
-        let ifAttr = findIfAttr(node, structureDirectives.if);
-        if (!ifAttr) return;
-        this.attr = ifAttr;
-        this.commentNode = document.createComment("");
+    get elseBind(): string | undefined {
+        let elesBindStr = this.attr.value.split(';')[1];
+        if (elesBindStr) {
+            return elesBindStr.trim().replace(/else/, '').trim();
+        }
+    }
+
+    elseElement: ChildNode | Element | HTMLElement | undefined;
+
+    constructor(
+        attr: Attr,
+        public node: HTMLElement,
+        public contextData: ContextData
+    ) {
+        super(attr, contextData);
+        this.elseElement = this._getElseElement();
         this.node.before(this.commentNode);
         this.node.removeAttribute(structureDirectives.if);
     }
 
-    get value(): string {
-        return this.attr?.value.trim() || "";
-    }
-
-    /**
-     * * 这里使用了回调把template标签给渲染了
-     * @param show
-     */
     checked(show: any) {
-        if (!this.commentNode) return;
-        if (show) {
-            this.commentNode.after(this.node);
-        } else {
-            this.node.replaceWith(this.commentNode);
-        }
-        this.commentNode.data = this._createIfCommentData(show);
+        if (show) this._show();
+        else this._hide();
+        this._updateComment(show);
     }
 
-    private _createIfCommentData(value: any): string {
-        return `{":if": "${!!value}"}`;
+    private _getElseElement() {
+        if (this.elseBind) {
+            const el = this.contextData.tData.get(this.elseBind);
+            if (el instanceof AjaModel) return;
+            return el;
+        } else {
+            if (this.node.nextElementSibling) {
+                const elseAttr = findElseAttr(this.node.nextElementSibling as HTMLElement);
+                if (elseAttr) {
+                    this.node.nextElementSibling.removeAttribute(structureDirectives.else)
+                    return this.node.nextElementSibling;
+                }
+            }
+        }
+    }
+
+    private _show() {
+        if (this.elseElement) this.elseElement.replaceWith(this.node);
+        this.commentNode.after(this.node);
+    }
+
+    private _hide() {
+        this.node.replaceWith(this.commentNode);
+        if (this.elseElement) this.commentNode.after(this.elseElement);
+    }
+
+    private _updateComment(value: any) {
+        this.commentNode.data = `{":if": "${value}"}`;
     }
 }
 
@@ -658,19 +688,19 @@ export class BindingForBuilder {
         return `{":for": "${data}"}`;
     }
 
-    createItem() {
+    createItem(): HTMLElement {
         const item = this.node.cloneNode(true);
         if (this.fragment) {
             this.forBuffer.push(item);
             this.fragment.append(item);
         }
-        return item;
+        return item as HTMLElement;
     }
 }
 
 
 export type TemplateVariable = {
-    [key: string]: ChildNode | Element | HTMLElement | AjaModel;
+    [key: string]: Element | HTMLElement | AjaModel;
 }
 
 export class BindingTempvarBuilder {
@@ -711,15 +741,13 @@ export class BindingTempvarBuilder {
     private deepParse(root: HTMLElement) {
         // 如果有结构指令，则跳过
         if (!hasStructureDirective(root)) {
-            toArray(root.attributes)
+            getAttrs(root)
                 .filter(({ name }) => tempvarp(name))
-                .forEach(attr => {
-                    this._tempvarBindHandle(root, attr);
-                });
+                .forEach(attr => this._tempvarBindHandle(root, attr));
 
-            toArray(root.childNodes).forEach(itemNode => {
+            eachChildNodes(root, itemNode => {
                 if (elementNodep(itemNode)) this.deepParse(itemNode as HTMLElement);
-            });
+            })
         }
     }
 

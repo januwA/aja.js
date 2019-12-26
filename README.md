@@ -169,9 +169,18 @@ state: {
 </script>
 ```
 
-## :if
+## if&else
 ```html
+<!-- if -->
 <p :if="show">hello world</p>
+
+<!-- if else 这个优先于:else -->
+<p :if="show; else other">hello</p>
+<h1 #other>hello world</h1>
+
+<!-- or -->
+<p :if="!show">hello</p>
+<h1 :else>hello world</h1>
 ```
 
 ## if和for的使用

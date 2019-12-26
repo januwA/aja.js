@@ -70,12 +70,12 @@ export function undefinedp(data: any): data is undefined {
   return data === undefined || dataTag(data) === undefinedTag;
 }
 
-export function elementNodep(node: ChildNode | HTMLElement): boolean {
+export function elementNodep(node: ChildNode | HTMLElement): node is HTMLElement {
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
 // 模板节点 template
-export function fragmentNodep(node: ChildNode | HTMLElement): boolean {
+export function fragmentNodep(node: ChildNode | HTMLElement): node is HTMLFrameElement {
   return node.nodeType === Node.DOCUMENT_FRAGMENT_NODE;
 }
 

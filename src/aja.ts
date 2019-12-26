@@ -1,8 +1,9 @@
 import {
   createRoot,
   createObject,
-  parsePipe,
   toArray,
+  getAttrs,
+  findIfAttr,
 } from "./utils/util";
 
 import { observable, autorun, action } from "mobx";
@@ -21,12 +22,13 @@ import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfB
 
 const l = console.log;
 
+export interface Actions {
+  [name: string]: Function;
+}
 
 export interface AjaConfigOpts {
   state?: any;
-  actions?: {
-    [name: string]: Function;
-  };
+  actions?: Actions;
   initState?: Function;
   pipes?: Pipes;
 }
@@ -38,9 +40,7 @@ class Aja {
   static fb = FormBuilder
 
   $store?: any;
-  $actions?: {
-    [name: string]: Function;
-  };
+  $actions?: Actions;
 
   constructor(view?: string | HTMLElement, options?: AjaConfigOpts) {
     if (!options || !view) return;
@@ -64,19 +64,18 @@ class Aja {
   private _scan(root: HTMLElement, contextData: ContextData): void {
     let depath = true;
     // 没有attrs就不解析了
-    if (root.attributes && root.attributes.length) {
+    if (root.attributes && getAttrs(root).length) {
       // 优先解析if -> for -> 其它属性
       depath = this._parseBindIf(root, contextData);
       if (depath) depath = this._parseBindFor(root, contextData);
       if (depath) {
-        const attrs: Attr[] = toArray(root.attributes);
-        this._parseBindAttrs(root, attrs, contextData);
+        this._parseBindAttrs(root, getAttrs(root), contextData);
       }
     }
 
-    const childNodes = toArray(root.childNodes);
-    if (depath && childNodes.length) {
-      this._bindingChildNodesAttrs(childNodes, contextData);
+    if (depath) {
+      const childNodes = toArray(root.childNodes);
+      if (childNodes.length) this._bindingChildNodesAttrs(childNodes, contextData);
     }
   }
 
@@ -128,16 +127,15 @@ class Aja {
    */
   private _parseBindIf(node: HTMLElement, contextData: ContextData): boolean {
     let show = true;
-    const ifBuilder = new BindingIfBuilder(node);
-    if (ifBuilder.attr) {
-      if (boolStringp(ifBuilder.value)) {
-        show = ifBuilder.value === "true";
+    let ifAttr = findIfAttr(node);
+    if (ifAttr) {
+      const ifBuilder = new BindingIfBuilder(ifAttr, node, contextData);
+      if (boolStringp(ifBuilder.bindKey)) {
+        show = ifBuilder.bindKey === "true";
         ifBuilder.checked(show);
       } else {
-        const [bindKey, pipeList] = parsePipe(ifBuilder.value);
         autorun(() => {
-          show = getData(bindKey, contextData);
-          show = usePipes(show, pipeList, contextData);
+          show = ifBuilder.getPipeData();
           if (show) {
             this._scan(
               node,
@@ -170,7 +168,7 @@ class Aja {
           const item = forBuilder.createItem();
           const forLet = contextData.forLet + "_";
           this._scan(
-            item as HTMLElement,
+            item,
             contextData.copyWith({
               contextState: forBuilder.createForContextState(v),
               tvState: contextData.tData.copyWith(node),
@@ -188,7 +186,7 @@ class Aja {
           for (const k in _data) {
             const item = forBuilder.createItem();
             _that._scan(
-              item as HTMLElement,
+              item,
               contextData.copyWith({
                 contextState: forBuilder.createForContextState(
                   k,
@@ -218,7 +216,7 @@ class Aja {
     if (!childNodes.length) return;
     let node: ChildNode = childNodes[0];
     if (elementNodep(node)) {
-      this._scan(node as HTMLElement, contextData);
+      this._scan(node, contextData);
     }
     if (textNodep(node)) {
       new BindingTextBuilder(node, contextData);

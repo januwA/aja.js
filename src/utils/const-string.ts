@@ -27,7 +27,8 @@ export const templateEvent: string = "$event".toLowerCase();
 export let structureDirectivePrefix = ":";
 export const structureDirectives = {
   if: structureDirectivePrefix + "if".toLowerCase(),
-  for: structureDirectivePrefix + "for".toLowerCase()
+  for: structureDirectivePrefix + "for".toLowerCase(),
+  else: structureDirectivePrefix + "else".toLowerCase()
 };
 
 /**
