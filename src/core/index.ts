@@ -16,25 +16,12 @@ const l = console.log;
 export function getData(
     key: string,
     contextData: ContextData,
-    isDeep = false
 ): any {
     if (!stringp(key)) return null;
     // 抽掉所有空格，再把管道排除
     let [bindKey] = parsePipe(key);
     let _result: any;
-
-    if (contextData.tData) {
-        _result = evalFun(bindKey, contextData.tData)
-    }
-
-    if (undefinedp(_result) && contextData.contextState) {
-        _result = evalFun(bindKey, contextData.contextState)
-    }
-
-    if (undefinedp(_result) && contextData.store) {
-        _result = evalFun(bindKey, contextData.store)
-    }
-
+    _result = evalFun(bindKey, contextData.mergeData())
     if (undefinedp(_result)) _result = emptyString;
     return _result;
 }

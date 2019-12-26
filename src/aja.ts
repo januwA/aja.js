@@ -3,7 +3,7 @@ import {
   createObject,
   toArray,
   getAttrs,
-  findIfAttr,
+  hasMultipleStructuredInstructions,
 } from "./utils/util";
 
 import { observable, autorun, action } from "mobx";
@@ -14,11 +14,10 @@ import {
   elementNodep,
   textNodep
 } from "./utils/p";
-import { ajaPipes, usePipes, Pipes } from "./pipes";
+import { ajaPipes, Pipes } from "./pipes";
 import { ContextData } from "./classes/context-data";
 import { FormControl, FormGroup, FormBuilder, FormArray } from "./classes/forms";
-import { getData } from "./core";
-import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder } from "./classes/binding-builder";
+import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder, BindingSwitchBuilder } from "./classes/binding-builder";
 
 const l = console.log;
 
@@ -62,12 +61,14 @@ class Aja {
    * @param root
    */
   private _scan(root: HTMLElement, contextData: ContextData): void {
+    if (hasMultipleStructuredInstructions(root)) {
+      throw `一个元素不能绑定多个结构型指令。(${root.outerHTML})`;
+    }
     let depath = true;
-    // 没有attrs就不解析了
     if (root.attributes && getAttrs(root).length) {
-      // 优先解析if -> for -> 其它属性
       depath = this._parseBindIf(root, contextData);
       if (depath) depath = this._parseBindFor(root, contextData);
+      if (depath) depath = this._parseBindSwitch(root, contextData);
       if (depath) {
         this._parseBindAttrs(root, getAttrs(root), contextData);
       }
@@ -127,7 +128,7 @@ class Aja {
    */
   private _parseBindIf(node: HTMLElement, contextData: ContextData): boolean {
     let show = true;
-    let ifAttr = findIfAttr(node);
+    let ifAttr = BindingIfBuilder.findIfAttr(node);
     if (ifAttr) {
       const ifBuilder = new BindingIfBuilder(ifAttr, node, contextData);
       if (boolStringp(ifBuilder.bindKey)) {
@@ -140,7 +141,7 @@ class Aja {
             this._scan(
               node,
               contextData.copyWith({
-                tvState: contextData.tData.copyWith(node)
+                tData: contextData.tData.copyWith(node)
               })
             );
           }
@@ -158,51 +159,14 @@ class Aja {
    * @param contextData
    */
   private _parseBindFor(node: HTMLElement, contextData: ContextData): boolean {
-    const forBuilder = new BindingForBuilder(node, contextData);
-    if (forBuilder.hasForAttr) {
-      if (forBuilder.isNumberData) {
-        let _data = +(forBuilder.bindData as string);
-        _data = usePipes(_data, forBuilder.pipes, contextData);
-
-        for (let v = 0; v < _data; v++) {
-          const item = forBuilder.createItem();
-          const forLet = contextData.forLet + "_";
-          this._scan(
-            item,
-            contextData.copyWith({
-              contextState: forBuilder.createForContextState(v),
-              tvState: contextData.tData.copyWith(node),
-              forLet: forLet
-            })
-          );
-        }
-        forBuilder.draw(_data);
-      } else {
-        const _that = this;
-        autorun(() => {
-          let _data = getData(forBuilder.bindData as string, contextData);
-          _data = usePipes(_data, forBuilder.pipes, contextData);
-          forBuilder.clear();
-          for (const k in _data) {
-            const item = forBuilder.createItem();
-            _that._scan(
-              item,
-              contextData.copyWith({
-                contextState: forBuilder.createForContextState(
-                  k,
-                  _data[k],
-                  false
-                ),
-                tvState: contextData.tData.copyWith(node),
-                forLet: contextData.forLet + "_"
-              })
-            );
-          }
-          forBuilder.draw(_data);
-        });
-      }
+    let forAttr = BindingForBuilder.findForAttr(node);
+    if (forAttr) {
+      new BindingForBuilder(node, forAttr, contextData)
+        .addRenderListener((root, newContextData) => {
+          this._scan(root, newContextData)
+        }).setup();
     }
-    return !forBuilder.hasForAttr;
+    return !forAttr;
   }
   /**
    * * 递归解析子节点
@@ -222,6 +186,28 @@ class Aja {
       new BindingTextBuilder(node, contextData);
     }
     return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
+  }
+
+  /**
+   * 解析节点上是否有 :case :default
+   * @param root 
+   * @param contextData 
+   */
+  private _parseBindSwitch(root: HTMLElement, contextData: ContextData): boolean {
+    if (!contextData.switch) return true;
+    let depath = true;
+    const caseAttr = BindingSwitchBuilder.findCaseAttr(root);
+    if (caseAttr) {
+      new BindingSwitchBuilder(root, caseAttr, contextData);
+    } else {
+      const defaultAttr = BindingSwitchBuilder.findDefaultAttr(root);
+      if (defaultAttr) {
+        new BindingSwitchBuilder(root, defaultAttr, contextData);
+      }
+    }
+
+
+    return depath;
   }
 }
 

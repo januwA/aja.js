@@ -191,6 +191,25 @@ state: {
 </div>
 ```
 
+## switch
+```html
+<div [switch]="true">
+  <h1>233</h1>
+  <p :case="name === 'a' || name === 'b'">hello {{name}}</p>
+  <p :case="name === 'ajanuw'">bey bey {{name}}</p>
+  <p :default>not name!</p>
+</div>
+
+
+<div [switch]="name">
+  <h1>233</h1>
+  <p :case="'ajanuw'">hello {{name}}</p>
+  <p :case="'ajanuw'">bey bey {{name}}</p>
+  <p :case="'c'">i'm {{name}}...</p>
+  <p :default>not name!</p>
+</div>
+```
+
 ## 双向绑定
 ```html
 // input

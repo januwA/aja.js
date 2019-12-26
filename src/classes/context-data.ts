@@ -1,5 +1,10 @@
-import { BindingTempvarBuilder } from "./binding-builder";
+import { BindingTempvarBuilder, BindingBuilder } from "./binding-builder";
 import { FormGroup } from "./forms";
+
+export interface ContextDataSwitch {
+  value: BindingBuilder,
+  default: boolean[],
+}
 
 export interface ContextDataOpts {
   /**
@@ -30,6 +35,8 @@ export interface ContextDataOpts {
    * * 方便再上下文找到
    */
   formGroup?: FormGroup;
+
+  switch?: ContextDataSwitch;
 }
 
 export class ContextData {
@@ -48,9 +55,9 @@ export class ContextData {
   store: any;
 
   /**
-   * * 结构型指令产生的上下文变量
+   * * for结构型指令产生的上下文变量
    */
-  contextState?: { [k: string]: any };
+  forState?: { [k: string]: any };
 
   /**
    * * 模板引用变量上下文, 也将被结构型指令分割
@@ -59,27 +66,37 @@ export class ContextData {
 
   formGroup?: FormGroup;
 
+  switch?: ContextDataSwitch;
+
   constructor(options: ContextDataOpts) {
     this.store = options.store;
-    if (options.contextState) this.contextState = options.contextState;
+    if (options.contextState) this.forState = options.contextState;
     this.tData = options.tData;
     if (options.forLet) this.forLet = options.forLet;
     if (options.formGroup) this.formGroup = options.formGroup;
+    if (options.switch) this.switch = options.switch;
   }
 
   copyWith(options: {
-    globalState?: any;
-    contextState?: any;
-    tvState?: any;
+    store?: any;
+    forState?: any;
+    tData?: any;
     forLet?: string;
     formGroup?: FormGroup;
+    switch?: ContextDataSwitch;
   }): ContextData {
     return new ContextData({
-      store: options.globalState || this.store,
-      contextState: options.contextState || this.contextState,
-      tData: options.tvState || this.tData,
+      store: options.store || this.store,
+      contextState: options.forState || this.forState,
+      tData: options.tData || this.tData,
       forLet: options.forLet || this.forLet,
-      formGroup: options.formGroup || this.formGroup
+      formGroup: options.formGroup || this.formGroup,
+      switch: options.switch || this.switch,
     });
+  }
+
+
+  mergeData() {
+    return Object.assign(Object.assign(this.tData || {}, this.forState || {}), this.store);
   }
 }

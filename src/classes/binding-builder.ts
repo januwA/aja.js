@@ -1,19 +1,17 @@
 import { ContextData } from "./context-data";
-import { getData, setData } from "../core";
+import { getData, setData, evalFun } from "../core";
 import { usePipes } from "../pipes";
 
 import { FormControl, FormGroup } from "./forms";
 import { FormControlSerivce } from "../service/form-control.service";
-import { attrStartExp, attrEndExp, interpolationExpressionExp, eventStartExp, eventEndExp, tempvarExp } from "../utils/exp";
-import { emptyString, findIfAttr, findForAttr, hasStructureDirective, findElseAttr, getAttrs, eachChildNodes } from "../utils/util";
-import { autorun } from "mobx";
-import { AjaModel } from "./aja-model";
+import { attrStartExp, attrEndExp, eventStartExp, eventEndExp, tempvarExp } from "../utils/exp";
 import {
-    toArray,
+    emptyString, hasStructureDirective, getAttrs, eachChildNodes, toArray,
     getCheckboxRadioValue,
-    findModelAttr,
     parsePipe
 } from "../utils/util";
+import { autorun } from "mobx";
+import { AjaModel } from "./aja-model";
 import {
     radiop,
     selectp,
@@ -22,11 +20,11 @@ import {
     checkboxp,
     arrayp, objectp, numberStringp, elementNodep, tempvarp, formp
 } from "../utils/p";
-import { EventType, modelDirective, formControlAttrName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString, formGroupAttrName, formControlNameAttrName, formGroupNameAttrName, formArrayNameAttrName } from "../utils/const-string";
+import { EventType, modelDirective, formControlAttrName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString, formGroupAttrName, formControlNameAttrName, formGroupNameAttrName, formArrayNameAttrName, switchAttrName } from "../utils/const-string";
 
 const l = console.log;
 
-export abstract class BindingBuilder {
+export class BindingBuilder {
     get name(): string {
         return this.attr.name;
     }
@@ -112,7 +110,14 @@ export class BindingAttrBuilder extends BindingBuilder {
                 const formArray = contextData.formGroup.controls[this.value];
                 new FormControlSerivce(this.node, formArray);
             }
+        } else if (this.name === switchAttrName) {
+            // [switch]
+            contextData.switch = {
+                value: new BindingBuilder(attr, contextData),
+                default: [],
+            };
         } else {
+            // other
             switch (this.attrName) {
                 case "style":
                     this._styleSetup();
@@ -207,6 +212,9 @@ export class BindingTextBuilder {
     }
 
     _setup() {
+        if (!this.text.trim()) return;
+        //! 注意[RegExp.test]函数的BUG
+        const interpolationExpressionExp = /{{([\S\s]*?)}}/g;
         if (!interpolationExpressionExp.test(this.text)) return;
         autorun(() => {
             const text = this.text.replace(interpolationExpressionExp, (match, g1) => {
@@ -225,6 +233,20 @@ export class BindingTextBuilder {
 
 
 export class BindingModelBuilder {
+    /**
+    * 查找一个节点是否包含[(model)]指令
+    * 并返回
+    */
+    static findModelAttr(
+        node: HTMLElement,
+        modelAttr: string
+    ): Attr | undefined {
+        if (node.attributes && node.attributes.length) {
+            const attrs = toArray(node.attributes);
+            return attrs.find(({ name }) => name === modelAttr);
+        }
+    }
+
     // input / textarea
     input?: HTMLInputElement;
     checkbox?: HTMLInputElement;
@@ -246,7 +268,7 @@ export class BindingModelBuilder {
         public readonly node: HTMLElement,
         public readonly contextData: ContextData,
     ) {
-        this.attr = findModelAttr(node, modelDirective);
+        this.attr = BindingModelBuilder.findModelAttr(node, modelDirective);
         if (!this.attr) return;
 
         this.node.removeAttribute(this.attr!.name);
@@ -408,6 +430,13 @@ export class BindingModelBuilder {
 
 
 export class BindingIfBuilder extends BindingBuilder {
+    static findIfAttr(node: HTMLElement): Attr | undefined {
+        return getAttrs(node).find(({ name }) => name === structureDirectives.if);
+    }
+    static findElseAttr(node: HTMLElement): Attr | undefined {
+        return getAttrs(node).find(({ name }) => name === structureDirectives.else);
+    }
+
     /**
      * * 一个注释节点
      */
@@ -453,7 +482,7 @@ export class BindingIfBuilder extends BindingBuilder {
             return el;
         } else {
             if (this.node.nextElementSibling) {
-                const elseAttr = findElseAttr(this.node.nextElementSibling as HTMLElement);
+                const elseAttr = BindingIfBuilder.findElseAttr(this.node.nextElementSibling as HTMLElement);
                 if (elseAttr) {
                     this.node.nextElementSibling.removeAttribute(structureDirectives.else)
                     return this.node.nextElementSibling;
@@ -558,49 +587,70 @@ export class BindingEventBuilder {
 }
 
 
-export class BindingForBuilder {
+export class BindingForBuilder extends BindingBuilder {
     /**
-     * * 一个注释节点
+     * 查找一个节点是否包含:if指令
+     * 并返回
      */
-    private commentNode?: Comment;
-
-    private fragment?: DocumentFragment;
-    private forBuffer: Node[] = [];
-
-    forAttr?: Attr;
-
-    constructor(public node: HTMLElement, public contextData: ContextData) {
-        let forAttr = findForAttr(node, structureDirectives.for);
-        // 没有for指令，就不构建下去了
-        if (!forAttr) return;
-        this.forAttr = forAttr;
-        this.commentNode = document.createComment("");
-        this.fragment = document.createDocumentFragment();
-        node.replaceWith(this.commentNode);
-        node.removeAttribute(structureDirectives.for);
-    }
-
-    get hasForAttr() {
-        return !!this.forAttr;
-    }
-
-    private get forAttrValue():
-        | {
-            variable: string;
-            variables: string[];
-            bindData: string;
-            pipes: string[];
+    static findForAttr(node: HTMLElement): Attr | undefined {
+        if (node.attributes && node.attributes.length) {
+            return getAttrs(node).find(({ name }) => name === structureDirectives.for);
         }
-        | undefined {
-        if (!this.forAttr) return;
-        let [variable, bindKey] = this.forAttr.value
+    }
+    private commentNode: Comment = document.createComment("");
+    private fragment: DocumentFragment = document.createDocumentFragment();
+    private forBuffer: Node[] = [];
+    private _render?: (root: HTMLElement, newContextData: ContextData) => void;
+    addRenderListener(f: (root: HTMLElement, newContextData: ContextData) => void) {
+        this._render = f;
+        return this;
+    }
+
+    constructor(
+        public node: HTMLElement,
+        attr: Attr,
+        public contextData: ContextData
+    ) {
+        super(attr, contextData);
+        this.node.replaceWith(this.commentNode);
+        this.node.removeAttribute(structureDirectives.for);
+        return this;
+    }
+
+
+
+    setup() {
+        if (this.isNumberData) {
+            const _data = usePipes(+this.bindKey, this.pipes, this.contextData);
+            this.draw(_data);
+        } else {
+            autorun(() => {
+                let data = getData(this.bindKey, this.contextData);
+                data = usePipes(data, this.pipes, this.contextData);
+                this.clear();
+                this.draw(data);
+            });
+        }
+    }
+
+    private get _forAttrValue(): {
+        variable: string;
+        variables: string[];
+        bindKey: string;
+        pipes: string[];
+    } {
+        // el of arr
+        // variable -> el
+        // bindKey  -> arr
+        const [variable, bindKey] = this.value
             .split(/\bin|of\b/)
             .map(s => s.trim());
 
+        // (index, el) of arr
+        // variables -> [index, el]
         let variables: string[] = [];
         if (variable) {
             variables = variable
-                .trim()
                 .replace(eventStartExp, emptyString)
                 .replace(eventEndExp, emptyString)
                 .split(",")
@@ -610,38 +660,31 @@ export class BindingForBuilder {
         return {
             variable,
             variables,
-            bindData: p[0],
+            bindKey: p[0],
             pipes: p[1]
         };
     }
 
-    get bindVar(): string {
-        return this.forAttrValue!.variable || this.contextData.forLet;
+    get forVar(): string {
+        return this._forAttrValue.variable || this.contextData.forLet;
+    }
+    get forKey(): string {
+        return this._forAttrValue.variables[0] || this.contextData.forLet;
+    }
+    get forValue(): string | undefined {
+        return this._forAttrValue.variables[1];
     }
     get bindKey(): string {
-        return this.forAttrValue!.variables[0] || this.contextData.forLet;
+        return this._forAttrValue.bindKey;
     }
-    get bindValue(): string | undefined {
-        if (this.hasForAttr) {
-            return this.forAttrValue!.variables[1];
-        }
-    }
-    get bindData(): string | undefined {
-        if (this.hasForAttr) {
-            return this.forAttrValue!.bindData;
-        }
-    }
-    get isNumberData(): boolean | undefined {
-        if (this.hasForAttr) {
-            return numberStringp(this.bindData as string);
-        }
+    get isNumberData(): boolean {
+        return numberStringp(this.bindKey);
     }
     get pipes(): string[] {
-        if (this.hasForAttr) {
-            return this.forAttrValue?.pipes || [];
-        } else {
-            return [];
-        }
+        return this._forAttrValue.pipes || [];
+    }
+    get forLet(): string {
+        return this.contextData.forLet + "_";
     }
 
     /**
@@ -649,51 +692,64 @@ export class BindingForBuilder {
      * @param data
      */
     draw(data: any) {
-        if (this.commentNode && this.fragment) {
-            this.commentNode.after(this.fragment);
-            this.commentNode.data = this.createForCommentData(data);
+        if (this.isNumberData) {
+            new Array(data).fill(undefined).forEach((_, v) => {
+                const root = this.createItem();
+                const newContextData = this.contextData.copyWith({
+                    forState: this.createForContextState(v),
+                    tData: this.contextData.tData.copyWith(this.node),
+                    forLet: this.forLet,
+                });
+                this._render && this._render(root, newContextData)
+            });
+        } else {
+            for (const k in data) {
+                const root = this.createItem();
+                const newContextData = this.contextData.copyWith({
+                    forState: this.createForContextState(k, data[k]),
+                    tData: this.contextData.tData.copyWith(this.node),
+                    forLet: this.forLet,
+                });
+                this._render && this._render(root, newContextData)
+            }
         }
+        this.commentNode.after(this.fragment);
+        this._updateComment(data)
+
     }
 
     /**
      * * 清除所有节点
      */
     clear() {
-        for (const forItem of this.forBuffer) {
-            (forItem as HTMLElement).remove();
-        }
+        this.forBuffer.forEach(forItem => (<HTMLElement>forItem).remove());
         this.forBuffer = [];
     }
 
-    createForContextState(k: any, v: any = null, isNumber: boolean = true): {} {
+    createForContextState(k: any, v: any = null): {} {
         const forState: { [k: string]: any } = {};
-        if (isNumber) {
-            forState[this.bindVar] = k;
+        if (this.isNumberData) {
+            forState[this.forVar] = k;
         } else {
-            if (this.bindKey && this.bindValue) {
-                forState[this.bindKey] = k;
-                forState[this.bindValue] = v;
-            } else if (this.bindKey) {
-                forState[this.bindKey] = v;
+            if (this.forKey && this.forValue) {
+                forState[this.forKey] = k;
+                forState[this.forValue] = v;
+            } else if (this.forKey) {
+                forState[this.forKey] = v;
             }
         }
         return forState;
     }
 
-    private createForCommentData(obj: any): string {
-        let data = obj;
-        if (arrayp(data)) {
-            data = obj.slice(0, 6);
-        }
-        return `{":for": "${data}"}`;
+    private _updateComment(obj: any) {
+        if (arrayp(obj)) obj = obj.slice(0, 6);
+        this.commentNode.data = `{":for": "${obj}"}`;
     }
 
     createItem(): HTMLElement {
         const item = this.node.cloneNode(true);
-        if (this.fragment) {
-            this.forBuffer.push(item);
-            this.fragment.append(item);
-        }
+        this.forBuffer.push(item);
+        this.fragment.append(item);
         return item as HTMLElement;
     }
 }
@@ -765,5 +821,66 @@ export class BindingTempvarBuilder {
             this.set(_key, node);
         }
         node.removeAttribute(name);
+    }
+}
+
+
+export class BindingSwitchBuilder extends BindingBuilder {
+    static findCaseAttr(node: HTMLElement): Attr | undefined {
+        if (node.attributes && node.attributes.length) {
+            return getAttrs(node).find(({ name }) => name === structureDirectives.case);
+        }
+    }
+    static findDefaultAttr(node: HTMLElement): Attr | undefined {
+        if (node.attributes && node.attributes.length) {
+            return getAttrs(node).find(({ name }) => name === structureDirectives.default);
+        }
+    }
+
+    commentNode: Comment = document.createComment("");
+
+    private _key: number;
+
+    constructor(public node: HTMLElement, attr: Attr, public contextData: ContextData) {
+        super(attr, contextData);
+        this.node.before(this.commentNode);
+        this.node.removeAttribute(structureDirectives.case);
+        this.node.removeAttribute(structureDirectives.default);
+        this._key = this.contextData.switch?.default.length || 0;
+        this._setup();
+    }
+
+    private _setup() {
+        autorun(() => {
+            if (!this.contextData.switch) return;
+            const caseData = this.getPipeData();
+            const switchData = this.contextData.switch.value.getPipeData();
+            if (this.value) {
+                // case
+                if (caseData === switchData) {
+                    // show
+                    this.contextData.switch.default[this._key] = false;
+                    this.commentNode.after(this.node);
+                } else {
+                    // hide
+                    this.contextData.switch.default[this._key] = true;
+                    this.node.replaceWith(this.commentNode);
+                }
+                this._updateCaseComment(caseData);
+            } else {
+                // default
+                if (this.contextData.switch.default.every(b => b)) {
+                    // show
+                    this.commentNode.after(this.node);
+                } else {
+                    // hide
+                    this.node.replaceWith(this.commentNode);
+                }
+            }
+        })
+    }
+
+    private _updateCaseComment(value: any) {
+        this.commentNode.data = `{":case": "${value}"}`;
     }
 }

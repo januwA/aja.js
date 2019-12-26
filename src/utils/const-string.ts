@@ -28,7 +28,9 @@ export let structureDirectivePrefix = ":";
 export const structureDirectives = {
   if: structureDirectivePrefix + "if".toLowerCase(),
   for: structureDirectivePrefix + "for".toLowerCase(),
-  else: structureDirectivePrefix + "else".toLowerCase()
+  else: structureDirectivePrefix + "else".toLowerCase(),
+  case: structureDirectivePrefix + "case".toLowerCase(),
+  default: structureDirectivePrefix + "default".toLowerCase()
 };
 
 /**
@@ -48,3 +50,4 @@ export const formGroupAttrName = '[formGroup]'.toLowerCase();
 export const formControlNameAttrName = '[formControlName]'.toLowerCase();
 export const formGroupNameAttrName = '[formGroupName]'.toLowerCase();
 export const formArrayNameAttrName = '[formArrayName]'.toLowerCase();
+export const switchAttrName = '[switch]'.toLowerCase();

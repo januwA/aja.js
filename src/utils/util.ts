@@ -4,7 +4,6 @@ import {
   arrayTag,
   stringString,
   structureDirectivePrefix,
-  structureDirectives,
 } from "./const-string";
 
 export function createRoot(view: string | HTMLElement): HTMLElement | null {
@@ -81,36 +80,6 @@ export function getCheckboxRadioValue(
   return value;
 }
 
-
-
-/**
- * 查找一个节点是否包含:if指令
- * 并返回
- */
-export function findForAttr(
-  node: HTMLElement,
-  forInstruction: string
-): Attr | undefined {
-  if (node.attributes && node.attributes.length) {
-    const attrs = Array.from(node.attributes);
-    return attrs.find(({ name }) => name === forInstruction);
-  }
-}
-
-/**
- * 查找一个节点是否包含[(model)]指令
- * 并返回
- */
-export function findModelAttr(
-  node: HTMLElement,
-  modelAttr: string
-): Attr | undefined {
-  if (node.attributes && node.attributes.length) {
-    const attrs = toArray(node.attributes);
-    return attrs.find(({ name }) => name === modelAttr);
-  }
-}
-
 /**
  * * 检测节点上是否有绑定结构指令
  * @param node
@@ -118,8 +87,7 @@ export function findModelAttr(
  */
 export function hasStructureDirective(node: HTMLElement): boolean {
   if (node.attributes && node.attributes.length) {
-    const attrs = toArray(node.attributes);
-    return attrs.some(
+    return getAttrs(node).some(
       ({ name }) => name.charAt(0) === structureDirectivePrefix
     );
   }
@@ -232,18 +200,18 @@ export function getAttrs(node: HTMLElement): Attr[] {
   return toArray(node.attributes);
 }
 
-/**
- * 查找一个节点是否包含:if指令
- * 并返回
- */
-export function findIfAttr(node: HTMLElement): Attr | undefined {
-  return getAttrs(node).find(({ name }) => name === structureDirectives.if);
-}
-
-export function findElseAttr(node: HTMLElement): Attr | undefined {
-  return getAttrs(node).find(({ name }) => name === structureDirectives.else);
-}
-
 export function eachChildNodes(node: HTMLElement, callbackfn: (value: ChildNode, index: number, array: ChildNode[]) => void) {
   toArray(node.childNodes).forEach(callbackfn);
+}
+
+/**
+ * 节点是否包含多个结构型指令
+ */
+export function hasMultipleStructuredInstructions(node: HTMLElement): boolean {
+  return getAttrs(node).reduce((acc, { name }) => {
+    if (name.charAt(0) === structureDirectivePrefix) {
+      acc.push(undefined);
+    }
+    return acc;
+  }, [] as any[]).length > 1
 }

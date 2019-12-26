@@ -10,26 +10,19 @@
     [hidden] {
       display: none;
     }
-
-    .aja-touched.aja-invalid {
-      border-color: red;
-    }
-
-    .aja-touched.aja-valid {
-      border-color: #33ff00;
-    }
   </style>
 </head>
 
 <body>
   <div class="app">
-    <p :if="show">hello</p>
-    <h1 :else>else {{ !show }}</h1>
-
-    <aja-template>
-      <p>hello</p>
-    </aja-template>
-    <button (click)="asd()">change</button>
+    <div [switch]="name">
+      <h1>233</h1>
+      <p :case="'ajanuw'">hello {{name}}</p>
+      <p :case="'ajanuw'">bey bey {{name}}</p>
+      <p :case="'c'">i'm {{name}}...</p>
+      <p :default>not name!</p>
+  </div>
+    <button (click)="test()">test</button>
   </div>
   <script src="../dist/dist/aja.umd.js"></script>
   <script>
@@ -38,11 +31,12 @@
 
     let vm = new Aja(".app", {
       state: {
-        show: true,
+        name: "ajanuw",
+        arr: [1, 2, 3, 4]
       },
       actions: {
-        asd() {
-          this.show = !this.show;
+        test() {
+          this.name = 'c'
         }
       }
     });
