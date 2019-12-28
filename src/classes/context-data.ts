@@ -80,7 +80,7 @@ export class ContextData {
   copyWith(options: {
     store?: any;
     forState?: any;
-    tData?: any;
+    tData?: BindingTempvarBuilder;
     forLet?: string;
     formGroup?: FormGroup;
     switch?: ContextDataSwitch;
@@ -97,6 +97,7 @@ export class ContextData {
 
 
   mergeData() {
-    return Object.assign(Object.assign(this.tData || {}, this.forState || {}), this.store);
+    //? assign 无法拷贝get 计算属性，所以store不能在这里面
+    return Object.assign({}, Object.assign(this.tData.templateVariables || {}, this.forState || {}));
   }
 }

@@ -6,10 +6,6 @@ import {
   structureDirectivePrefix,
 } from "./const-string";
 
-export function createObject<T>(obj?: T): T {
-  return obj ? obj : ({} as T);
-}
-
 export function toArray<T>(iterable: Iterable<T> | ArrayLike<T>): T[] {
   if (!iterable) return [];
   if (Array.from) {

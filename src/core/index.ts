@@ -22,6 +22,9 @@ export function getData(
     let [bindKey] = parsePipe(key);
     let _result: any;
     _result = evalFun(bindKey, contextData.mergeData())
+    if (_result === undefined) {
+        _result = evalFun(bindKey, contextData.store)
+    }
     if (undefinedp(_result)) _result = emptyString;
     return _result;
 }

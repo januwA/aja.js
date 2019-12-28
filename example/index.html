@@ -14,26 +14,35 @@
 </head>
 
 <body>
-  <div class="app">
-    <aja-tile [title]="name" (alert)="showEmit"></aja-tile>
-    <aja-tile [title]="'b'" (alert)="showEmit"></aja-tile>
-    <hr />
-    <aja-tile [title]="'c'" (alert)="showEmit"></aja-tile>
-    <p> {{ name }}</p>
-    <button (click)="test()">test</button>
-  </div>
+  <app-home></app-home>
+
+  <template id="app">
+    <p>{{ name | uppercase }}</p>
+    <p>{{ helloName }}</p>
+    <app-tile [title]="'hello world'" (alert)="test"></app-tile>
+    <button (click)="test()" #btn>test</button>
+    <h1>ttt</h1>
+  </template>
 
   <template id="tile">
     <h3>title: {{ title }}</h3>
-    <p>subtitle: {{subtitle}}</p>
+    <p>subtitle: {{subtitle | hello }}</p>
     <button (click)="send()">emit</button>
   </template>
 
   <script src="../dist/dist/aja.umd.js"></script>
   <script>
     const l = console.log;
-    const { AjaWidget } = Aja;
-    class AjaTile extends AjaWidget {
+    const { AjaWidget, AjaModule, AjaPipe } = Aja;
+
+    class HelloPipe extends AjaPipe {
+      pipeName = 'hello';
+      transform(v) {
+        return `hello ${v}`;
+      }
+    }
+
+    class AppTile extends AjaWidget {
 
       inputs = ['title'];
 
@@ -43,6 +52,7 @@
 
       actions = {
         send() {
+          l(this.subtitle)
           this.alert(this.title);
         }
       }
@@ -56,20 +66,43 @@
       }
     }
 
-    let vm = new Aja(document.querySelector('.app'), {
-      declarations: [AjaTile],
-      state: {
-        name: 'x'
-      },
-      actions: {
-        test() {
-          this.name = 'c'
-        },
-        showEmit(title) {
-          l(title)
+    class AppHome extends AjaWidget {
+      state = {
+        name: 'x',
+        get helloName() {
+          return `hello ${this.name}`
         }
       }
-    });
+
+      actions = {
+        test(title) {
+          l(title)
+          this.name = 'c'
+        },
+      }
+
+      render() {
+        return document.querySelector('#app');
+      }
+    }
+    
+    class SharedModule extends AjaModule {
+      declarations = [HelloPipe];
+      exports = [HelloPipe];
+    }
+    
+    class AppModule extends AjaModule {
+      declarations = [
+        AppHome,
+        AppTile
+      ];
+      imports = [
+        SharedModule
+      ];
+      bootstrap = AppHome;
+    }
+
+    Aja.bootstrapModule(AppModule);
   </script>
 </body>
 

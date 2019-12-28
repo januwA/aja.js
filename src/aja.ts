@@ -1,5 +1,4 @@
 import {
-  createObject,
   toArray,
   getAttrs,
   hasMultipleStructuredInstructions,
@@ -11,20 +10,27 @@ import {
   boolStringp,
   attrp,
   elementNodep,
-  textNodep
+  textNodep,
+  arrayp
 } from "./utils/p";
-import { ajaPipes, Pipes } from "./pipes";
 import { ContextData } from "./classes/context-data";
 import { FormControl, FormGroup, FormBuilder, FormArray } from "./classes/forms";
 import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder, BindingSwitchBuilder } from "./classes/binding-builder";
 import { AjaWidget, AjaWidgets } from "./classes/aja-widget";
 import { getData } from "./core";
 import { attrStartExp, attrEndExp, eventStartExp, eventEndExp } from "./utils/exp";
+import { AjaModule } from "./classes/aja-module";
+import { AjaPipes, AjaPipe } from "./classes/aja-pipe";
+import { AjaModel } from "./classes/aja-model";
 
 const l = console.log;
 
-interface Constructable<T> {
-  new(): T;
+export interface Type<T> extends Function {
+  new(...args: any[]): T;
+}
+
+export interface AnyObject {
+  [k: string]: any
 }
 
 export interface Actions {
@@ -35,16 +41,6 @@ export interface AjaConfigOpts {
   state?: any;
   actions?: Actions;
   initState?: Function;
-
-  /**
-   * 声明管道
-   */
-  pipes?: Pipes;
-
-  /**
-   * 声明组件
-   */
-  declarations?: Constructable<AjaWidget>[];
 }
 
 class Aja {
@@ -53,20 +49,80 @@ class Aja {
   static FormArray = FormArray;
   static fb = FormBuilder;
   static AjaWidget = AjaWidget;
+  static AjaModule = AjaModule;
+  static AjaPipe = AjaPipe;
+
+  /**
+   * 运行根模块
+   */
+  static bootstrapModule(moduleType: Type<AjaModule>) {
+    const m = new moduleType();
+    const bootstrap = arrayp(m.bootstrap) ? m.bootstrap[0] : m.bootstrap;
+    if (!bootstrap) return;
+
+    // 将 module.export 合并到 declarations
+    if (m.imports && m.imports.length) {
+      m.imports.forEach(el => {
+        const x = new el;
+        if (x instanceof AjaModule) {
+          if (x.exports) {
+            if (m.declarations) {
+              m.declarations = m.declarations.concat(x.exports);
+            } else {
+              m.declarations = x.exports;
+            }
+          }
+        }
+      });
+    }
+
+    // 解析 declarations
+    m.declarations?.forEach(el => {
+      const x = new el;
+      if (x instanceof AjaWidget) {
+        AjaWidgets.add(el.name, x);
+      } else if (x instanceof AjaPipe) {
+        AjaPipes.add(x);
+      }
+    });
+
+    const ajaWidget = new bootstrap()
+    const node = document.querySelector<HTMLElement>(AjaWidget.createWidgetName(bootstrap.name))
+    if (!node) return;
+    node.innerHTML = '';
+    node.append(ajaWidget.widget);
+    const attrs = getAttrs(node);
+    const aja = new Aja(node, {
+      state: ajaWidget.state,
+      actions: ajaWidget.actions,
+      initState: ajaWidget.initState,
+    });
+    const contextData = new ContextData({
+      store: aja.$store,
+      tData: {}
+    });
+    attrs.forEach(attr => {
+      const { name } = attr;
+      if (attrp(name)) {
+        const attrName = name
+          .replace(attrStartExp, '')
+          .replace(attrEndExp, '')
+          .split(".")[0]
+        if (ajaWidget.inputs?.includes(attrName)) {
+          autorun(() => {
+            aja.$store[attrName] = getData(attr.value, contextData)
+          })
+        }
+      }
+    })
+  }
 
   $store?: any;
   $actions?: Actions;
 
   constructor(public root: HTMLElement, options: AjaConfigOpts = {}) {
-    if (options.pipes) Object.assign(ajaPipes, options.pipes);
     this._proxyState(options);
     if (options.initState) options.initState.call(this.$store);
-
-    if (options.declarations) {
-      options.declarations.forEach(widget => {
-        AjaWidgets.register(widget.name, new widget());
-      })
-    }
 
     const contextData = new ContextData({
       store: this.$store,
@@ -88,9 +144,19 @@ class Aja {
       node.innerHTML = '';
       node.append(ajaWidget.widget);
       const attrs = getAttrs(node);
+      const actions = ajaWidget.actions || {};
+      attrs.forEach(attr => {
+        const { name } = attr;
+        if (eventp(name)) {
+          const type = name.replace(eventStartExp, "")
+            .replace(eventEndExp, "");
+          const f = (this.$actions || {})[attr.value];
+          actions[type] = f.bind(contextData.store);
+        }
+      })
       const aja = new Aja(node, {
         state: ajaWidget.state,
-        actions: ajaWidget.actions,
+        actions: actions,
         initState: ajaWidget.initState,
       });
       attrs.forEach(attr => {
@@ -105,10 +171,6 @@ class Aja {
               aja.$store[attrName] = getData(attr.value, contextData)
             })
           }
-        } else if (eventp(name)) {
-          const type = name.replace(eventStartExp, "")
-            .replace(eventEndExp, "");
-          aja.$store[type] = (this.$actions || {})[attr.value]
         }
       })
       return;
@@ -124,7 +186,7 @@ class Aja {
     }
 
     if (depath) {
-      const childNodes = toArray(node.childNodes);
+      const childNodes = toArray(node.childNodes).filter(e => e.nodeName !== '#comment');
       if (childNodes.length) this._bindingChildNodesAttrs(childNodes, contextData);
     }
   }
@@ -158,13 +220,11 @@ class Aja {
   }
 
   private _proxyState(options: AjaConfigOpts): void {
-    const state = createObject<any>(options.state);
-    this.$actions = createObject<any>(options.actions);
-
-    if (!this.$actions) return;
-
-    const bounds: { [k: string]: any } = {};
-    Object.keys(this.$actions).forEach(ac => (bounds[ac] = action.bound));
+    const state = options.state || {};
+    this.$actions = options.actions || {};
+    const bounds: AnyObject = Object.keys(this.$actions).reduce((acc, ac) => Object.assign(acc, {
+      [ac]: action.bound
+    }), {});
     this.$store = observable(Object.assign(state, this.$actions), bounds, {
       deep: true
     });

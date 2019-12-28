@@ -641,6 +641,101 @@ let vm = new Aja(document.querySelector(".app"), {
 </script>
 ```
 
+## v0.0.11 重大变更
+```html
+<body>
+  <app-home></app-home>
+
+  <template id="app">
+    <p>{{ name | uppercase }}</p>
+    <p>{{ helloName }}</p>
+    <app-tile [title]="'hello world'" (alert)="test"></app-tile>
+    <button (click)="test()" #btn>test</button>
+  </template>
+
+  <template id="tile">
+    <h3>title: {{ title }}</h3>
+    <p>subtitle: {{subtitle | hello }}</p>
+    <button (click)="send()">emit</button>
+  </template>
+
+  <script src="../dist/dist/aja.umd.js"></script>
+  <script>
+    const l = console.log;
+    const { AjaWidget, AjaModule, AjaPipe } = Aja;
+
+    class HelloPipe extends AjaPipe {
+      pipeName = 'hello';
+      transform(v) {
+        return `hello ${v}`;
+      }
+    }
+
+    class AppTile extends AjaWidget {
+
+      inputs = ['title'];
+
+      state = {
+        subtitle: '模板'
+      }
+
+      actions = {
+        send() {
+          l(this.subtitle)
+          this.alert(this.title);
+        }
+      }
+
+      constructor() {
+        super();
+      }
+
+      render() {
+        return document.querySelector('#tile')
+      }
+    }
+
+    class AppHome extends AjaWidget {
+      state = {
+        name: 'x',
+        get helloName() {
+          return `hello ${this.name}`
+        }
+      }
+
+      actions = {
+        test(title) {
+          l(title)
+          this.name = 'c'
+        },
+      }
+
+      render() {
+        return document.querySelector('#app');
+      }
+    }
+    
+    class SharedModule extends AjaModule {
+      declarations = [HelloPipe];
+      exports = [HelloPipe];
+    }
+    
+    class AppModule extends AjaModule {
+      declarations = [
+        AppHome,
+        AppTile
+      ];
+      imports = [
+        SharedModule
+      ];
+      bootstrap = AppHome;
+    }
+
+    Aja.bootstrapModule(AppModule);
+  </script>
+</body>
+```
+
 
 ## TODO
 - 延迟解析[(model)]

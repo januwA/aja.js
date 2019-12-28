@@ -1,13 +1,16 @@
 import { Actions } from "../aja";
-import { Pipes } from "../pipes";
 
 const l = console.log;
 export abstract class AjaWidget {
+    static createWidgetName(name: string) {
+        let newName = name.charAt(0).toLowerCase() + name.substr(1);
+        newName = newName.replace(/([A-Z])/g, '-$1');
+        return newName.toLowerCase();
+    }
 
     abstract inputs: string[] = [];
     abstract state?: any = {};
     abstract actions?: Actions = {};
-    abstract pipes?: Pipes;
 
     abstract render: () => HTMLTemplateElement | undefined;
     abstract initState?: Function;
@@ -28,10 +31,8 @@ export class AjaWidgets {
         [k: string]: AjaWidget;
     } = {}
 
-    static register(name: string, widget: AjaWidget): void {
-        let newName = name.charAt(0).toLowerCase() + name.substr(1);
-        newName = newName.replace(/([A-Z])/g, '-$1');
-        this._widgets[newName.toLowerCase()] = widget;
+    static add(name: string, widget: AjaWidget): void {
+        this._widgets[AjaWidget.createWidgetName(name)] = widget;
     }
 
     static get(name: string): AjaWidget | undefined {

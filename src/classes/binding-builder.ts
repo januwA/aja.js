@@ -1,6 +1,5 @@
 import { ContextData } from "./context-data";
 import { getData, setData } from "../core";
-import { usePipes } from "../pipes";
 
 import { FormControl, FormGroup } from "./forms";
 import { FormControlSerivce } from "../service/form-control.service";
@@ -21,6 +20,7 @@ import {
     arrayp, objectp, numberStringp, elementNodep, tempvarp, formp
 } from "../utils/p";
 import { EventType, modelDirective, formControlAttrName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString, formGroupAttrName, formControlNameAttrName, formGroupNameAttrName, formArrayNameAttrName, switchAttrName } from "../utils/const-string";
+import { usePipes } from "./aja-pipe";
 
 const l = console.log;
 
@@ -199,7 +199,7 @@ export class BindingTextBuilder {
     /**
      * * 保存插值表达式的模板，千万不要改变
      */
-    public text: string;
+    public readonly text: string;
 
     constructor(
         public readonly node: ChildNode,
@@ -226,7 +226,8 @@ export class BindingTextBuilder {
 
     private getPipeData(key: string) {
         const [bindKey, pipeList] = parsePipe(key);
-        return usePipes(getData(bindKey, this.contextData), pipeList, this.contextData)
+        const data = getData(bindKey, this.contextData);
+        return usePipes(data, pipeList, this.contextData)
     }
 }
 
@@ -762,7 +763,7 @@ export class BindingTempvarBuilder {
     /**
      * * 模板变量保存的DOM
      */
-    templateVariables: TemplateVariable = {};
+    readonly templateVariables: TemplateVariable = {};
 
     constructor(
         node: HTMLElement,
@@ -774,7 +775,7 @@ export class BindingTempvarBuilder {
     }
 
     has(key: string): boolean {
-        return key.toLowerCase() in this.templateVariables;
+        return !!this.get(key);
     }
 
     get(key: string) {
