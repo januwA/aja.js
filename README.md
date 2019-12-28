@@ -13,7 +13,7 @@
     <script src="../dist/aja.js"></script>
     <script>
       const l = console.log;
-      let vm = new Aja(".app", {
+      let vm = new Aja(document.querySelector(".app"), {
         state: {
           
           // 需要绑定在节点中的数据, 可以初始化为null，不要初始化为undefined
@@ -148,7 +148,7 @@ state: {
 </div>
 <script>
   const l = console.log;
-  let vm = new Aja(".app", {
+  let vm = new Aja(document.querySelector(".app"), {
     state: {
       arr: [
         {
@@ -280,7 +280,7 @@ state: {
 </div>
 
 <script>
-  new Aja(".app", {
+  new Aja(document.querySelector(".app"), {
     state: {
       name: "ajanuw"
     },
@@ -305,7 +305,7 @@ state: {
 </div>
 <script>
   const l = console.log;
-  let vm = new Aja(".app", {
+  let vm = new Aja(document.querySelector(".app"), {
     state: {
       age: null
     },
@@ -337,7 +337,7 @@ state: {
 </div>
 
 <script>
-let vm = new Aja(".app", {
+let vm = new Aja(document.querySelector(".app"), {
   pipes: {
     hello(s) {
       return "hello " + s;
@@ -381,7 +381,7 @@ let vm = new Aja(".app", {
 </div>
 <script>
   const l = console.log;
-  let vm = new Aja(".app", {
+  let vm = new Aja(document.querySelector(".app"), {
     state: {
       name: ""
     },
@@ -452,7 +452,7 @@ let vm = new Aja(".app", {
     });
   }
   
-  let vm = new Aja(".app", {
+  let vm = new Aja(document.querySelector(".app"), {
     state: {
       name: new Aja.FormControl(
         "",
@@ -492,7 +492,7 @@ let vm = new Aja(".app", {
 
 <script>
   const l = console.log;
-  let vm = new Aja(".app", {
+  let vm = new Aja(document.querySelector(".app"), {
     state: {
       profileForm: new Aja.FormGroup({
         firstName: new Aja.FormControl('a'),
@@ -557,7 +557,7 @@ let vm = new Aja(".app", {
   const l = console.log;
   const { FormGroup, FormControl, FormArray,  fb } = Aja;
 
-  let vm = new Aja(".app", {
+  let vm = new Aja(document.querySelector(".app"), {
     state: {
       profileForm: fb.group({
         firstName: ['asdasd'],
@@ -573,6 +573,68 @@ let vm = new Aja(".app", {
     actions: {
       asd() {
         l(this.profileForm)
+      }
+    }
+  });
+</script>
+```
+
+## 组件(待优化)
+
+```html
+<div class="app">
+  <aja-tile [title]="name" (alert)="showEmit"></aja-tile>
+  <aja-tile [title]="'b'" (alert)="showEmit"></aja-tile>
+  <aja-tile [title]="'c'" (alert)="showEmit"></aja-tile>
+  <p> {{ name }}</p>
+  <button (click)="test()">test</button>
+</div>
+
+<template id="tile">
+  <h3>title: {{ title }}</h3>
+  <p>subtitle: {{subtitle}}</p>
+  <button (click)="send()">emit</button>
+</template>
+
+<script src="../dist/dist/aja.umd.js"></script>
+<script>
+  const l = console.log;
+  const { AjaWidget } = Aja;
+  class AjaTile extends AjaWidget {
+
+    inputs = ['title'];
+
+    state = {
+      subtitle: '模板'
+    }
+
+    actions = {
+      send() {
+        this.alert(this.title);
+      }
+    }
+
+    constructor() {
+      super();
+    }
+
+    // 必须返回一个<template>元素
+    render() {
+      return document.querySelector('#tile')
+    }
+  }
+
+  let vm = new Aja(document.querySelector('.app'), {
+    declarations: [AjaTile],
+    state: {
+      name: 'x'
+    },
+    actions: {
+      test() {
+        this.name = 'c'
+      },
+      showEmit(title) {
+        l(title)
       }
     }
   });

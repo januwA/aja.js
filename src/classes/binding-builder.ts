@@ -1,5 +1,5 @@
 import { ContextData } from "./context-data";
-import { getData, setData, evalFun } from "../core";
+import { getData, setData } from "../core";
 import { usePipes } from "../pipes";
 
 import { FormControl, FormGroup } from "./forms";
@@ -76,11 +76,10 @@ export class BindingAttrBuilder extends BindingBuilder {
         return this._parseAttr[1];
     }
 
-
     constructor(
         public readonly node: HTMLElement,
         public readonly attr: Attr,
-        public readonly contextData: ContextData,
+        public readonly contextData: ContextData
     ) {
         super(attr, contextData);
         if (this.name === formControlAttrName) {

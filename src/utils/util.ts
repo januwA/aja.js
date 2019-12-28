@@ -6,12 +6,6 @@ import {
   structureDirectivePrefix,
 } from "./const-string";
 
-export function createRoot(view: string | HTMLElement): HTMLElement | null {
-  return typeof view === "string"
-    ? document.querySelector<HTMLElement>(view)
-    : view;
-}
-
 export function createObject<T>(obj?: T): T {
   return obj ? obj : ({} as T);
 }

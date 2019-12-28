@@ -15,28 +15,58 @@
 
 <body>
   <div class="app">
-    <div [switch]="name">
-      <h1>233</h1>
-      <p :case="'ajanuw'">hello {{name}}</p>
-      <p :case="'ajanuw'">bey bey {{name}}</p>
-      <p :case="'c'">i'm {{name}}...</p>
-      <p :default>not name!</p>
-  </div>
+    <aja-tile [title]="name" (alert)="showEmit"></aja-tile>
+    <aja-tile [title]="'b'" (alert)="showEmit"></aja-tile>
+    <hr />
+    <aja-tile [title]="'c'" (alert)="showEmit"></aja-tile>
+    <p> {{ name }}</p>
     <button (click)="test()">test</button>
   </div>
+
+  <template id="tile">
+    <h3>title: {{ title }}</h3>
+    <p>subtitle: {{subtitle}}</p>
+    <button (click)="send()">emit</button>
+  </template>
+
   <script src="../dist/dist/aja.umd.js"></script>
   <script>
     const l = console.log;
-    const { FormGroup, FormControl, fb } = Aja;
+    const { AjaWidget } = Aja;
+    class AjaTile extends AjaWidget {
 
-    let vm = new Aja(".app", {
+      inputs = ['title'];
+
+      state = {
+        subtitle: '模板'
+      }
+
+      actions = {
+        send() {
+          this.alert(this.title);
+        }
+      }
+
+      constructor() {
+        super();
+      }
+
+      render() {
+        return document.querySelector('#tile')
+      }
+    }
+
+    let vm = new Aja(document.querySelector('.app'), {
+      declarations: [AjaTile],
       state: {
-        name: "ajanuw",
-        arr: [1, 2, 3, 4]
+        name: 'x'
       },
       actions: {
         test() {
           this.name = 'c'
+        },
+        showEmit(title) {
+          l(title)
         }
       }
     });

@@ -1,5 +1,4 @@
 import {
-  createRoot,
   createObject,
   toArray,
   getAttrs,
@@ -18,8 +17,15 @@ import { ajaPipes, Pipes } from "./pipes";
 import { ContextData } from "./classes/context-data";
 import { FormControl, FormGroup, FormBuilder, FormArray } from "./classes/forms";
 import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder, BindingSwitchBuilder } from "./classes/binding-builder";
+import { AjaWidget, AjaWidgets } from "./classes/aja-widget";
+import { getData } from "./core";
+import { attrStartExp, attrEndExp, eventStartExp, eventEndExp } from "./utils/exp";
 
 const l = console.log;
+
+interface Constructable<T> {
+  new(): T;
+}
 
 export interface Actions {
   [name: string]: Function;
@@ -29,25 +35,38 @@ export interface AjaConfigOpts {
   state?: any;
   actions?: Actions;
   initState?: Function;
+
+  /**
+   * 声明管道
+   */
   pipes?: Pipes;
+
+  /**
+   * 声明组件
+   */
+  declarations?: Constructable<AjaWidget>[];
 }
 
 class Aja {
   static FormControl = FormControl;
   static FormGroup = FormGroup;
   static FormArray = FormArray;
-  static fb = FormBuilder
+  static fb = FormBuilder;
+  static AjaWidget = AjaWidget;
 
   $store?: any;
   $actions?: Actions;
 
-  constructor(view?: string | HTMLElement, options?: AjaConfigOpts) {
-    if (!options || !view) return;
-    const root = createRoot(view);
-    if (root === null) return;
+  constructor(public root: HTMLElement, options: AjaConfigOpts = {}) {
     if (options.pipes) Object.assign(ajaPipes, options.pipes);
     this._proxyState(options);
     if (options.initState) options.initState.call(this.$store);
+
+    if (options.declarations) {
+      options.declarations.forEach(widget => {
+        AjaWidgets.register(widget.name, new widget());
+      })
+    }
 
     const contextData = new ContextData({
       store: this.$store,
@@ -58,24 +77,54 @@ class Aja {
 
   /**
    * 扫描绑定
-   * @param root
+   * @param node
    */
-  private _scan(root: HTMLElement, contextData: ContextData): void {
-    if (hasMultipleStructuredInstructions(root)) {
-      throw `一个元素不能绑定多个结构型指令。(${root.outerHTML})`;
+  private _scan(node: HTMLElement, contextData: ContextData): void {
+    if (hasMultipleStructuredInstructions(node)) {
+      throw `一个元素不能绑定多个结构型指令。(${node.outerHTML})`;
+    }
+    const ajaWidget = AjaWidgets.get(node.nodeName);
+    if (ajaWidget && node !== this.root) {
+      node.innerHTML = '';
+      node.append(ajaWidget.widget);
+      const attrs = getAttrs(node);
+      const aja = new Aja(node, {
+        state: ajaWidget.state,
+        actions: ajaWidget.actions,
+        initState: ajaWidget.initState,
+      });
+      attrs.forEach(attr => {
+        const { name } = attr;
+        if (attrp(name)) {
+          const attrName = name
+            .replace(attrStartExp, '')
+            .replace(attrEndExp, '')
+            .split(".")[0]
+          if (ajaWidget.inputs?.includes(attrName)) {
+            autorun(() => {
+              aja.$store[attrName] = getData(attr.value, contextData)
+            })
+          }
+        } else if (eventp(name)) {
+          const type = name.replace(eventStartExp, "")
+            .replace(eventEndExp, "");
+          aja.$store[type] = (this.$actions || {})[attr.value]
+        }
+      })
+      return;
     }
     let depath = true;
-    if (root.attributes && getAttrs(root).length) {
-      depath = this._parseBindIf(root, contextData);
-      if (depath) depath = this._parseBindFor(root, contextData);
-      if (depath) depath = this._parseBindSwitch(root, contextData);
+    if (node.attributes && getAttrs(node).length) {
+      depath = this._parseBindIf(node, contextData);
+      if (depath) depath = this._parseBindFor(node, contextData);
+      if (depath) depath = this._parseBindSwitch(node, contextData);
       if (depath) {
-        this._parseBindAttrs(root, getAttrs(root), contextData);
+        this._parseBindAttrs(node, getAttrs(node), contextData);
       }
     }
 
     if (depath) {
-      const childNodes = toArray(root.childNodes);
+      const childNodes = toArray(node.childNodes);
       if (childNodes.length) this._bindingChildNodesAttrs(childNodes, contextData);
     }
   }
