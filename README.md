@@ -1,6 +1,101 @@
-...造轮子
-
 ## 基本
+```html
+<body>
+  <app-home></app-home>
+
+  <template id="app">
+    <p>{{ name | uppercase }}</p>
+    <p>{{ helloName }}</p>
+    <app-tile [title]="'hello world'" (alert)="test"></app-tile>
+    <button (click)="test()" #btn>test</button>
+  </template>
+
+  <template id="tile">
+    <h3>title: {{ title }}</h3>
+    <p>subtitle: {{subtitle | hello }}</p>
+    <button (click)="send()">emit</button>
+  </template>
+
+  <script src="../dist/dist/aja.umd.js"></script>
+  <script>
+    const l = console.log;
+    const { AjaWidget, AjaModule, AjaPipe } = Aja;
+
+    class HelloPipe extends AjaPipe {
+      pipeName = 'hello';
+      transform(v) {
+        return `hello ${v}`;
+      }
+    }
+
+    class AppTile extends AjaWidget {
+
+      inputs = ['title'];
+
+      state = {
+        subtitle: '模板'
+      }
+
+      actions = {
+        send() {
+          l(this.subtitle)
+          this.alert(this.title);
+        }
+      }
+
+      constructor() {
+        super();
+      }
+
+      render() {
+        return document.querySelector('#tile')
+      }
+    }
+
+    class AppHome extends AjaWidget {
+      state = {
+        name: 'x',
+        get helloName() {
+          return `hello ${this.name}`
+        }
+      }
+
+      actions = {
+        test(title) {
+          l(title)
+          this.name = 'c'
+        },
+      }
+
+      render() {
+        return document.querySelector('#app');
+      }
+    }
+    
+    class SharedModule extends AjaModule {
+      declarations = [HelloPipe];
+      exports = [HelloPipe];
+    }
+    
+    class AppModule extends AjaModule {
+      declarations = [
+        AppHome,
+        AppTile
+      ];
+      imports = [
+        SharedModule
+      ];
+      bootstrap = AppHome;
+    }
+
+    Aja.bootstrapModule(AppModule);
+  </script>
+</body>
+```
+
+<details>
+ <summary>旧的构建方式</summary>
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -38,6 +133,72 @@
     </script>
   </body>
 </html>
+```
+</details>
+
+## 返回字符串
+```html
+<app-home></app-home>
+
+<script>
+  const l = console.log;
+  const { AjaWidget, AjaModule } = Aja;
+  class AppHome extends AjaWidget {
+
+    // 模板中绑定的变量
+    state = {
+      name: 'x',
+      get helloName() {
+        return `hello ${this.name}`
+      }
+    }
+
+    // 模板中绑定的事件
+    actions = {
+
+      // 这些函数的[this]指向[this.$store]
+      test() {
+        this.name = 'c'
+      },
+    }
+
+    initHostStyle() {
+      this.host.style.display = 'block';
+      this.host.classList.add('p-2', 'color');
+    }
+
+    // 没什么用，应为什么都没有开始
+    constructor() {
+      super();
+    }
+
+    // 这个函数的[this]指向[AjaWidget]
+    initState() {
+      this.initHostStyle();
+      setTimeout(() => {
+        this.$store.name = 'ajanuw'
+      }, 2000);
+    }
+
+    render() {
+      return `
+        hello {{  name }}
+        <p>{{ name | uppercase }}</p>
+        <p>{{ helloName }}</p>
+        <button (click)="test()" #btn>test</button>
+      `;
+    }
+  }
+
+  class AppModule extends AjaModule {
+    declarations = [
+      AppHome,
+    ];
+    bootstrap = AppHome;
+  }
+
+  Aja.bootstrapModule(AppModule);
+</script>
 ```
 
 ## 属性绑定
@@ -293,35 +454,6 @@ state: {
 </script>
 ```
 
-## 钩子: initState
-> [this]被指向了[vm.$store]
-
-- 不要在[initState]设置新state，应为不会被代理
-
-```html
-<div class="app">
-  <p>{{ age }}</p>
-  <button (click)="change">change</button>
-</div>
-<script>
-  const l = console.log;
-  let vm = new Aja(document.querySelector(".app"), {
-    state: {
-      age: null
-    },
-    initState() {
-      this.age = 2;
-    },
-    actions: {
-      change() {
-        this.age++;
-      }
-    }
-  });
-  // console.log(vm);
-</script>
-```
-
 ## pipe
 ```html
 <div class=".app">
@@ -335,22 +467,6 @@ state: {
     <li :for="el in 4">{{ name | slice:0:el }}</li>
   </ul>
 </div>
-
-<script>
-let vm = new Aja(document.querySelector(".app"), {
-  pipes: {
-    hello(s) {
-      return "hello " + s;
-    },
-    slice(v, start, end) {
-      return v.slice(start, end);
-    }
-  },
-  state: {
-    name: "ajanuw",
-  },
-});
-</script>
 ```
 
 ## ajaModel [创建出色的表单](https://developers.google.cn/web/fundamentals/design-and-ux/input/forms/)
@@ -577,163 +693,6 @@ let vm = new Aja(document.querySelector(".app"), {
     }
   });
 </script>
-```
-
-## 组件(待优化)
-
-```html
-<div class="app">
-  <aja-tile [title]="name" (alert)="showEmit"></aja-tile>
-  <aja-tile [title]="'b'" (alert)="showEmit"></aja-tile>
-  <aja-tile [title]="'c'" (alert)="showEmit"></aja-tile>
-  <p> {{ name }}</p>
-  <button (click)="test()">test</button>
-</div>
-
-<template id="tile">
-  <h3>title: {{ title }}</h3>
-  <p>subtitle: {{subtitle}}</p>
-  <button (click)="send()">emit</button>
-</template>
-
-<script src="../dist/dist/aja.umd.js"></script>
-<script>
-  const l = console.log;
-  const { AjaWidget } = Aja;
-  class AjaTile extends AjaWidget {
-
-    inputs = ['title'];
-
-    state = {
-      subtitle: '模板'
-    }
-
-    actions = {
-      send() {
-        this.alert(this.title);
-      }
-    }
-
-    constructor() {
-      super();
-    }
-
-    // 必须返回一个<template>元素
-    render() {
-      return document.querySelector('#tile')
-    }
-  }
-
-  let vm = new Aja(document.querySelector('.app'), {
-    declarations: [AjaTile],
-    state: {
-      name: 'x'
-    },
-    actions: {
-      test() {
-        this.name = 'c'
-      },
-      showEmit(title) {
-        l(title)
-      }
-    }
-  });
-</script>
-```
-
-## v0.0.11 重大变更
-```html
-<body>
-  <app-home></app-home>
-
-  <template id="app">
-    <p>{{ name | uppercase }}</p>
-    <p>{{ helloName }}</p>
-    <app-tile [title]="'hello world'" (alert)="test"></app-tile>
-    <button (click)="test()" #btn>test</button>
-  </template>
-
-  <template id="tile">
-    <h3>title: {{ title }}</h3>
-    <p>subtitle: {{subtitle | hello }}</p>
-    <button (click)="send()">emit</button>
-  </template>
-
-  <script src="../dist/dist/aja.umd.js"></script>
-  <script>
-    const l = console.log;
-    const { AjaWidget, AjaModule, AjaPipe } = Aja;
-
-    class HelloPipe extends AjaPipe {
-      pipeName = 'hello';
-      transform(v) {
-        return `hello ${v}`;
-      }
-    }
-
-    class AppTile extends AjaWidget {
-
-      inputs = ['title'];
-
-      state = {
-        subtitle: '模板'
-      }
-
-      actions = {
-        send() {
-          l(this.subtitle)
-          this.alert(this.title);
-        }
-      }
-
-      constructor() {
-        super();
-      }
-
-      render() {
-        return document.querySelector('#tile')
-      }
-    }
-
-    class AppHome extends AjaWidget {
-      state = {
-        name: 'x',
-        get helloName() {
-          return `hello ${this.name}`
-        }
-      }
-
-      actions = {
-        test(title) {
-          l(title)
-          this.name = 'c'
-        },
-      }
-
-      render() {
-        return document.querySelector('#app');
-      }
-    }
-    
-    class SharedModule extends AjaModule {
-      declarations = [HelloPipe];
-      exports = [HelloPipe];
-    }
-    
-    class AppModule extends AjaModule {
-      declarations = [
-        AppHome,
-        AppTile
-      ];
-      imports = [
-        SharedModule
-      ];
-      bootstrap = AppHome;
-    }
-
-    Aja.bootstrapModule(AppModule);
-  </script>
-</body>
 ```
 
 

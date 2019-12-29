@@ -187,7 +187,7 @@ export function equalp(obj: any, other: any) {
   return _equal(obj, other, true);
 }
 export function getAttrs(node: HTMLElement): Attr[] {
-  return toArray(node.attributes);
+  return toArray(node.attributes || []);
 }
 
 export function eachChildNodes(node: HTMLElement, callbackfn: (value: ChildNode, index: number, array: ChildNode[]) => void) {

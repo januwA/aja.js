@@ -17,11 +17,8 @@ import { ContextData } from "./classes/context-data";
 import { FormControl, FormGroup, FormBuilder, FormArray } from "./classes/forms";
 import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder, BindingSwitchBuilder } from "./classes/binding-builder";
 import { AjaWidget, AjaWidgets } from "./classes/aja-widget";
-import { getData } from "./core";
-import { attrStartExp, attrEndExp, eventStartExp, eventEndExp } from "./utils/exp";
 import { AjaModule } from "./classes/aja-module";
 import { AjaPipes, AjaPipe } from "./classes/aja-pipe";
-import { AjaModel } from "./classes/aja-model";
 
 const l = console.log;
 
@@ -43,6 +40,38 @@ export interface AjaConfigOpts {
   initState?: Function;
 }
 
+function getBootstrap(bootstrap?: Type<AjaWidget> | undefined) {
+  return arrayp(bootstrap) ? bootstrap[0] : bootstrap;
+}
+
+function mergeExports(m: AjaModule) {
+  if (m.imports && m.imports.length) {
+    m.imports.forEach(el => {
+      const x = new el;
+      if (x instanceof AjaModule) {
+        if (x.exports) {
+          if (m.declarations) {
+            m.declarations = m.declarations.concat(x.exports);
+          } else {
+            m.declarations = x.exports;
+          }
+        }
+      }
+    });
+  }
+}
+
+function parseDeclarations(declarations: any[] | undefined) {
+  declarations?.forEach(el => {
+    const x = new el;
+    if (x instanceof AjaWidget) {
+      AjaWidgets.add(el.name, x);
+    } else if (x instanceof AjaPipe) {
+      AjaPipes.add(x);
+    }
+  });
+}
+
 class Aja {
   static FormControl = FormControl;
   static FormGroup = FormGroup;
@@ -57,72 +86,30 @@ class Aja {
    */
   static bootstrapModule(moduleType: Type<AjaModule>) {
     const m = new moduleType();
-    const bootstrap = arrayp(m.bootstrap) ? m.bootstrap[0] : m.bootstrap;
+    const bootstrap = getBootstrap(m.bootstrap);
     if (!bootstrap) return;
 
     // 将 module.export 合并到 declarations
-    if (m.imports && m.imports.length) {
-      m.imports.forEach(el => {
-        const x = new el;
-        if (x instanceof AjaModule) {
-          if (x.exports) {
-            if (m.declarations) {
-              m.declarations = m.declarations.concat(x.exports);
-            } else {
-              m.declarations = x.exports;
-            }
-          }
-        }
-      });
-    }
+    mergeExports(m);
 
     // 解析 declarations
-    m.declarations?.forEach(el => {
-      const x = new el;
-      if (x instanceof AjaWidget) {
-        AjaWidgets.add(el.name, x);
-      } else if (x instanceof AjaPipe) {
-        AjaPipes.add(x);
-      }
-    });
+    parseDeclarations(m.declarations);
 
-    const ajaWidget = new bootstrap()
-    const node = document.querySelector<HTMLElement>(AjaWidget.createWidgetName(bootstrap.name))
-    if (!node) return;
-    node.innerHTML = '';
-    node.append(ajaWidget.widget);
-    const attrs = getAttrs(node);
-    const aja = new Aja(node, {
-      state: ajaWidget.state,
-      actions: ajaWidget.actions,
-      initState: ajaWidget.initState,
-    });
-    const contextData = new ContextData({
-      store: aja.$store,
-      tData: {}
-    });
-    attrs.forEach(attr => {
-      const { name } = attr;
-      if (attrp(name)) {
-        const attrName = name
-          .replace(attrStartExp, '')
-          .replace(attrEndExp, '')
-          .split(".")[0]
-        if (ajaWidget.inputs?.includes(attrName)) {
-          autorun(() => {
-            aja.$store[attrName] = getData(attr.value, contextData)
-          })
-        }
-      }
-    })
+    const rootName = AjaWidget.createWidgetName(bootstrap.name);
+    const host = document.querySelector<HTMLElement>(rootName)
+    if (!host) return;
+    const ajaWidget = AjaWidgets.get(rootName);
+    if (!ajaWidget) return;
+    ajaWidget.isRoot = true;
+    ajaWidget.setup(host, (opt) => new Aja(host, opt));
   }
 
-  $store?: any;
-  $actions?: Actions;
+  public $store?: any;
+  public $actions?: Actions;
 
   constructor(public root: HTMLElement, options: AjaConfigOpts = {}) {
     this._proxyState(options);
-    if (options.initState) options.initState.call(this.$store);
+    if (options.initState) options.initState();
 
     const contextData = new ContextData({
       store: this.$store,
@@ -139,49 +126,20 @@ class Aja {
     if (hasMultipleStructuredInstructions(node)) {
       throw `一个元素不能绑定多个结构型指令。(${node.outerHTML})`;
     }
+    const attrs = getAttrs(node);
     const ajaWidget = AjaWidgets.get(node.nodeName);
     if (ajaWidget && node !== this.root) {
-      node.innerHTML = '';
-      node.append(ajaWidget.widget);
-      const attrs = getAttrs(node);
-      const actions = ajaWidget.actions || {};
-      attrs.forEach(attr => {
-        const { name } = attr;
-        if (eventp(name)) {
-          const type = name.replace(eventStartExp, "")
-            .replace(eventEndExp, "");
-          const f = (this.$actions || {})[attr.value];
-          actions[type] = f.bind(contextData.store);
-        }
-      })
-      const aja = new Aja(node, {
-        state: ajaWidget.state,
-        actions: actions,
-        initState: ajaWidget.initState,
-      });
-      attrs.forEach(attr => {
-        const { name } = attr;
-        if (attrp(name)) {
-          const attrName = name
-            .replace(attrStartExp, '')
-            .replace(attrEndExp, '')
-            .split(".")[0]
-          if (ajaWidget.inputs?.includes(attrName)) {
-            autorun(() => {
-              aja.$store[attrName] = getData(attr.value, contextData)
-            })
-          }
-        }
-      })
+      ajaWidget.bindOutput(node, attrs, this.$actions, contextData)
+      ajaWidget.setup(node, (opt) => new Aja(node, opt));
       return;
     }
     let depath = true;
-    if (node.attributes && getAttrs(node).length) {
+    if (attrs.length) {
       depath = this._parseBindIf(node, contextData);
       if (depath) depath = this._parseBindFor(node, contextData);
       if (depath) depath = this._parseBindSwitch(node, contextData);
       if (depath) {
-        this._parseBindAttrs(node, getAttrs(node), contextData);
+        this._parseBindAttrs(node, attrs, contextData);
       }
     }
 

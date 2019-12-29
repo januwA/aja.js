@@ -10,6 +10,14 @@
     [hidden] {
       display: none;
     }
+
+    .p-2 {
+      padding: 12px;
+    }
+
+    .color {
+      background-color: antiquewhite;
+    }
   </style>
 </head>
 
@@ -19,13 +27,13 @@
   <template id="app">
     <p>{{ name | uppercase }}</p>
     <p>{{ helloName }}</p>
-    <app-tile [title]="'hello world'" (alert)="test"></app-tile>
+    <app-tile [title]="'hello world'" (alert)="test" (click)="clickTile"></app-tile>
+    <br>
     <button (click)="test()" #btn>test</button>
-    <h1>ttt</h1>
   </template>
 
   <template id="tile">
-    <h3>title: {{ title }}</h3>
+    <h3 [class]="'color'">title: {{ title }}</h3>
     <p>subtitle: {{subtitle | hello }}</p>
     <button (click)="send()">emit</button>
   </template>
@@ -52,13 +60,13 @@
 
       actions = {
         send() {
-          l(this.subtitle)
           this.alert(this.title);
         }
       }
 
-      constructor() {
-        super();
+      initState() {
+        this.host.style.display = 'block'
+        this.host.style.padding = '1.2em'
       }
 
       render() {
@@ -68,7 +76,7 @@
 
     class AppHome extends AjaWidget {
       state = {
-        name: 'x',
+        name: 'ajanuw',
         get helloName() {
           return `hello ${this.name}`
         }
@@ -77,20 +85,23 @@
       actions = {
         test(title) {
           l(title)
-          this.name = 'c'
+          this.name = 'ccc'
         },
+        clickTile() {
+          l(this.name)
+        }
       }
 
       render() {
         return document.querySelector('#app');
       }
     }
-    
+
     class SharedModule extends AjaModule {
       declarations = [HelloPipe];
       exports = [HelloPipe];
     }
-    
+
     class AppModule extends AjaModule {
       declarations = [
         AppHome,

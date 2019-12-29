@@ -21,6 +21,7 @@ import {
 } from "../utils/p";
 import { EventType, modelDirective, formControlAttrName, structureDirectives, templateEvent, modelChangeEvent, ajaModelString, formGroupAttrName, formControlNameAttrName, formGroupNameAttrName, formArrayNameAttrName, switchAttrName } from "../utils/const-string";
 import { usePipes } from "./aja-pipe";
+import { Actions } from "../aja";
 
 const l = console.log;
 
@@ -60,20 +61,24 @@ export class BindingBuilder {
 
 
 export class BindingAttrBuilder extends BindingBuilder {
-    // [style.coloe] => [style, coloe]
-    private get _parseAttr() {
-        return this.name
+    static parseAttr(attr: Attr): {
+        attrName: string;
+        attrChild: string | undefined;
+    } {
+        // [style.coloe] => [style, coloe]
+        const [attrName, attrChild] = attr.name
             .replace(attrStartExp, emptyString)
             .replace(attrEndExp, emptyString)
             .split(".");
+        return { attrName, attrChild };
     }
 
     get attrName(): string {
-        return this._parseAttr[0];
+        return BindingAttrBuilder.parseAttr(this.attr).attrName;
     }
 
     get attrChild(): string | undefined {
-        return this._parseAttr[1];
+        return BindingAttrBuilder.parseAttr(this.attr).attrChild;
     }
 
     constructor(
@@ -508,6 +513,33 @@ export class BindingIfBuilder extends BindingBuilder {
 
 
 export class BindingEventBuilder {
+
+    static parseEventType(attr: Attr) {
+        return attr.name.replace(eventStartExp, emptyString)
+            .replace(eventEndExp, emptyString);
+    }
+
+    static parseFun(attr: Attr) {
+        let funcName = attr.value;
+        let args: string[] = [];
+        if (attr.value.includes("(")) {
+            // 带参数的函数
+            const index = attr.value.indexOf("(");
+            // 砍出函数名
+            funcName = attr.value.substr(0, index);
+
+            // 砍掉函数名
+            // 去掉首尾圆括号
+            // 用逗号分割参数
+            args = attr.value
+                .substr(index)
+                .trim()
+                .replace(/(^\(*)|(\)$)/g, emptyString)
+                .split(",");
+        }
+        return { funcName, args }
+    }
+
     public type: string;
     public funcName: string;
 
@@ -515,27 +547,15 @@ export class BindingEventBuilder {
         public readonly node: HTMLElement,
         public readonly attr: Attr,
         public readonly contextData: ContextData,
-        public readonly actions?: {
-            [name: string]: Function;
-        }) {
-        this.type = attr.name.replace(eventStartExp, emptyString)
-            .replace(eventEndExp, emptyString);
+        public readonly actions?: Actions) {
+        this.type = BindingEventBuilder.parseEventType(attr);
 
-        this.funcName = attr.value;
-
-        let args: string[] = [];
-        if (this.attr.value.includes("(")) {
-            // 带参数的函数
-            const index = this.attr.value.indexOf("(");
-            // 砍出函数名
-            this.funcName = this.attr.value.substr(0, index);
-            args = this._parseTemplateEventArgs(this.attr.value);
-        }
+        let { funcName, args } = BindingEventBuilder.parseFun(attr);
+        this.funcName = funcName;
 
         const modelChangep: boolean = name === modelChangeEvent;
         if (modelChangep) this.type = EventType.input;
-
-        if (this.actions && this.funcName in this.actions) {
+        if (this.actions && this.funcName in this.actions && `on${this.type}` in window) {
             // 每次只需把新的event传入就行了
             node.addEventListener(this.type, e => {
                 if (!this.actions) return;
@@ -547,29 +567,12 @@ export class BindingEventBuilder {
                     this.contextData.store,
                     this._parseArgsEvent(
                         transitionArgs,
-                        modelChangep ? (e.target as HTMLInputElement).value : e
+                        modelChangep ? (<HTMLInputElement>e.target).value : e
                     )
                 );
             });
         }
-
-        node.removeAttribute(name);
-    }
-
-
-    /**
-     * 砍掉函数名
-     * 去掉首尾圆括号
-     * 用逗号分割参数
-     * @param str
-     */
-    private _parseTemplateEventArgs(str: string): string[] {
-        const index = str.indexOf("(");
-        return str
-            .substr(index)
-            .trim()
-            .replace(/(^\(*)|(\)$)/g, emptyString)
-            .split(",");
+        node.removeAttribute(this.attr.name);
     }
 
     private _parseArgsToArguments(args: string[]) {

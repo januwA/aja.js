@@ -70,7 +70,8 @@ export function undefinedp(data: any): data is undefined {
   return data === undefined || dataTag(data) === undefinedTag;
 }
 
-export function elementNodep(node: ChildNode | HTMLElement): node is HTMLElement {
+export function elementNodep(node: any): node is HTMLElement {
+  if(!node.nodeType) return false;
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
