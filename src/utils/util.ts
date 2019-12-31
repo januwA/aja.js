@@ -3,7 +3,7 @@ import {
   objectTag,
   arrayTag,
   stringString,
-  structureDirectivePrefix,
+  structureDirectivePrefix
 } from "./const-string";
 
 export function toArray<T>(iterable: Iterable<T> | ArrayLike<T>): T[] {
@@ -94,7 +94,7 @@ export function parsePipe(key: string): [string, string[]] {
   return [bindKey.trim(), pipes.map(e => e.trim())];
 }
 
-const emptyp = function (value: any) {
+const emptyp = function(value: any) {
   return JSON.stringify(value).length === 2 ? true : false;
 };
 
@@ -109,7 +109,11 @@ function _equal(obj: any, other: any, equalp: boolean = false): boolean {
       otherTag !== objectTag &&
       otherTag !== arrayTag
     ) {
-      if (equalp && typeof obj === stringString && typeof other === stringString) {
+      if (
+        equalp &&
+        typeof obj === stringString &&
+        typeof other === stringString
+      ) {
         return obj.toLocaleUpperCase() === other.toLocaleUpperCase();
       }
       return obj === other;
@@ -122,7 +126,7 @@ function _equal(obj: any, other: any, equalp: boolean = false): boolean {
     if (Object.keys(obj).length !== Object.keys(other).length) return false; // 集合元素数量不一样
     if (emptyp(obj) && emptyp(other)) return true; // 类型一样的空集合，永远相等。
 
-    let data: any[] = (function () {
+    let data: any[] = (function() {
       let data = Object.getOwnPropertyNames(obj);
       if (objTag === arrayTag) {
         data.pop();
@@ -190,7 +194,10 @@ export function getAttrs(node: HTMLElement): Attr[] {
   return toArray(node.attributes || []);
 }
 
-export function eachChildNodes(node: HTMLElement, callbackfn: (value: ChildNode, index: number, array: ChildNode[]) => void) {
+export function eachChildNodes(
+  node: HTMLElement,
+  callbackfn: (value: ChildNode, index: number, array: ChildNode[]) => void
+) {
   toArray(node.childNodes).forEach(callbackfn);
 }
 
@@ -198,10 +205,12 @@ export function eachChildNodes(node: HTMLElement, callbackfn: (value: ChildNode,
  * 节点是否包含多个结构型指令
  */
 export function hasMultipleStructuredInstructions(node: HTMLElement): boolean {
-  return getAttrs(node).reduce((acc, { name }) => {
-    if (name.charAt(0) === structureDirectivePrefix) {
-      acc.push(undefined);
-    }
-    return acc;
-  }, [] as any[]).length > 1
+  return (
+    getAttrs(node).reduce((acc, { name }) => {
+      if (name.charAt(0) === structureDirectivePrefix) {
+        acc.push(undefined);
+      }
+      return acc;
+    }, [] as any[]).length > 1
+  );
 }

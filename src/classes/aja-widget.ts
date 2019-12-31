@@ -10,7 +10,7 @@ const l = console.log;
 export abstract class AjaWidget {
   static createWidgetName(name: string) {
     let newName = name.charAt(0).toLowerCase() + name.substr(1);
-    newName = newName.replace(/([A-Z])/g, '-$1');
+    newName = newName.replace(/([A-Z])/g, "-$1");
     return newName.toLowerCase();
   }
 
@@ -34,7 +34,7 @@ export abstract class AjaWidget {
   abstract render: () => HTMLTemplateElement | string | undefined;
   abstract initState?: Function;
 
-  constructor() { }
+  constructor() {}
 
   getWidget() {
     const t = this.render();
@@ -42,10 +42,10 @@ export abstract class AjaWidget {
       throw `没有找到模板!!! ${this}`;
     }
     if (elementNodep(t) && templatep(t)) {
-      return document.importNode(t.content, true)
+      return document.importNode(t.content, true);
     } else {
       if (this.host) {
-        this.host.insertAdjacentHTML('beforeend', t);
+        this.host.insertAdjacentHTML("beforeend", t);
       }
     }
   }
@@ -56,23 +56,23 @@ export abstract class AjaWidget {
 
     const attrs = getAttrs(host);
 
-    this.host.innerHTML = '';
-    const widget = this.getWidget()
+    this.host.innerHTML = "";
+    const widget = this.getWidget();
     if (widget) {
       this.host.append(widget);
     }
     const aja = cb({
       state: this.state,
       actions: this.actions,
-      initState: this.initState?.bind(this),
-    })
+      initState: this.initState?.bind(this)
+    });
     this.bindInputs(aja.$store, attrs);
   }
 
   /**
    * 解析在组建上绑定的属性
-   * @param store 
-   * @param attrs 
+   * @param store
+   * @param attrs
    */
   bindInputs(store: any, attrs: Attr[]) {
     this._setStore(store);
@@ -82,46 +82,53 @@ export abstract class AjaWidget {
     });
     attrs.forEach(attr => {
       if (attrp(attr.name)) {
-        const attrName = BindingAttrBuilder.parseAttr(attr).attrName
+        const attrName = BindingAttrBuilder.parseAttr(attr).attrName;
         if (this.inputs?.includes(attrName)) {
           autorun(() => {
             if (this.$store) {
-              this.$store[attrName] = getData(attr.value, contextData)
+              this.$store[attrName] = getData(attr.value, contextData);
             }
-          })
+          });
         }
       }
-    })
+    });
   }
 
   /**
    * 解析在组件上绑定的事件
-   * @param attrs 
-   * @param parentActions 
-   * @param context 
+   * @param attrs
+   * @param parentActions
+   * @param context
    */
-  bindOutput(node: HTMLElement, attrs: Attr[], parentActions?: Actions, contextData?: any) {
+  bindOutput(
+    node: HTMLElement,
+    attrs: Attr[],
+    parentActions?: Actions,
+    contextData?: any
+  ) {
     if (!parentActions) return;
-    attrs.filter(attr => eventp(attr.name)).forEach(attr => {
-      const type = BindingEventBuilder.parseEventType(attr);
-      if (!(`on${type}` in window)) {
-        let { funcName } = BindingEventBuilder.parseFun(attr);
-        const f = parentActions[funcName];
-        this.actions = Object.assign(this.actions || {}, {
-          [type]: f.bind(contextData.store)
-        });
-        node.removeAttribute(attr.name)
-      } else {
-        new BindingEventBuilder(node, attr, contextData, parentActions);
-      }
-    })
+    attrs
+      .filter(attr => eventp(attr.name))
+      .forEach(attr => {
+        const type = BindingEventBuilder.parseEventType(attr);
+        if (!(`on${type}` in window)) {
+          let { funcName } = BindingEventBuilder.parseFun(attr);
+          const f = parentActions[funcName];
+          this.actions = Object.assign(this.actions || {}, {
+            [type]: f.bind(contextData.store)
+          });
+          node.removeAttribute(attr.name);
+        } else {
+          new BindingEventBuilder(node, attr, contextData, parentActions);
+        }
+      });
   }
 }
 
 export class AjaWidgets {
   private static _widgets: {
     [k: string]: AjaWidget;
-  } = {}
+  } = {};
 
   static add(name: string, widget: AjaWidget): void {
     this._widgets[AjaWidget.createWidgetName(name)] = widget;

@@ -49,7 +49,7 @@ function reactionUpdate(some: any) {
   for (const reactionItem of reactionListeners) {
     const stateList: any[] = reactionItem.listenerStateList();
     // equal 深比较
-    l(some, stateList[0])
+    l(some, stateList[0]);
     if (stateList.some(e => equal(e, some))) {
       reactionItem.cb(stateList);
     }

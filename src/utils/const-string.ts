@@ -45,9 +45,9 @@ export const modelChangeEvent = "(modelChange)".toLowerCase();
 
 export const formControlAttrName = "[formControl]".toLowerCase();
 
-export const ajaModelString = 'ajaModel';
-export const formGroupAttrName = '[formGroup]'.toLowerCase();
-export const formControlNameAttrName = '[formControlName]'.toLowerCase();
-export const formGroupNameAttrName = '[formGroupName]'.toLowerCase();
-export const formArrayNameAttrName = '[formArrayName]'.toLowerCase();
-export const switchAttrName = '[switch]'.toLowerCase();
+export const ajaModelString = "ajaModel";
+export const formGroupAttrName = "[formGroup]".toLowerCase();
+export const formControlNameAttrName = "[formControlName]".toLowerCase();
+export const formGroupNameAttrName = "[formGroupName]".toLowerCase();
+export const formArrayNameAttrName = "[formArrayName]".toLowerCase();
+export const switchAttrName = "[switch]".toLowerCase();

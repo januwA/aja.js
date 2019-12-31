@@ -1,5 +1,12 @@
 import { dataTag } from "./util";
-import { stringTag, numberTag, objectTag, arrayTag, undefinedTag, nullTag } from "./const-string";
+import {
+  stringTag,
+  numberTag,
+  objectTag,
+  arrayTag,
+  undefinedTag,
+  nullTag
+} from "./const-string";
 
 /**
  * * 谓词
@@ -39,11 +46,13 @@ export function numberStringp(str: any): boolean {
 }
 
 export function numberp(data: any) {
-  return typeof data === 'number' &&
+  return (
+    typeof data === "number" &&
     dataTag(data) === numberTag &&
     Number.isFinite(data) &&
     data < Number.MAX_VALUE &&
     data > Number.MIN_VALUE
+  );
 }
 
 /**
@@ -71,12 +80,14 @@ export function undefinedp(data: any): data is undefined {
 }
 
 export function elementNodep(node: any): node is HTMLElement {
-  if(!node.nodeType) return false;
+  if (!node.nodeType) return false;
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
 // 模板节点 template
-export function fragmentNodep(node: ChildNode | HTMLElement): node is HTMLFrameElement {
+export function fragmentNodep(
+  node: ChildNode | HTMLElement
+): node is HTMLFrameElement {
   return node.nodeType === Node.DOCUMENT_FRAGMENT_NODE;
 }
 

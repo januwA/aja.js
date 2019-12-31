@@ -5,7 +5,6 @@ import { inputp } from "../utils/p";
 
 const l = console.log;
 
-
 export class FormControlSerivce {
   static classes = {
     // 控件被访问过
@@ -37,12 +36,11 @@ export class FormControlSerivce {
    * @param node
    */
   setup() {
-
     autorun(() => {
       if (inputp(this.node)) {
         this.node.value = this.control.value;
       }
-    })
+    });
 
     // 控件同步到formControl
     this._h5CheckValidity();

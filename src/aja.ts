@@ -1,7 +1,7 @@
 import {
   toArray,
   getAttrs,
-  hasMultipleStructuredInstructions,
+  hasMultipleStructuredInstructions
 } from "./utils/util";
 
 import { observable, autorun, action } from "mobx";
@@ -14,8 +14,22 @@ import {
   arrayp
 } from "./utils/p";
 import { ContextData } from "./classes/context-data";
-import { FormControl, FormGroup, FormBuilder, FormArray } from "./classes/forms";
-import { BindingAttrBuilder, BindingTextBuilder, BindingModelBuilder, BindingIfBuilder, BindingEventBuilder, BindingForBuilder, BindingTempvarBuilder, BindingSwitchBuilder } from "./classes/binding-builder";
+import {
+  FormControl,
+  FormGroup,
+  FormBuilder,
+  FormArray
+} from "./classes/forms";
+import {
+  BindingAttrBuilder,
+  BindingTextBuilder,
+  BindingModelBuilder,
+  BindingIfBuilder,
+  BindingEventBuilder,
+  BindingForBuilder,
+  BindingTempvarBuilder,
+  BindingSwitchBuilder
+} from "./classes/binding-builder";
 import { AjaWidget, AjaWidgets } from "./classes/aja-widget";
 import { AjaModule } from "./classes/aja-module";
 import { AjaPipes, AjaPipe } from "./classes/aja-pipe";
@@ -23,11 +37,11 @@ import { AjaPipes, AjaPipe } from "./classes/aja-pipe";
 const l = console.log;
 
 export interface Type<T> extends Function {
-  new(...args: any[]): T;
+  new (...args: any[]): T;
 }
 
 export interface AnyObject {
-  [k: string]: any
+  [k: string]: any;
 }
 
 export interface Actions {
@@ -47,7 +61,7 @@ function getBootstrap(bootstrap?: Type<AjaWidget> | undefined) {
 function mergeExports(m: AjaModule) {
   if (m.imports && m.imports.length) {
     m.imports.forEach(el => {
-      const x = new el;
+      const x = new el();
       if (x instanceof AjaModule) {
         if (x.exports) {
           if (m.declarations) {
@@ -63,7 +77,7 @@ function mergeExports(m: AjaModule) {
 
 function parseDeclarations(declarations: any[] | undefined) {
   declarations?.forEach(el => {
-    const x = new el;
+    const x = new el();
     if (x instanceof AjaWidget) {
       AjaWidgets.add(el.name, x);
     } else if (x instanceof AjaPipe) {
@@ -96,12 +110,12 @@ class Aja {
     parseDeclarations(m.declarations);
 
     const rootName = AjaWidget.createWidgetName(bootstrap.name);
-    const host = document.querySelector<HTMLElement>(rootName)
+    const host = document.querySelector<HTMLElement>(rootName);
     if (!host) return;
     const ajaWidget = AjaWidgets.get(rootName);
     if (!ajaWidget) return;
     ajaWidget.isRoot = true;
-    ajaWidget.setup(host, (opt) => new Aja(host, opt));
+    ajaWidget.setup(host, opt => new Aja(host, opt));
   }
 
   public $store?: any;
@@ -129,8 +143,8 @@ class Aja {
     const attrs = getAttrs(node);
     const ajaWidget = AjaWidgets.get(node.nodeName);
     if (ajaWidget && node !== this.root) {
-      ajaWidget.bindOutput(node, attrs, this.$actions, contextData)
-      ajaWidget.setup(node, (opt) => new Aja(node, opt));
+      ajaWidget.bindOutput(node, attrs, this.$actions, contextData);
+      ajaWidget.setup(node, opt => new Aja(node, opt));
       return;
     }
     let depath = true;
@@ -144,8 +158,11 @@ class Aja {
     }
 
     if (depath) {
-      const childNodes = toArray(node.childNodes).filter(e => e.nodeName !== '#comment');
-      if (childNodes.length) this._bindingChildNodesAttrs(childNodes, contextData);
+      const childNodes = toArray(node.childNodes).filter(
+        e => e.nodeName !== "#comment"
+      );
+      if (childNodes.length)
+        this._bindingChildNodesAttrs(childNodes, contextData);
     }
   }
 
@@ -180,9 +197,13 @@ class Aja {
   private _proxyState(options: AjaConfigOpts): void {
     const state = options.state || {};
     this.$actions = options.actions || {};
-    const bounds: AnyObject = Object.keys(this.$actions).reduce((acc, ac) => Object.assign(acc, {
-      [ac]: action.bound
-    }), {});
+    const bounds: AnyObject = Object.keys(this.$actions).reduce(
+      (acc, ac) =>
+        Object.assign(acc, {
+          [ac]: action.bound
+        }),
+      {}
+    );
     this.$store = observable(Object.assign(state, this.$actions), bounds, {
       deep: true
     });
@@ -230,8 +251,9 @@ class Aja {
     if (forAttr) {
       new BindingForBuilder(node, forAttr, contextData)
         .addRenderListener((root, newContextData) => {
-          this._scan(root, newContextData)
-        }).setup();
+          this._scan(root, newContextData);
+        })
+        .setup();
     }
     return !forAttr;
   }
@@ -257,10 +279,13 @@ class Aja {
 
   /**
    * 解析节点上是否有 :case :default
-   * @param root 
-   * @param contextData 
+   * @param root
+   * @param contextData
    */
-  private _parseBindSwitch(root: HTMLElement, contextData: ContextData): boolean {
+  private _parseBindSwitch(
+    root: HTMLElement,
+    contextData: ContextData
+  ): boolean {
     if (!contextData.switch) return true;
     let depath = true;
     const caseAttr = BindingSwitchBuilder.findCaseAttr(root);
@@ -272,7 +297,6 @@ class Aja {
         new BindingSwitchBuilder(root, defaultAttr, contextData);
       }
     }
-
 
     return depath;
   }

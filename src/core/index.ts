@@ -13,20 +13,17 @@ const l = console.log;
  * @param contextData
  * @param isDeep  添加这个参数避免堆栈溢出
  */
-export function getData(
-    key: string,
-    contextData: ContextData,
-): any {
-    if (!stringp(key)) return null;
-    // 抽掉所有空格，再把管道排除
-    let [bindKey] = parsePipe(key);
-    let _result: any;
-    _result = evalFun(bindKey, contextData.mergeData())
-    if (_result === undefined) {
-        _result = evalFun(bindKey, contextData.store)
-    }
-    if (undefinedp(_result)) _result = emptyString;
-    return _result;
+export function getData(key: string, contextData: ContextData): any {
+  if (!stringp(key)) return null;
+  // 抽掉所有空格，再把管道排除
+  let [bindKey] = parsePipe(key);
+  let _result: any;
+  _result = evalFun(bindKey, contextData.mergeData());
+  if (_result === undefined) {
+    _result = evalFun(bindKey, contextData.store);
+  }
+  if (undefinedp(_result)) _result = emptyString;
+  return _result;
 }
 
 /**
@@ -36,8 +33,8 @@ export function getData(
  * @param state
  */
 export function setData(key: string, newValue: any, contextData: ContextData) {
-    if (!stringp(key)) return null;
-    return Function(`return function(d) {
+  if (!stringp(key)) return null;
+  return Function(`return function(d) {
         with(this){
           ${key} = d;
         }
@@ -45,11 +42,12 @@ export function setData(key: string, newValue: any, contextData: ContextData) {
 }
 
 export function evalFun(bindKey: string, data: any) {
-    if (undefinedp(data)) return;
-    try {
-        const r = Function(`with(this){ return ${bindKey} }`).apply(data, arguments)
-        return r === '' ? undefined : r;
-    } catch (error) {
-
-    }
+  if (undefinedp(data)) return;
+  try {
+    const r = Function(`with(this){ return ${bindKey} }`).apply(
+      data,
+      arguments
+    );
+    return r === "" ? undefined : r;
+  } catch (error) {}
 }

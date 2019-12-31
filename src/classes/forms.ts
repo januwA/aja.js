@@ -8,16 +8,15 @@ export const INVALID = "INVALID";
 export const PENDING = "PENDING";
 export const DISABLED = "DISABLED";
 
-
 function _find(control: AbstractControl, paths: string[]) {
   return paths.reduce((v: AbstractControl | null, name) => {
     if (v instanceof FormGroup) {
       return v.controls.hasOwnProperty(name) ? v.controls[name] : null;
     }
 
-    // if (v instanceof FormArray) {
-    //   return v.at(<number>name) || null;
-    // }
+    if (v instanceof FormArray) {
+      return v.at(Number(name)) || null;
+    }
 
     return null;
   }, control);
@@ -54,7 +53,7 @@ function compose(
   ) as any;
   if (presentValidators.length == 0) return null;
 
-  return function (control: AbstractControl) {
+  return function(control: AbstractControl) {
     // 运行所有验证器，获取错误数组
     const errors: ValidationErrors[] = presentValidators.map(v =>
       v(control)
@@ -82,7 +81,7 @@ function composeAsync(
   ) as any;
   if (presentValidators.length == 0) return null;
 
-  return async function (control: AbstractControl): Promise<any> {
+  return async function(control: AbstractControl): Promise<any> {
     // 一组Promise验证器数组
     const promises = presentValidators.map(v => v(control));
 
@@ -174,19 +173,19 @@ export abstract class AbstractControl {
   /**
    * 当控件组发生改变，将调用这个回调
    */
-  _onCollectionChange = () => { };
+  _onCollectionChange = () => {};
   /**
    * * 默认注册一个全新的回调函数
-   * @param fn 
+   * @param fn
    */
-  _registerOnCollectionChange(fn: () => void = () => { }): void {
+  _registerOnCollectionChange(fn: () => void = () => {}): void {
     this._onCollectionChange = fn;
   }
 
   constructor(
     public validator: ValidatorFn | null,
     public asyncValidator: AsyncValidatorFn | null
-  ) { }
+  ) {}
 
   get parent() {
     return this._parent;
@@ -196,11 +195,11 @@ export abstract class AbstractControl {
   }
 
   _control: {
-    touched: boolean,
-    dirty: boolean,
-    disabled: boolean,
-    pending: boolean,
-    errors: null | any,
+    touched: boolean;
+    dirty: boolean;
+    disabled: boolean;
+    pending: boolean;
+    errors: null | any;
   } = observable({
     touched: false,
 
@@ -244,14 +243,14 @@ export abstract class AbstractControl {
   /**
    * this.profileForm.get('firstName')
    * this.profileForm.get('firstName/xxx')
-   * @param path 
+   * @param path
    */
   get(path: string /* a/b/c */): AbstractControl | null {
     if (!path) return null;
-    const paths = path.split('/').map(p => p.trim());
+    const paths = path.split(/\/|\./).map(p => p.trim());
     if (paths.length === 0) return null;
 
-    return _find(this, paths);;
+    return _find(this, paths);
   }
 
   /**
@@ -377,7 +376,7 @@ export abstract class AbstractControl {
    * 将控件标记为“已触摸”。
    * [opts.onlySelf]：为true时，仅标记此控件。 如果为假或未提供
    * 标志着所有[parent]。 默认为false。
-   * 
+   *
    * ?什么时候可能为[true]，当父级更新子级时
    * ?什么时候可能为[false]，当控件与control同步时
    */
@@ -395,20 +394,23 @@ export abstract class AbstractControl {
   markAllAsTouched(): void {
     this.markAsTouched({ onlySelf: true });
 
-    this._forEachChild((control: AbstractControl) => control.markAllAsTouched());
+    this._forEachChild((control: AbstractControl) =>
+      control.markAllAsTouched()
+    );
   }
 
   /**
    * 将控件标记为“未触摸”。
-   * 
+   *
    * 如果控件有children，也将所有children都标记为“未修改”, 并重新计算所有父控件的“触摸”状态。
    * @param opts
    */
   markAsUntouched(opts: { onlySelf?: boolean } = {}): void {
     this._control.touched = false;
 
-    this._forEachChild(
-      (control: AbstractControl) => { control.markAsUntouched({ onlySelf: true }); });
+    this._forEachChild((control: AbstractControl) => {
+      control.markAsUntouched({ onlySelf: true });
+    });
 
     if (this._parent && !opts.onlySelf) {
       this._parent._updateTouched(opts);
@@ -433,7 +435,9 @@ export abstract class AbstractControl {
   markAsPristine(opts: { onlySelf?: boolean } = {}): void {
     this._control.dirty = false;
 
-    this._forEachChild((control: AbstractControl) => { control.markAsPristine({ onlySelf: true }); });
+    this._forEachChild((control: AbstractControl) => {
+      control.markAsPristine({ onlySelf: true });
+    });
 
     if (this._parent && !opts.onlySelf) {
       this._parent._updatePristine(opts);
@@ -441,10 +445,10 @@ export abstract class AbstractControl {
   }
 
   /**
- * 将控件标记为“待处理”。
- * 当控件执行异步验证时，该控件处于挂起状态。
- */
-  markAsPending(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+   * 将控件标记为“待处理”。
+   * 当控件执行异步验证时，该控件处于挂起状态。
+   */
+  markAsPending(opts: { onlySelf?: boolean; emitEvent?: boolean } = {}): void {
     this._control.pending = true;
 
     if (this._parent && !opts.onlySelf) {
@@ -453,33 +457,33 @@ export abstract class AbstractControl {
   }
 
   /**
-   * 禁用控件。 
-   * 这意味着该控件免于进行验证检查，并从任何父级的合计值中排除。 
+   * 禁用控件。
+   * 这意味着该控件免于进行验证检查，并从任何父级的合计值中排除。
    * 其状态为“已禁用”。
-   * 
+   *
    * 如果控件有孩子，则所有孩子也将被禁用。
    */
-  disable(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+  disable(opts: { onlySelf?: boolean; emitEvent?: boolean } = {}): void {
     this._control.disabled = true;
     this._control.errors = null;
-    this._forEachChild(
-      (control: AbstractControl) => { control.disable({ ...opts, onlySelf: true }); });
+    this._forEachChild((control: AbstractControl) => {
+      control.disable({ ...opts, onlySelf: true });
+    });
   }
 
   /**
-   * 启用控件。 
+   * 启用控件。
    * 这意味着控件包含在验证检查中，并且其父级的合计值。 根据其值重新计算其状态，其验证者。
    * 默认情况下，如果控件有孩子，则启用所有孩子。
    */
-  enable(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+  enable(opts: { onlySelf?: boolean; emitEvent?: boolean } = {}): void {
     this._control.disabled = false;
-    this._forEachChild(
-      (control: AbstractControl) => { control.enable({ ...opts, onlySelf: true }); });
+    this._forEachChild((control: AbstractControl) => {
+      control.enable({ ...opts, onlySelf: true });
+    });
 
     this.updateValueAndValidity({ onlySelf: true, emitEvent: opts.emitEvent });
   }
-
-
 
   /**
    * * 值的变动将通知控件, 会跳过相同的值
@@ -497,22 +501,22 @@ export abstract class AbstractControl {
 
   /**
    * 循环子级
-   * @param cb 
+   * @param cb
    */
   abstract _forEachChild(cb: Function): void;
 
   /**
    * * 当有一个[condition()]为[true]就返回[true]，否则返回[false]
-   * @param condition 
+   * @param condition
    */
   abstract _anyControls(condition: Function): boolean;
-
-
 
   /**
    * * 重新计算控件的值和验证状态。
    */
-  updateValueAndValidity(opts: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+  updateValueAndValidity(
+    opts: { onlySelf?: boolean; emitEvent?: boolean } = {}
+  ): void {
     if (this.enabled) {
       this._control.errors = this._runValidator();
 
@@ -566,8 +570,7 @@ export class FormControl extends AbstractControl {
   _anyControls(condition: Function): boolean {
     return false;
   }
-  _forEachChild(cb: Function): void {
-  }
+  _forEachChild(cb: Function): void {}
 
   private _value = observable.box("");
 
@@ -591,7 +594,7 @@ export class FormControl extends AbstractControl {
       coerceToValidator(validatorOrOpts),
       coerceToAsyncValidator(asyncValidator, validatorOrOpts)
     );
-    this.setValue(formState || "")
+    this.setValue(formState || "");
   }
 
   setValue(value: any): void {
@@ -600,18 +603,17 @@ export class FormControl extends AbstractControl {
   }
 
   patchValue(value: any): void {
-    this.setValue(value)
+    this.setValue(value);
   }
 
   reset(value?: any): void {
     this._control.dirty = false;
     this._control.touched = false;
-    this.setValue(value || "")
+    this.setValue(value || "");
   }
 }
 
 export class FormGroup extends AbstractControl {
-
   _anyControls(cb: Function): boolean {
     let res = false;
     this._forEachChild((control: AbstractControl, name: string) => {
@@ -621,11 +623,14 @@ export class FormGroup extends AbstractControl {
   }
 
   get value() {
-    return Object.keys(this.controls).reduce((acc: { [k: string]: any }, item: string) => {
-      return Object.assign(acc, {
-        [item]: this.controls[item].value
-      });
-    }, {});
+    return Object.keys(this.controls).reduce(
+      (acc: { [k: string]: any }, item: string) => {
+        return Object.assign(acc, {
+          [item]: this.controls[item].value
+        });
+      },
+      {}
+    );
   }
 
   constructor(
@@ -639,15 +644,18 @@ export class FormGroup extends AbstractControl {
       | null,
     asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
   ) {
-    super(coerceToValidator(validatorOrOpts), coerceToAsyncValidator(asyncValidator, validatorOrOpts));
+    super(
+      coerceToValidator(validatorOrOpts),
+      coerceToAsyncValidator(asyncValidator, validatorOrOpts)
+    );
     this._setUpControls();
   }
 
   /**
    * 在组的控件列表中注册一个控件。
    * 此方法不会更新控件的值或有效性。
-   * @param name 
-   * @param control 
+   * @param name
+   * @param control
    */
   registerControl(name: string, control: AbstractControl): AbstractControl {
     if (this.controls[name]) return this.controls[name];
@@ -660,8 +668,8 @@ export class FormGroup extends AbstractControl {
   /**
    * 将控件添加到该组。
    * 此方法还会更新控件的值和有效性。
-   * @param name 
-   * @param control 
+   * @param name
+   * @param control
    */
   addControl(name: string, control: AbstractControl): void {
     this.registerControl(name, control);
@@ -669,26 +677,25 @@ export class FormGroup extends AbstractControl {
     this._onCollectionChange();
   }
 
-
   /**
    * 从该组中删除一个控件。
-   * @param name 
+   * @param name
    */
   removeControl(name: string): void {
     if (this.controls[name]) this.controls[name]._registerOnCollectionChange();
-    delete (this.controls[name]);
+    delete this.controls[name];
     this.updateValueAndValidity();
     this._onCollectionChange();
   }
 
   /**
    * 替换现有的控件。
-   * @param name 
-   * @param control 
+   * @param name
+   * @param control
    */
   setControl(name: string, control: AbstractControl): void {
     if (this.controls[name]) this.controls[name]._registerOnCollectionChange();
-    delete (this.controls[name]);
+    delete this.controls[name];
     if (control) this.registerControl(name, control);
     this.updateValueAndValidity();
     this._onCollectionChange();
@@ -697,19 +704,25 @@ export class FormGroup extends AbstractControl {
   /**
    * 检查组中是否存在具有给定名称的已启用控件。
    * 对于禁用控件，报告为false。 如果您想检查组中是否存在可以使用 [get]
-   * @param controlName 
+   * @param controlName
    */
   contains(controlName: string): boolean {
-    return this.controls.hasOwnProperty(controlName) && this.controls[controlName].enabled;
+    return (
+      this.controls.hasOwnProperty(controlName) &&
+      this.controls[controlName].enabled
+    );
   }
 
   /**
    * 设置formGroup的值
-   * @param value 
-   * @param options 
+   * @param value
+   * @param options
    * `onlySelf` When true, each change only affects this control, and not its parent. Default is
    */
-  setValue(value: { [key: string]: any }, options: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+  setValue(
+    value: { [key: string]: any },
+    options: { onlySelf?: boolean; emitEvent?: boolean } = {}
+  ): void {
     this._checkAllValuesPresent(value);
     Object.keys(value).forEach(name => {
       this.controls[name].setValue(value[name]);
@@ -719,10 +732,9 @@ export class FormGroup extends AbstractControl {
 
   /**
    * 设置任意个值
-   * @param value 
+   * @param value
    */
-  patchValue(value: { [key: string]: any }):
-    void {
+  patchValue(value: { [key: string]: any }): void {
     Object.keys(value).forEach(name => {
       if (this.controls[name]) {
         this.controls[name].patchValue(value[name]);
@@ -733,7 +745,7 @@ export class FormGroup extends AbstractControl {
 
   /**
    *  重置所有的control
-   * @param value 
+   * @param value
    */
   reset(value: any = {}): void {
     this._forEachChild((control: AbstractControl, name: string) => {
@@ -746,7 +758,7 @@ export class FormGroup extends AbstractControl {
 
   /**
    * * 循环自身的formControls
-   * @param cb 
+   * @param cb
    */
   _forEachChild(cb: (v: any, k: string) => void): void {
     Object.keys(this.controls).forEach(k => cb(this.controls[k], k));
@@ -764,40 +776,48 @@ export class FormGroup extends AbstractControl {
 
   /**
    * * 检查设置的新值，是否存在
-   * @param value 
+   * @param value
    */
   _checkAllValuesPresent(value: any): void {
     this._forEachChild((control: AbstractControl, name: string) => {
       if (value[name] === undefined) {
-        throw new Error(`Must supply a value for form control with name: '${name}'.`);
+        throw new Error(
+          `Must supply a value for form control with name: '${name}'.`
+        );
       }
     });
   }
 }
 
-
 export class FormArray extends AbstractControl {
   constructor(
     public controls: AbstractControl[],
-    validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null,
+    validatorOrOpts?:
+      | ValidatorFn
+      | ValidatorFn[]
+      | AbstractControlOptions
+      | null,
     asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
   ) {
     super(
       coerceToValidator(validatorOrOpts),
-      coerceToAsyncValidator(asyncValidator, validatorOrOpts));
+      coerceToAsyncValidator(asyncValidator, validatorOrOpts)
+    );
 
     this.updateValueAndValidity({ onlySelf: true, emitEvent: false });
   }
 
   /**
    * 在数组中给定的索引处获取AbstractControl
-   * @param index 
+   * @param index
    */
-  at(index: number): AbstractControl { return this.controls[index]; }
+  at(index: number): AbstractControl {
+    return this.controls[index];
+  }
 
   /**
    * 添加一个新控制器
-   * @param control 
+   * @param control
    */
   push(control: AbstractControl): void {
     this.controls.push(control);
@@ -808,8 +828,8 @@ export class FormArray extends AbstractControl {
 
   /**
    * 在指定位置插入一个新控制器
-   * @param index 
-   * @param control 
+   * @param index
+   * @param control
    */
   insert(index: number, control: AbstractControl): void {
     this.controls.splice(index, 0, control);
@@ -819,18 +839,20 @@ export class FormArray extends AbstractControl {
   }
 
   removeAt(index: number): void {
-    if (this.controls[index]) this.controls[index]._registerOnCollectionChange(() => { });
+    if (this.controls[index])
+      this.controls[index]._registerOnCollectionChange(() => {});
     this.controls.splice(index, 1);
     this.updateValueAndValidity();
   }
 
   /**
    * 替换现有的控件
-   * @param index 
-   * @param control 
+   * @param index
+   * @param control
    */
   setControl(index: number, control: AbstractControl): void {
-    if (this.controls[index]) this.controls[index]._registerOnCollectionChange(() => { });
+    if (this.controls[index])
+      this.controls[index]._registerOnCollectionChange(() => {});
     this.controls.splice(index, 1);
 
     if (control) {
@@ -845,26 +867,47 @@ export class FormArray extends AbstractControl {
   /**
    * 返回控制器个数
    */
-  get length(): number { return this.controls.length; }
+  get length(): number {
+    return this.controls.length;
+  }
 
-  setValue(value: any[], options: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+  setValue(
+    value: any[],
+    options: { onlySelf?: boolean; emitEvent?: boolean } = {}
+  ): void {
     this._checkAllValuesPresent(value);
     value.forEach((newValue: any, index: number) => {
-      if (this.at(index)) this.at(index).setValue(newValue, { onlySelf: true, emitEvent: options.emitEvent });
+      if (this.at(index))
+        this.at(index).setValue(newValue, {
+          onlySelf: true,
+          emitEvent: options.emitEvent
+        });
     });
     this.updateValueAndValidity(options);
   }
-  patchValue(value: any[], options: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+  patchValue(
+    value: any[],
+    options: { onlySelf?: boolean; emitEvent?: boolean } = {}
+  ): void {
     value.forEach((newValue: any, index: number) => {
       if (this.at(index)) {
-        this.at(index).patchValue(newValue, { onlySelf: true, emitEvent: options.emitEvent });
+        this.at(index).patchValue(newValue, {
+          onlySelf: true,
+          emitEvent: options.emitEvent
+        });
       }
     });
     this.updateValueAndValidity(options);
   }
-  reset(value: any = [], options: { onlySelf?: boolean, emitEvent?: boolean } = {}): void {
+  reset(
+    value: any = [],
+    options: { onlySelf?: boolean; emitEvent?: boolean } = {}
+  ): void {
     this._forEachChild((control: AbstractControl, index: number) => {
-      control.reset(value[index], { onlySelf: true, emitEvent: options.emitEvent });
+      control.reset(value[index], {
+        onlySelf: true,
+        emitEvent: options.emitEvent
+      });
     });
     this._updatePristine(options);
     this._updateTouched(options);
@@ -876,7 +919,9 @@ export class FormArray extends AbstractControl {
    */
   getRawValue(): any[] {
     return this.controls.map((control: AbstractControl) => {
-      return control instanceof FormControl ? control.value : (<any>control).getRawValue();
+      return control instanceof FormControl
+        ? control.value
+        : (<any>control).getRawValue();
     });
   }
 
@@ -885,23 +930,28 @@ export class FormArray extends AbstractControl {
    */
   clear(): void {
     if (this.controls.length < 1) return;
-    this._forEachChild((control: AbstractControl) => control._registerOnCollectionChange(() => { }));
+    this._forEachChild((control: AbstractControl) =>
+      control._registerOnCollectionChange(() => {})
+    );
     this.controls.splice(0);
     this.updateValueAndValidity();
   }
 
   _forEachChild(cb: Function): void {
-    this.controls.forEach((control: AbstractControl, index: number) => { cb(control, index); });
+    this.controls.forEach((control: AbstractControl, index: number) => {
+      cb(control, index);
+    });
   }
 
   _anyControls(condition: Function): boolean {
-    return this.controls.some((control: AbstractControl) => control.enabled && condition(control));
+    return this.controls.some(
+      (control: AbstractControl) => control.enabled && condition(control)
+    );
   }
-
 
   /**
    * 检查新值
-   * @param value 
+   * @param value
    */
   _checkAllValuesPresent(value: any): void {
     this._forEachChild((control: AbstractControl, i: number) => {
@@ -917,33 +967,62 @@ export class FormArray extends AbstractControl {
   }
 }
 
-
 export class FormBuilder {
   static group(
     controlsConfig: {
       [key: string]: any;
-    }, options?: AbstractControlOptions | {
-      [key: string]: any;
-    } | null): FormGroup {
-    const controls = Object.keys(controlsConfig).reduce((acc, name) => Object.assign(acc, { [name]: this._el(controlsConfig[name]) }), {} as {
-      [key: string]: AbstractControl;
-    })
+    },
+    options?:
+      | AbstractControlOptions
+      | {
+          [key: string]: any;
+        }
+      | null
+  ): FormGroup {
+    const controls = Object.keys(controlsConfig).reduce(
+      (acc, name) =>
+        Object.assign(acc, { [name]: this._el(controlsConfig[name]) }),
+      {} as {
+        [key: string]: AbstractControl;
+      }
+    );
     return new FormGroup(controls, options);
   }
 
-
-  static control(formState: any, validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null): FormControl {
+  static control(
+    formState: any,
+    validatorOrOpts?:
+      | ValidatorFn
+      | ValidatorFn[]
+      | AbstractControlOptions
+      | null,
+    asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
+  ): FormControl {
     return new FormControl(formState, validatorOrOpts, asyncValidator);
-  };
+  }
 
-
-  static array(controlsConfig: any[], validatorOrOpts?: ValidatorFn | ValidatorFn[] | AbstractControlOptions | null, asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null): FormArray {
-    return new FormArray(controlsConfig.map(this._el), validatorOrOpts, asyncValidator);
-  };
-
+  static array(
+    controlsConfig: any[],
+    validatorOrOpts?:
+      | ValidatorFn
+      | ValidatorFn[]
+      | AbstractControlOptions
+      | null,
+    asyncValidator?: AsyncValidatorFn | AsyncValidatorFn[] | null
+  ): FormArray {
+    return new FormArray(
+      controlsConfig.map(this._el),
+      validatorOrOpts,
+      asyncValidator
+    );
+  }
 
   private static _el(el: any) {
-    if (el instanceof FormControl || el instanceof FormArray || el instanceof FormGroup) {
+    if (
+      el instanceof FormControl ||
+      el instanceof FormArray ||
+      el instanceof FormGroup
+    ) {
       return el;
     }
 
@@ -953,5 +1032,4 @@ export class FormBuilder {
 
     return this.control(el);
   }
-
 }

@@ -2,8 +2,8 @@ import { BindingTempvarBuilder, BindingBuilder } from "./binding-builder";
 import { FormGroup } from "./forms";
 
 export interface ContextDataSwitch {
-  value: BindingBuilder,
-  default: boolean[],
+  value: BindingBuilder;
+  default: boolean[];
 }
 
 export interface ContextDataOpts {
@@ -91,13 +91,15 @@ export class ContextData {
       tData: options.tData || this.tData,
       forLet: options.forLet || this.forLet,
       formGroup: options.formGroup || this.formGroup,
-      switch: options.switch || this.switch,
+      switch: options.switch || this.switch
     });
   }
 
-
   mergeData() {
     //? assign 无法拷贝get 计算属性，所以store不能在这里面
-    return Object.assign({}, Object.assign(this.tData.templateVariables || {}, this.forState || {}));
+    return Object.assign(
+      {},
+      Object.assign(this.tData.templateVariables || {}, this.forState || {})
+    );
   }
 }
