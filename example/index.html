@@ -6,35 +6,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <title>Aja</title>
-  <style>
-    [hidden] {
-      display: none;
-    }
-
-    .p-2 {
-      padding: 12px;
-    }
-
-    .color {
-      background-color: antiquewhite;
-    }
-  </style>
 </head>
 
 <body>
   <app-home></app-home>
 
   <template id="app">
-    <app-tile :for="of arr" [title]="$_.title"></app-tile>
-    <br>
+    <p>{{ name | hello }}</p>
+    <app-tile></app-tile>
+    <login-form></login-form>
     <button (click)="test()" #btn>test</button>
   </template>
 
   <template id="tile">
-    <h3>title: {{ title }}</h3>
-    <p>subtitle</p>
+    <p>tile works!</p>
+    <p>{{subtitle | hello}}</p>
   </template>
 
+  <template id="login-form">
+    <p>login-form works!</p>
+    <app-tile></app-tile>
+  </template>
   <script src="../dist/dist/aja.umd.js"></script>
   <script>
     const l = console.log;
@@ -42,48 +34,52 @@
 
     class HelloPipe extends AjaPipe {
       pipeName = 'hello';
+
       transform(v) {
         return `hello ${v}`;
       }
     }
 
     class AppTile extends AjaWidget {
-
-      inputs = ['title'];
-
+      
       state = {
-        subtitle: '模板'
+        subtitle: 'subtitle'
       }
-
-      actions = {
-        send() {
-          this.alert(this.title);
-        }
-      }
-
       initState() {
         this.host.style.display = 'block'
-        this.host.style.padding = '1.2em'
+        this.host.style.background = 'red'
       }
-
       render() {
         return document.querySelector('#tile')
       }
     }
 
+    class LoginForm extends AjaWidget {
+      render() {
+        return document.querySelector('#login-form')
+      }
+    }
+    
+    class SharedModule extends AjaModule {
+      declarations = [AppTile, HelloPipe];
+      exports = [AppTile, HelloPipe];
+    }
+
+    class AuthModule extends AjaModule {
+      declarations = [LoginForm];
+      imports = [SharedModule];
+      exports = [LoginForm];
+    }
+
     class AppHome extends AjaWidget {
+      
       state = {
-        title: 'xxx',
-        arr: [
-          { title: 'a' },
-          { title: 'b' },
-          { title: 'c' },
-        ]
+        name: 'x'
       }
 
       actions = {
-        test() {
-          this.arr[0].title = "ajanuw";
+        test(title) {
+          this.name = 'c'
         },
       }
 
@@ -92,18 +88,11 @@
       }
     }
 
-    class SharedModule extends AjaModule {
-      declarations = [HelloPipe];
-      exports = [HelloPipe];
-    }
-
     class AppModule extends AjaModule {
-      declarations = [
-        AppHome,
-        AppTile
-      ];
+      declarations = [AppHome];
       imports = [
-        SharedModule
+        SharedModule,
+        AuthModule,
       ];
       bootstrap = AppHome;
     }

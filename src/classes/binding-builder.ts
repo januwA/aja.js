@@ -48,8 +48,8 @@ import {
   formArrayNameAttrName,
   switchAttrName
 } from "../utils/const-string";
-import { usePipes } from "./aja-pipe";
 import { Actions } from "../aja";
+import { AjaModule } from "./aja-module";
 
 const l = console.log;
 
@@ -62,7 +62,8 @@ export class BindingBuilder {
   }
   constructor(
     public readonly attr: Attr,
-    public readonly contextData: ContextData
+    public readonly contextData: ContextData,
+    public readonly ajaModule: AjaModule
   ) {}
 
   private get _parsePipe() {
@@ -81,7 +82,7 @@ export class BindingBuilder {
    * 自动将数据使用管道过滤后返回
    */
   getPipeData<T extends any>(): T {
-    return usePipes(
+    return this.ajaModule.usePipes(
       getData(this.bindKey, this.contextData),
       this.pipeList,
       this.contextData
@@ -115,9 +116,10 @@ export class BindingAttrBuilder extends BindingBuilder {
   constructor(
     public readonly node: HTMLElement,
     public readonly attr: Attr,
-    public readonly contextData: ContextData
+    public readonly contextData: ContextData,
+    public readonly ajaModuel: AjaModule
   ) {
-    super(attr, contextData);
+    super(attr, contextData, ajaModuel);
     if (this.name === formControlAttrName) {
       // [formControl]
       this._formControlSetup();
@@ -157,7 +159,7 @@ export class BindingAttrBuilder extends BindingBuilder {
     } else if (this.name === switchAttrName) {
       // [switch]
       contextData.switch = {
-        value: new BindingBuilder(attr, contextData),
+        value: new BindingBuilder(attr, contextData, this.ajaModuel),
         default: []
       };
     } else {
@@ -247,7 +249,8 @@ export class BindingTextBuilder {
 
   constructor(
     public readonly node: ChildNode,
-    public readonly contextData: ContextData
+    public readonly contextData: ContextData,
+    public readonly ajaModuel: AjaModule
   ) {
     this.text = node.textContent || "";
     this._setup();
@@ -273,7 +276,7 @@ export class BindingTextBuilder {
   private getPipeData(key: string) {
     const [bindKey, pipeList] = parsePipe(key);
     const data = getData(bindKey, this.contextData);
-    return usePipes(data, pipeList, this.contextData);
+    return this.ajaModuel.usePipes(data, pipeList, this.contextData);
   }
 }
 
@@ -506,9 +509,10 @@ export class BindingIfBuilder extends BindingBuilder {
   constructor(
     attr: Attr,
     public node: HTMLElement,
-    public contextData: ContextData
+    public contextData: ContextData,
+    public readonly ajaModuel: AjaModule
   ) {
-    super(attr, contextData);
+    super(attr, contextData, ajaModuel);
     this.elseElement = this._getElseElement();
     this.node.before(this.commentNode);
     this.node.removeAttribute(structureDirectives.if);
@@ -663,9 +667,10 @@ export class BindingForBuilder extends BindingBuilder {
   constructor(
     public node: HTMLElement,
     attr: Attr,
-    public contextData: ContextData
+    public contextData: ContextData,
+    public readonly ajaModuel: AjaModule
   ) {
-    super(attr, contextData);
+    super(attr, contextData, ajaModuel);
     this.node.replaceWith(this.commentNode);
     this.node.removeAttribute(structureDirectives.for);
     return this;
@@ -673,12 +678,16 @@ export class BindingForBuilder extends BindingBuilder {
 
   setup() {
     if (this.isNumberData) {
-      const _data = usePipes(+this.bindKey, this.pipes, this.contextData);
+      const _data = this.ajaModuel.usePipes(
+        +this.bindKey,
+        this.pipes,
+        this.contextData
+      );
       this.draw(_data);
     } else {
       autorun(() => {
         let data = getData(this.bindKey, this.contextData);
-        data = usePipes(data, this.pipes, this.contextData);
+        data = this.ajaModuel.usePipes(data, this.pipes, this.contextData);
         this.clear();
         this.draw(data);
       });
@@ -894,9 +903,10 @@ export class BindingSwitchBuilder extends BindingBuilder {
   constructor(
     public node: HTMLElement,
     attr: Attr,
-    public contextData: ContextData
+    public contextData: ContextData,
+    public readonly ajaModuel: AjaModule
   ) {
-    super(attr, contextData);
+    super(attr, contextData, ajaModuel);
     this.node.before(this.commentNode);
     this.node.removeAttribute(structureDirectives.case);
     this.node.removeAttribute(structureDirectives.default);

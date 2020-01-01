@@ -30,9 +30,13 @@ import {
   BindingTempvarBuilder,
   BindingSwitchBuilder
 } from "./classes/binding-builder";
-import { AjaWidget, AjaWidgets } from "./classes/aja-widget";
-import { AjaModule } from "./classes/aja-module";
-import { AjaPipes, AjaPipe } from "./classes/aja-pipe";
+import {
+  AjaModule,
+  AjaWidget,
+  AjaPipe,
+  createWidgetName,
+  AjaModules
+} from "./classes/aja-module";
 
 const l = console.log;
 
@@ -58,30 +62,74 @@ function getBootstrap(bootstrap?: Type<AjaWidget> | undefined) {
   return arrayp(bootstrap) ? bootstrap[0] : bootstrap;
 }
 
-function mergeExports(m: AjaModule) {
-  if (m.imports && m.imports.length) {
-    m.imports.forEach(el => {
-      const x = new el();
-      if (x instanceof AjaModule) {
-        if (x.exports) {
-          if (m.declarations) {
-            m.declarations = m.declarations.concat(x.exports);
-          } else {
-            m.declarations = x.exports;
-          }
+function parseImports(m: AjaModule) {
+  if (m.imports && arrayp(m.imports) && m.imports.length) {
+    m.imports.forEach(ajaModuleItem => {
+      const moduleName = ajaModuleItem.name;
+      let ajaModule: AjaModule;
+      const hasModule = AjaModules.hasModule(moduleName);
+      if (hasModule) {
+        ajaModule = AjaModules.getModule(moduleName);
+      } else {
+        ajaModule = new ajaModuleItem();
+        AjaModules.addModule(moduleName, ajaModule);
+      }
+      if (ajaModule instanceof AjaModule) {
+        if (!hasModule && ajaModule.declarations) {
+          parseDeclarations(ajaModule);
+        }
+
+        if (!hasModule && ajaModule.imports) {
+          parseImports(ajaModule);
+        }
+
+        if (ajaModule.exports) {
+          parseExports(ajaModule, m);
         }
       }
     });
   }
 }
 
-function parseDeclarations(declarations: any[] | undefined) {
-  declarations?.forEach(el => {
-    const x = new el();
-    if (x instanceof AjaWidget) {
-      AjaWidgets.add(el.name, x);
-    } else if (x instanceof AjaPipe) {
-      AjaPipes.add(x);
+function parseExports(ajaModule: AjaModule, m: AjaModule) {
+  ajaModule.exports?.forEach(el => {
+    const w = ajaModule.getWidget(el.name);
+    if (w) {
+      m.importWidget(el.name, w);
+      return;
+    }
+
+    const pipe = ajaModule.getPipe(el.name);
+    if (pipe) {
+      m.importPipe(pipe);
+      return;
+    }
+
+    // const x = new el();
+    // l(x, el.name)
+    // if (x instanceof AjaWidget) {
+    //   const widgetName = el.name;
+    //   const widget = ajaModule.getWidget(widgetName);
+    //   if (widget) {
+    //     m.importWidget(widgetName, widget);
+    //   }
+    // } else if (x instanceof AjaPipe) {
+    //   const pipeName = x.pipeName
+    //   const pipe = ajaModule.findPipe(pipeName);
+    //   if (pipe) {
+    //     m.importPipe(pipe);
+    //   }
+    // }
+  });
+}
+
+function parseDeclarations(m: AjaModule) {
+  m.declarations?.forEach(el => {
+    const item = new el();
+    if (item instanceof AjaWidget) {
+      m.addWidget(el.name, item);
+    } else if (item instanceof AjaPipe) {
+      m.addPipe(el.name, item);
     }
   });
 }
@@ -99,29 +147,33 @@ class Aja {
    * 运行根模块
    */
   static bootstrapModule(moduleType: Type<AjaModule>) {
-    const m = new moduleType();
-    const bootstrap = getBootstrap(m.bootstrap);
+    const rootModule: AjaModule = new moduleType();
+    const bootstrap = getBootstrap(rootModule.bootstrap);
     if (!bootstrap) return;
 
-    // 将 module.export 合并到 declarations
-    mergeExports(m);
-
     // 解析 declarations
-    parseDeclarations(m.declarations);
+    parseDeclarations(rootModule);
 
-    const rootName = AjaWidget.createWidgetName(bootstrap.name);
+    // 解析imports导入的模块
+    parseImports(rootModule);
+
+    const rootName = createWidgetName(bootstrap.name);
     const host = document.querySelector<HTMLElement>(rootName);
     if (!host) return;
-    const ajaWidget = AjaWidgets.get(rootName);
+    const ajaWidget = rootModule.getWidget(rootName);
     if (!ajaWidget) return;
     ajaWidget.isRoot = true;
-    ajaWidget.setup(host, opt => new Aja(host, opt));
+    ajaWidget.setup(host, opt => new Aja(host, opt, rootModule));
   }
 
   public $store?: any;
   public $actions?: Actions;
 
-  constructor(public root: HTMLElement, options: AjaConfigOpts = {}) {
+  constructor(
+    public root: HTMLElement,
+    options: AjaConfigOpts = {},
+    public module: AjaModule
+  ) {
     this._proxyState(options);
     if (options.initState) options.initState();
 
@@ -149,7 +201,7 @@ class Aja {
       if (depath) depath = this._parseBindSwitch(node, contextData);
       if (depath) {
         if (isWidget) {
-          this._setupWidget(node, attrs, contextData);
+          this._parseWidget(node, attrs, contextData);
           return;
         } else {
           this._parseBindAttrs(node, attrs, contextData);
@@ -157,7 +209,7 @@ class Aja {
       }
     } else {
       if (isWidget) {
-        this._setupWidget(node, attrs, contextData);
+        this._parseWidget(node, attrs, contextData);
         return;
       }
     }
@@ -172,18 +224,23 @@ class Aja {
   }
 
   private _isWidget(node: HTMLElement) {
-    const ajaWidget = AjaWidgets.get(node.nodeName);
+    const ajaWidget = this.module.getWidget(node.nodeName.toLowerCase());
     return ajaWidget && node !== this.root;
   }
 
-  private _setupWidget(
+  private _parseWidget(
     node: HTMLElement,
     attrs: Attr[],
     contextData: ContextData
   ) {
-    const ajaWidget = AjaWidgets.get(node.nodeName);
-    ajaWidget!.bindOutput(node, attrs, this.$actions, contextData);
-    ajaWidget!.setup(node, opt => new Aja(node, opt), contextData);
+    const ajaWidget = this.module.getWidget(node.nodeName.toLowerCase());
+    if (!ajaWidget) return;
+    ajaWidget.bindOutput(node, attrs, this.$actions, contextData);
+    ajaWidget.setup(
+      node,
+      ({ ajaModule, ...opt }) => new Aja(node, opt, ajaModule),
+      contextData
+    );
   }
 
   /**
@@ -201,7 +258,7 @@ class Aja {
 
       // [title]='xxx'
       if (attrp(name)) {
-        new BindingAttrBuilder(node, attr, contextData);
+        new BindingAttrBuilder(node, attr, contextData, this.module);
         continue;
       }
 
@@ -238,7 +295,12 @@ class Aja {
     let show = true;
     let ifAttr = BindingIfBuilder.findIfAttr(node);
     if (ifAttr) {
-      const ifBuilder = new BindingIfBuilder(ifAttr, node, contextData);
+      const ifBuilder = new BindingIfBuilder(
+        ifAttr,
+        node,
+        contextData,
+        this.module
+      );
       if (boolStringp(ifBuilder.bindKey)) {
         show = ifBuilder.bindKey === "true";
         ifBuilder.checked(show);
@@ -269,7 +331,7 @@ class Aja {
   private _parseBindFor(node: HTMLElement, contextData: ContextData): boolean {
     let forAttr = BindingForBuilder.findForAttr(node);
     if (forAttr) {
-      new BindingForBuilder(node, forAttr, contextData)
+      new BindingForBuilder(node, forAttr, contextData, this.module)
         .addRenderListener((root, newContextData) => {
           this._scan(root, newContextData);
         })
@@ -292,7 +354,7 @@ class Aja {
       this._scan(node, contextData);
     }
     if (textNodep(node)) {
-      new BindingTextBuilder(node, contextData);
+      new BindingTextBuilder(node, contextData, this.module);
     }
     return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
   }
@@ -310,11 +372,11 @@ class Aja {
     let depath = true;
     const caseAttr = BindingSwitchBuilder.findCaseAttr(root);
     if (caseAttr) {
-      new BindingSwitchBuilder(root, caseAttr, contextData);
+      new BindingSwitchBuilder(root, caseAttr, contextData, this.module);
     } else {
       const defaultAttr = BindingSwitchBuilder.findDefaultAttr(root);
       if (defaultAttr) {
-        new BindingSwitchBuilder(root, defaultAttr, contextData);
+        new BindingSwitchBuilder(root, defaultAttr, contextData, this.module);
       }
     }
 
