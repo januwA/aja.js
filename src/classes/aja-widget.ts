@@ -50,7 +50,11 @@ export abstract class AjaWidget {
     }
   }
 
-  setup(host: HTMLElement, cb: (opt: AjaConfigOpts) => Aja) {
+  setup(
+    host: HTMLElement,
+    cb: (opt: AjaConfigOpts) => Aja,
+    parentContextData?: ContextData
+  ) {
     this._setHost(host);
     if (!this.host) return;
 
@@ -66,7 +70,9 @@ export abstract class AjaWidget {
       actions: this.actions,
       initState: this.initState?.bind(this)
     });
-    this.bindInputs(aja.$store, attrs);
+    this._setStore(aja.$store);
+    if (parentContextData)
+      this.bindInputs(aja.$store, parentContextData, attrs);
   }
 
   /**
@@ -74,24 +80,19 @@ export abstract class AjaWidget {
    * @param store
    * @param attrs
    */
-  bindInputs(store: any, attrs: Attr[]) {
-    this._setStore(store);
-    const contextData = new ContextData({
-      store: this.$store,
-      tData: {}
-    });
-    attrs.forEach(attr => {
-      if (attrp(attr.name)) {
-        const attrName = BindingAttrBuilder.parseAttr(attr).attrName;
+  bindInputs(store: any, parentStore: any, attrs: Attr[]) {
+    attrs
+      .filter(attr => attrp(attr.name))
+      .forEach(attr => {
+        const { attrName } = BindingAttrBuilder.parseAttr(attr);
         if (this.inputs?.includes(attrName)) {
           autorun(() => {
-            if (this.$store) {
-              this.$store[attrName] = getData(attr.value, contextData);
+            if (store) {
+              store[attrName] = getData(attr.value.trim(), parentStore);
             }
           });
         }
-      }
-    });
+      });
   }
 
   /**
@@ -104,7 +105,7 @@ export abstract class AjaWidget {
     node: HTMLElement,
     attrs: Attr[],
     parentActions?: Actions,
-    contextData?: any
+    parentContextData?: any
   ) {
     if (!parentActions) return;
     attrs
@@ -115,11 +116,11 @@ export abstract class AjaWidget {
           let { funcName } = BindingEventBuilder.parseFun(attr);
           const f = parentActions[funcName];
           this.actions = Object.assign(this.actions || {}, {
-            [type]: f.bind(contextData.store)
+            [type]: f.bind(parentContextData.store)
           });
           node.removeAttribute(attr.name);
         } else {
-          new BindingEventBuilder(node, attr, contextData, parentActions);
+          new BindingEventBuilder(node, attr, parentContextData, parentActions);
         }
       });
   }

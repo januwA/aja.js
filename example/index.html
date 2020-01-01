@@ -25,17 +25,14 @@
   <app-home></app-home>
 
   <template id="app">
-    <p>{{ name | uppercase }}</p>
-    <p>{{ helloName }}</p>
-    <app-tile [title]="'hello world'" (alert)="test" (click)="clickTile"></app-tile>
+    <app-tile :for="of arr" [title]="$_.title"></app-tile>
     <br>
     <button (click)="test()" #btn>test</button>
   </template>
 
   <template id="tile">
-    <h3 [class]="'color'">title: {{ title }}</h3>
-    <p>subtitle: {{subtitle | hello }}</p>
-    <button (click)="send()">emit</button>
+    <h3>title: {{ title }}</h3>
+    <p>subtitle</p>
   </template>
 
   <script src="../dist/dist/aja.umd.js"></script>
@@ -76,20 +73,18 @@
 
     class AppHome extends AjaWidget {
       state = {
-        name: 'ajanuw',
-        get helloName() {
-          return `hello ${this.name}`
-        }
+        title: 'xxx',
+        arr: [
+          { title: 'a' },
+          { title: 'b' },
+          { title: 'c' },
+        ]
       }
 
       actions = {
-        test(title) {
-          l(title)
-          this.name = 'ccc'
+        test() {
+          this.arr[0].title = "ajanuw";
         },
-        clickTile() {
-          l(this.name)
-        }
       }
 
       render() {

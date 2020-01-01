@@ -141,19 +141,24 @@ class Aja {
       throw `一个元素不能绑定多个结构型指令。(${node.outerHTML})`;
     }
     const attrs = getAttrs(node);
-    const ajaWidget = AjaWidgets.get(node.nodeName);
-    if (ajaWidget && node !== this.root) {
-      ajaWidget.bindOutput(node, attrs, this.$actions, contextData);
-      ajaWidget.setup(node, opt => new Aja(node, opt));
-      return;
-    }
+    const isWidget = this._isWidget(node);
     let depath = true;
     if (attrs.length) {
       depath = this._parseBindIf(node, contextData);
       if (depath) depath = this._parseBindFor(node, contextData);
       if (depath) depath = this._parseBindSwitch(node, contextData);
       if (depath) {
-        this._parseBindAttrs(node, attrs, contextData);
+        if (isWidget) {
+          this._setupWidget(node, attrs, contextData);
+          return;
+        } else {
+          this._parseBindAttrs(node, attrs, contextData);
+        }
+      }
+    } else {
+      if (isWidget) {
+        this._setupWidget(node, attrs, contextData);
+        return;
       }
     }
 
@@ -164,6 +169,21 @@ class Aja {
       if (childNodes.length)
         this._bindingChildNodesAttrs(childNodes, contextData);
     }
+  }
+
+  private _isWidget(node: HTMLElement) {
+    const ajaWidget = AjaWidgets.get(node.nodeName);
+    return ajaWidget && node !== this.root;
+  }
+
+  private _setupWidget(
+    node: HTMLElement,
+    attrs: Attr[],
+    contextData: ContextData
+  ) {
+    const ajaWidget = AjaWidgets.get(node.nodeName);
+    ajaWidget!.bindOutput(node, attrs, this.$actions, contextData);
+    ajaWidget!.setup(node, opt => new Aja(node, opt), contextData);
   }
 
   /**
