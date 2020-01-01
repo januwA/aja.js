@@ -280,20 +280,20 @@ export class BindingTextBuilder {
   }
 }
 
-export class BindingModelBuilder {
+export class BindingModelBuilder extends BindingBuilder {
   /**
    * 查找一个节点是否包含[(model)]指令
    * 并返回
    */
-  static findModelAttr(node: HTMLElement, modelAttr: string): Attr | undefined {
+  static findModelAttr(node: HTMLElement): Attr | undefined {
     if (node.attributes && node.attributes.length) {
       const attrs = toArray(node.attributes);
-      return attrs.find(({ name }) => name === modelAttr);
+      return attrs.find(({ name }) => name === modelDirective);
     }
   }
 
   // input / textarea
-  input?: HTMLInputElement;
+  input?: HTMLInputElement | HTMLTextAreaElement;
   checkbox?: HTMLInputElement;
   radio?: HTMLInputElement;
   select?: HTMLSelectElement;
@@ -307,43 +307,38 @@ export class BindingModelBuilder {
     return this.options.filter(op => op.selected).map(op => op.value);
   }
 
-  attr?: Attr;
-
   constructor(
     public readonly node: HTMLElement,
-    public readonly contextData: ContextData
+    public readonly attr: Attr,
+    public readonly contextData: ContextData,
+    public readonly ajaModule: AjaModule
   ) {
-    this.attr = BindingModelBuilder.findModelAttr(node, modelDirective);
-    if (!this.attr) return;
-
-    this.node.removeAttribute(this.attr!.name);
-    this.setup();
+    super(attr, contextData, ajaModule);
+    this._setup();
+    this.node.removeAttribute(this.name);
   }
 
-  setup() {
-    if (!this.attr || !this.attr.value) return;
+  private _setup() {
     if (inputp(this.node) || textareap(this.node)) {
-      if (checkboxp(this.node)) {
-        this.checkbox = this.node as HTMLInputElement;
-        const data = getData(this.attr.value, this.contextData);
-        autorun(() => {
-          this._checkboxSetup(data);
-        });
-        this._checkboxChangeListener(data, this.contextData);
-      } else if (radiop(this.node)) {
-        this.radio = this.node;
-        autorun(() => {
-          this._radioSetup(getData(this.attr!.value, this.contextData));
-        });
+      this.input = this.node;
+      autorun(() => {
+        if (this.input) this.input.value = this.getPipeData();
+      });
+      this._inputChangeListener(this.contextData);
+    } else if (checkboxp(this.node)) {
+      this.checkbox = this.node as HTMLInputElement;
+      const data = getData(this.attr.value, this.contextData);
+      autorun(() => {
+        this._checkboxSetup(data);
+      });
+      this._checkboxChangeListener(data, this.contextData);
+    } else if (radiop(this.node)) {
+      this.radio = this.node;
+      autorun(() => {
+        this._radioSetup(getData(this.attr!.value, this.contextData));
+      });
 
-        this._radioChangeListener(this.contextData);
-      } else {
-        // this.input = this.node;
-        autorun(() => {
-          this._inputSetup(getData(this.attr!.value, this.contextData));
-        });
-        this._inputChangeListener(this.contextData);
-      }
+      this._radioChangeListener(this.contextData);
     } else if (selectp(this.node)) {
       this.select = this.node as HTMLSelectElement;
       setTimeout(() => {
@@ -412,12 +407,6 @@ export class BindingModelBuilder {
         AjaModel.valueChange(this.radio);
         if (this.attr) setData(this.attr.value, newData, contextData);
       });
-    }
-  }
-
-  private _inputSetup(value: any) {
-    if (this.input) {
-      this.input.value = value;
     }
   }
 
@@ -601,7 +590,7 @@ export class BindingEventBuilder {
     let { funcName, args } = BindingEventBuilder.parseFun(attr);
     this.funcName = funcName;
 
-    const modelChangep: boolean = name === modelChangeEvent;
+    const modelChangep: boolean = attr.name === modelChangeEvent;
     if (modelChangep) this.type = EventType.input;
     if (
       this.actions &&

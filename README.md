@@ -93,49 +93,6 @@
 </body>
 ```
 
-<details>
- <summary>旧的构建方式</summary>
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <body>
-    <div class="app">
-      <p>{{ text }}</p>
-      <p>{{ hello }}</p>
-      <button (click)="change($event)">change</button>
-    </div>
-    <script src="../dist/aja.js"></script>
-    <script>
-      const l = console.log;
-      let vm = new Aja(document.querySelector(".app"), {
-        state: {
-          
-          // 需要绑定在节点中的数据, 可以初始化为null，不要初始化为undefined
-          text: "hello...",
-          
-          // 计算函数，大量的运算符比写在节点中的效率高
-          get hello() {
-            return this.text + 'xxx';
-          }
-
-        },
-        actions: {
-
-          // 绑定在节点中的事件
-          change(e) {
-            l(e);
-            this.text = "x";
-          }
-        }
-      });
-      l(vm);
-    </script>
-  </body>
-</html>
-```
-</details>
-
 ## 返回字符串
 ```html
 <app-home></app-home>
@@ -203,8 +160,34 @@
 
 ## 属性绑定
 ```html
-<p [title]="title" class="c" [style]="style"></p>
-<p [html]="'name'"></p>
+  <app-home></app-home>
+  <script src="../dist/dist/aja.umd.js"></script>
+  <script>
+    const { AjaWidget, AjaModule } = Aja;
+
+    class AppHome extends AjaWidget {
+      state = {
+        title: 'title...',
+        style: {
+          padding: '1em',
+          color: 'red'
+        }
+      }
+      render() {
+        return `
+          <p [title]="title" class="c" [style]="style">{{ title }}</p>
+          <p [html]="'name'"></p>
+        `;
+      }
+    }
+
+    class AppModule extends AjaModule {
+      declarations = [AppHome];
+      bootstrap = [AppHome];
+    }
+
+    Aja.bootstrapModule(AppModule);
+  </script>
 ```
 
 ## 绑定class
@@ -290,27 +273,14 @@ state: {
 
 ## for自带的上下文
 ```html
-<div class="app">
-
-  <div :for="of 3">
-    <p>$_: {{ $_ }}</p>
-    <ul>
-      <li :for="of 2">$__: {{ $__ }}</li>
-    </ul>
-  </div>
-
-  <div :for="of arr">
-    <p>{{ $_.key }}</p>
-    <ul>
-      <li :for="of $_.list">{{ $__}}</li>
-    </ul>
-  </div>
-
-</div>
+<app-home></app-home>
+<script src="../dist/dist/aja.umd.js"></script>
 <script>
   const l = console.log;
-  let vm = new Aja(document.querySelector(".app"), {
-    state: {
+  const { AjaWidget, AjaModule } = Aja;
+
+  class AppHome extends AjaWidget {
+    state = {
       arr: [
         {
           key: 1,
@@ -326,7 +296,32 @@ state: {
         },
       ],
     }
-  });
+
+    render() {
+      return `
+        <div :for="of 3">
+          <p># {{ $_ }}</p>
+          <ul>
+            <li :for="of 2">## {{ $__ }}</li>
+          </ul>
+        </div>
+
+        <div :for="of arr">
+          <p>{{ $_.key }}</p>
+          <ul>
+            <li :for="of $_.list">{{ $__}}</li>
+          </ul>
+        </div>
+      `;
+    }
+  }
+
+  class AppModule extends AjaModule {
+    declarations = [AppHome];
+    bootstrap = [AppHome];
+  }
+
+  Aja.bootstrapModule(AppModule);
 </script>
 ```
 
@@ -490,23 +485,39 @@ state: {
   }
 </style>
 
-<div class=".app">
-  <input type="text" name="username"  [(model)]="name" #nameModel="ajaModel" required minlength="5" />
-  <div [hidden]="nameModel.valid || nameModel.pristine">Name is required</div>
-  <button (click)="asd(nameModel)">click me</button>
-</div>
+<app-home></app-home>
+<script src="../dist/dist/aja.umd.js"></script>
 <script>
   const l = console.log;
-  let vm = new Aja(document.querySelector(".app"), {
-    state: {
-      name: ""
-    },
-    actions: {
-      asd(m) {
+  const { AjaWidget, AjaModule } = Aja;
+
+  class AppHome extends AjaWidget {
+    state = {
+      name: "",
+    }
+
+    actions = {
+      submit(m) {
         l(m)
       }
     }
-  });
+
+    render() {
+      // 属性在获取时会被设置为小写，如果要使用，就用下划线分割
+      return `
+        <input type="text" [(model)]="name" #name_model="ajaModel" required />
+        <div [hidden]="name_model.valid || name_model.pristine">Name is required</div>
+        <button (click)="submit(name_model)" [disabled]="name_model.invalid">click me</button>
+      `;
+    }
+  }
+
+  class AppModule extends AjaModule {
+    declarations = [AppHome];
+    bootstrap = [AppHome];
+  }
+
+  Aja.bootstrapModule(AppModule);
 </script>
 ```
 
@@ -528,30 +539,26 @@ state: {
   }
 </style>
 
-
-<div class="app">
-  <input required type="text" [formControl]="name" />
-  <p [hidden]="!(name.pending && name.touched)">等待验证...</p>
-  <p :if="name.touched && name.errors">{{ name.errors | json }}</p>
-  <button (click)="asd()">change</button>
-</div>
-
+<app-home></app-home>
+<script src="../dist/dist/aja.umd.js"></script>
 <script>
   const l = console.log;
+  const { AjaWidget, AjaModule, FormControl } = Aja;
+
   function validatorFn(control) {
     return control.value.includes("Ajanuw")
       ? null
       : {
-          validatorFn: "必须包含 Ajanuw"
-        };
+        validatorFn: "必须包含 Ajanuw"
+      };
   }
 
   function validatorFn2(control) {
     return control.value.includes("hello")
       ? null
       : {
-          validatorFn2: "必须包含 hello"
-        };
+        validatorFn2: "必须包含 hello"
+      };
   }
 
   function asyncValidatorFn(control) {
@@ -567,114 +574,147 @@ state: {
       }, 1500);
     });
   }
-  
-  let vm = new Aja(document.querySelector(".app"), {
-    state: {
-      name: new Aja.FormControl(
+
+  class AppHome extends AjaWidget {
+    state = {
+      name: new FormControl(
         "",
         [validatorFn, validatorFn2],
         asyncValidatorFn
       ),
-    },
-    actions: {
-      asd() {
+    }
+
+    actions = {
+      asd(m) {
         this.name.setValue("hello Ajanuw");
       }
     }
-  });
+
+    render() {
+      return `
+      <input required type="text" [formControl]="name" />
+      <p [hidden]="!name.pending">等待验证...</p>
+      <p :if="name.touched && name.errors">{{ name.errors | json }}</p>
+      <br />
+      <button (click)="asd()">change</button>
+      `;
+    }
+  }
+
+  class AppModule extends AjaModule {
+    declarations = [AppHome];
+    bootstrap = [AppHome];
+  }
+
+  Aja.bootstrapModule(AppModule);
 </script>
 ```
 
 ## FormGroup
 ```html
-<div class="app">
-  <form [formGroup]="profileForm">
+<style>
+  [hidden] {
+    display: none;
+  }
 
-    <label>
-      First Name:
-      <input required type="text" [formControlName]="firstName">
-    </label>
+  .aja-touched.aja-invalid {
+    border-color: red;
+  }
 
-    <label>
-      Last Name:
-      <input type="text" [formControlName]="lastName">
-    </label>
+  .aja-valid {
+    border-color: #33ff00;
+  }
+</style>
 
-    <input type="submit" [disabled]="!profileForm.valid" value="submit" />
-
-  </form>
-  <button (click)="asd()">change</button>
-</div>
-
+<app-home></app-home>
+<script src="../dist/dist/aja.umd.js"></script>
 <script>
   const l = console.log;
-  let vm = new Aja(document.querySelector(".app"), {
-    state: {
+  const { AjaWidget, AjaModule } = Aja;
+
+  function requeredValue(control) {
+    return control.value
+      ? null
+      : {
+        requered: "不能为空"
+      };
+  }
+
+  class AppHome extends AjaWidget {
+    state = {
       profileForm: new Aja.FormGroup({
         firstName: new Aja.FormControl('a'),
         lastName: new Aja.FormControl('b'),
-      }),
-    },
-    actions: {
-      asd() {
-        l(this.profileForm.value)
+      }, [requeredValue]),
+    }
+
+    actions = {
+      test() {
+        l(this.profileForm)
       }
     }
-  });
+
+    render() {
+      return `
+      <form [formGroup]="profileForm">
+        <label>
+          First Name:
+          <input type="text" [formControlName]="firstName">
+        </label>
+
+        <label>
+          Last Name:
+          <input type="text" [formControlName]="lastName">
+        </label>
+        <p>{{ profileForm.invalid }}</p>
+        <input type="submit" [disabled]="profileForm.invalid" value="submit" />
+        </form>
+        <button (click)="test()">test</button>
+      `;
+    }
+  }
+
+  class AppModule extends AjaModule {
+    declarations = [AppHome];
+    bootstrap = [AppHome];
+  }
+
+  Aja.bootstrapModule(AppModule);
 </script>
 ```
 
 ## fb
 ```html
-<div class="app">
-  <form [formGroup]="profileForm">
+<style>
+  [hidden] {
+    display: none;
+  }
 
-    <label>
-      First Name:
-      <input required type="text" [formControlName]="firstName">
-    </label>
+  .aja-touched.aja-invalid {
+    border-color: red;
+  }
 
-    <label>
-      Last Name:
-      <input type="text" [formControlName]="lastName">
-    </label>
+  .aja-valid {
+    border-color: #33ff00;
+  }
+</style>
 
-    <div [formGroupName]="address">
-      <h3>Address</h3>
-
-      <label>
-        Street:
-        <input type="text" [formControlName]="street">
-      </label>
-
-      <label>
-        City:
-        <input type="text" [formControlName]="city">
-      </label>
-
-      <label>
-        State:
-        <input type="text" [formControlName]="state">
-      </label>
-
-      <label>
-        Zip Code:
-        <input type="text" [formControlName]="zip">
-      </label>
-    </div>
-
-    <input type="submit" [disabled]="profileForm.invalid" value="submit" />
-
-  </form>
-  <button (click)="asd()">change</button>
-</div>
-<script src="aja.umd.js"></script>
+<app-home></app-home>
+<script src="../dist/dist/aja.umd.js"></script>
 <script>
   const l = console.log;
-  const { FormGroup, FormControl, FormArray,  fb } = Aja;
+  const { AjaWidget, AjaModule, fb } = Aja;
 
-  let vm = new Aja(document.querySelector(".app"), {
-    state: {
+  function requeredValue(control) {
+    return control.value
+      ? null
+      : {
+        requered: "不能为空"
+      };
+  }
+
+  class AppHome extends AjaWidget {
+    state = {
       profileForm: fb.group({
         firstName: ['asdasd'],
         lastName: [''],
@@ -685,17 +725,68 @@ state: {
           zip: 's'
         }),
       })
-    },
-    actions: {
+    }
+
+    actions = {
       asd() {
         l(this.profileForm)
       }
     }
-  });
+
+    render() {
+      return `
+      <form [formGroup]="profileForm">
+        <label>
+          First Name:
+          <input required type="text" [formControlName]="firstName">
+        </label>
+
+        <label>
+          Last Name:
+          <input type="text" [formControlName]="lastName">
+        </label>
+
+        <div [formGroupName]="address">
+          <h3>Address</h3>
+
+          <label>
+            Street:
+            <input type="text" [formControlName]="street">
+          </label>
+
+          <label>
+            City:
+            <input type="text" [formControlName]="city">
+          </label>
+
+          <label>
+            State:
+            <input type="text" [formControlName]="state">
+          </label>
+
+          <label>
+            Zip Code:
+            <input type="text" [formControlName]="zip">
+          </label>
+        </div>
+
+        <input type="submit" [disabled]="profileForm.invalid" value="submit" />
+        </form>
+        <button (click)="asd()">change</button>
+      `;
+    }
+  }
+
+  class AppModule extends AjaModule {
+    declarations = [AppHome];
+    bootstrap = [AppHome];
+  }
+
+  Aja.bootstrapModule(AppModule);
 </script>
 ```
 
 
 ## TODO
 - 延迟解析[(model)]
-- 响应式表单系列可能存在BUG
+- 响应式表单系列存在BUG

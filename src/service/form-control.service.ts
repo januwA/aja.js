@@ -107,12 +107,14 @@ export class FormControlSerivce {
       // 如果控件被禁用，h5将一直返回true
       // 初始化时只会验证required
       // 只有在input期间验证，才会验证到minlength之类的
-      const ok = inputNode.checkValidity();
-      if (!ok) {
-        this.control.setErrors({
-          error: inputNode.validationMessage
-        });
-      }
+      setTimeout(() => {
+        const ok = inputNode.checkValidity();
+        if (!ok && inputNode.validationMessage) {
+          this.control.setErrors({
+            error: inputNode.validationMessage
+          });
+        }
+      });
     }
   }
 }

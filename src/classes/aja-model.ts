@@ -30,12 +30,12 @@ export class AjaModel {
    * * 验证节点的值
    * @param node
    */
-  static checkValidity(node: HTMLInputElement) {
+  static checkValidity(node: HTMLElement) {
     if ("checkValidity" in node) {
-      const inputNode = node as HTMLInputElement;
+      const inputNode = <HTMLInputElement>node;
       const ok = inputNode.checkValidity();
-      node.classList.toggle(AjaModel.classes.valid, ok);
-      node.classList.toggle(AjaModel.classes.invalid, !ok);
+      inputNode.classList.toggle(AjaModel.classes.valid, ok);
+      inputNode.classList.toggle(AjaModel.classes.invalid, !ok);
       return ok;
     }
   }

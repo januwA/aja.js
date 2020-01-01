@@ -18,10 +18,12 @@ export function getData(key: string, contextData: ContextData): any {
   // 抽掉所有空格，再把管道排除
   let [bindKey] = parsePipe(key);
   let _result: any;
-  _result = evalFun(bindKey, contextData.mergeData());
-  if (_result === undefined) {
-    _result = evalFun(bindKey, contextData.store);
-  }
+
+  _result = evalFun(bindKey, {
+    ...contextData.store,
+    ...contextData.forState,
+    ...contextData.tData.templateVariables
+  });
   if (undefinedp(_result)) _result = emptyString;
   return _result;
 }

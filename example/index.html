@@ -6,95 +6,103 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <title>Aja</title>
+  <style>
+    [hidden] {
+      display: none;
+    }
+
+    .aja-touched.aja-invalid {
+      border-color: red;
+    }
+
+    .aja-valid {
+      border-color: #33ff00;
+    }
+  </style>
 </head>
 
 <body>
   <app-home></app-home>
-
-  <template id="app">
-    <p>{{ name | hello }}</p>
-    <app-tile></app-tile>
-    <login-form></login-form>
-    <button (click)="test()" #btn>test</button>
-  </template>
-
-  <template id="tile">
-    <p>tile works!</p>
-    <p>{{subtitle | hello}}</p>
-  </template>
-
-  <template id="login-form">
-    <p>login-form works!</p>
-    <app-tile></app-tile>
-  </template>
   <script src="../dist/dist/aja.umd.js"></script>
   <script>
     const l = console.log;
-    const { AjaWidget, AjaModule, AjaPipe } = Aja;
+    const { AjaWidget, AjaModule, fb } = Aja;
 
-    class HelloPipe extends AjaPipe {
-      pipeName = 'hello';
-
-      transform(v) {
-        return `hello ${v}`;
-      }
-    }
-
-    class AppTile extends AjaWidget {
-      
-      state = {
-        subtitle: 'subtitle'
-      }
-      initState() {
-        this.host.style.display = 'block'
-        this.host.style.background = 'red'
-      }
-      render() {
-        return document.querySelector('#tile')
-      }
-    }
-
-    class LoginForm extends AjaWidget {
-      render() {
-        return document.querySelector('#login-form')
-      }
-    }
-    
-    class SharedModule extends AjaModule {
-      declarations = [AppTile, HelloPipe];
-      exports = [AppTile, HelloPipe];
-    }
-
-    class AuthModule extends AjaModule {
-      declarations = [LoginForm];
-      imports = [SharedModule];
-      exports = [LoginForm];
+    function requeredValue(control) {
+      return control.value
+        ? null
+        : {
+          requered: "不能为空"
+        };
     }
 
     class AppHome extends AjaWidget {
-      
       state = {
-        name: 'x'
+        profileForm: fb.group({
+          firstName: ['asdasd'],
+          lastName: [''],
+          address: fb.group({
+            street: [''],
+            city: ['x'],
+            state: fb.control('h'),
+            zip: 's'
+          }),
+        })
       }
 
       actions = {
-        test(title) {
-          this.name = 'c'
-        },
+        asd() {
+          l(this.profileForm)
+        }
       }
 
       render() {
-        return document.querySelector('#app');
+        return `
+        <form [formGroup]="profileForm">
+          <label>
+            First Name:
+            <input required type="text" [formControlName]="firstName">
+          </label>
+
+          <label>
+            Last Name:
+            <input type="text" [formControlName]="lastName">
+          </label>
+
+          <div [formGroupName]="address">
+            <h3>Address</h3>
+
+            <label>
+              Street:
+              <input type="text" [formControlName]="street">
+            </label>
+
+            <label>
+              City:
+              <input type="text" [formControlName]="city">
+            </label>
+
+            <label>
+              State:
+              <input type="text" [formControlName]="state">
+            </label>
+
+            <label>
+              Zip Code:
+              <input type="text" [formControlName]="zip">
+            </label>
+          </div>
+
+          <input type="submit" [disabled]="profileForm.invalid" value="submit" />
+          </form>
+          <button (click)="asd()">change</button>
+        `;
       }
     }
 
     class AppModule extends AjaModule {
       declarations = [AppHome];
-      imports = [
-        SharedModule,
-        AuthModule,
-      ];
-      bootstrap = AppHome;
+      bootstrap = [AppHome];
     }
 
     Aja.bootstrapModule(AppModule);

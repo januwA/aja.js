@@ -268,7 +268,10 @@ class Aja {
         continue;
       }
     }
-    new BindingModelBuilder(node, contextData);
+
+    const modleAttr = BindingModelBuilder.findModelAttr(node);
+    if (modleAttr)
+      new BindingModelBuilder(node, modleAttr, contextData, this.module);
   }
 
   private _proxyState(options: AjaConfigOpts): void {

@@ -94,12 +94,4 @@ export class ContextData {
       switch: options.switch || this.switch
     });
   }
-
-  mergeData() {
-    //? assign 无法拷贝get 计算属性，所以store不能在这里面
-    return Object.assign(
-      {},
-      Object.assign(this.tData.templateVariables || {}, this.forState || {})
-    );
-  }
 }

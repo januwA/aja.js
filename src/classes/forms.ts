@@ -31,7 +31,6 @@ function _mergeErrors(
 ): ValidationErrors | null {
   const res: { [key: string]: any } = arrayOfErrors.reduce(
     (acc: ValidationErrors | null, errors: ValidationErrors | null) => {
-      // return nullp(errors) ? acc! : { ...acc!, ...errors };
       return nullp(errors) ? acc! : Object.assign(acc, errors);
     },
     {}
@@ -529,6 +528,8 @@ export abstract class AbstractControl {
       this._parent.updateValueAndValidity(opts);
     }
   }
+
+  // TODO: 当子级改变, 父级如何运行检查器
   private _runValidator() {
     return this.validator ? this.validator(this) : null;
   }
