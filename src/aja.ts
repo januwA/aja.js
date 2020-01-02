@@ -1,25 +1,13 @@
 import {
   toArray,
   getAttrs,
-  hasMultipleStructuredInstructions
+  hasMultipleStructuredInstructions,
+  LowerTrim
 } from "./utils/util";
 
 import { observable, autorun, action } from "mobx";
-import {
-  eventp,
-  boolStringp,
-  attrp,
-  elementNodep,
-  textNodep,
-  arrayp
-} from "./utils/p";
+import { eventp, boolStringp, attrp, elementNodep, textNodep } from "./utils/p";
 import { ContextData } from "./classes/context-data";
-import {
-  FormControl,
-  FormGroup,
-  FormBuilder,
-  FormArray
-} from "./classes/forms";
 import {
   BindingAttrBuilder,
   BindingTextBuilder,
@@ -30,13 +18,7 @@ import {
   BindingTempvarBuilder,
   BindingSwitchBuilder
 } from "./classes/binding-builder";
-import {
-  AjaModule,
-  AjaWidget,
-  AjaPipe,
-  createWidgetName,
-  AjaModules
-} from "./classes/aja-module";
+import { AjaModule } from "./classes/aja-module";
 
 const l = console.log;
 
@@ -58,114 +40,7 @@ export interface AjaConfigOpts {
   initState?: Function;
 }
 
-function getBootstrap(bootstrap?: Type<AjaWidget> | undefined) {
-  return arrayp(bootstrap) ? bootstrap[0] : bootstrap;
-}
-
-function parseImports(m: AjaModule) {
-  if (m.imports && arrayp(m.imports) && m.imports.length) {
-    m.imports.forEach(ajaModuleItem => {
-      const moduleName = ajaModuleItem.name;
-      let ajaModule: AjaModule;
-      const hasModule = AjaModules.hasModule(moduleName);
-      if (hasModule) {
-        ajaModule = AjaModules.getModule(moduleName);
-      } else {
-        ajaModule = new ajaModuleItem();
-        AjaModules.addModule(moduleName, ajaModule);
-      }
-      if (ajaModule instanceof AjaModule) {
-        if (!hasModule && ajaModule.declarations) {
-          parseDeclarations(ajaModule);
-        }
-
-        if (!hasModule && ajaModule.imports) {
-          parseImports(ajaModule);
-        }
-
-        if (ajaModule.exports) {
-          parseExports(ajaModule, m);
-        }
-      }
-    });
-  }
-}
-
-function parseExports(ajaModule: AjaModule, m: AjaModule) {
-  ajaModule.exports?.forEach(el => {
-    const w = ajaModule.getWidget(el.name);
-    if (w) {
-      m.importWidget(el.name, w);
-      return;
-    }
-
-    const pipe = ajaModule.getPipe(el.name);
-    if (pipe) {
-      m.importPipe(pipe);
-      return;
-    }
-
-    // const x = new el();
-    // l(x, el.name)
-    // if (x instanceof AjaWidget) {
-    //   const widgetName = el.name;
-    //   const widget = ajaModule.getWidget(widgetName);
-    //   if (widget) {
-    //     m.importWidget(widgetName, widget);
-    //   }
-    // } else if (x instanceof AjaPipe) {
-    //   const pipeName = x.pipeName
-    //   const pipe = ajaModule.findPipe(pipeName);
-    //   if (pipe) {
-    //     m.importPipe(pipe);
-    //   }
-    // }
-  });
-}
-
-function parseDeclarations(m: AjaModule) {
-  m.declarations?.forEach(el => {
-    const item = new el();
-    if (item instanceof AjaWidget) {
-      m.addWidget(el.name, item);
-    } else if (item instanceof AjaPipe) {
-      m.addPipe(el.name, item);
-    }
-  });
-}
-
-class Aja {
-  static FormControl = FormControl;
-  static FormGroup = FormGroup;
-  static FormArray = FormArray;
-  static fb = FormBuilder;
-  static AjaWidget = AjaWidget;
-  static AjaModule = AjaModule;
-  static AjaPipe = AjaPipe;
-
-  /**
-   * 运行根模块
-   */
-  static bootstrapModule(moduleType: Type<AjaModule>) {
-    const rootModule: AjaModule = new moduleType();
-    const bootstrap = getBootstrap(rootModule.bootstrap);
-    if (!bootstrap) return;
-
-    // 解析 declarations
-    parseDeclarations(rootModule);
-
-    // 解析imports导入的模块
-    parseImports(rootModule);
-
-    const rootName = createWidgetName(bootstrap.name);
-    const host = document.querySelector<HTMLElement>(rootName);
-    if (!host) return;
-    const ajaWidget = rootModule.getWidget(rootName);
-    if (!ajaWidget) return;
-    ajaWidget.isRoot = true;
-    ajaWidget.setup(host, opt => new Aja(host, opt, rootModule));
-  }
-
+export class Aja {
   public $store?: any;
   public $actions?: Actions;
 
@@ -224,7 +99,7 @@ class Aja {
   }
 
   private _isWidget(node: HTMLElement) {
-    const ajaWidget = this.module.getWidget(node.nodeName.toLowerCase());
+    const ajaWidget = this.module.getWidget(node.nodeName);
     return ajaWidget && node !== this.root;
   }
 
@@ -233,14 +108,11 @@ class Aja {
     attrs: Attr[],
     contextData: ContextData
   ) {
-    const ajaWidget = this.module.getWidget(node.nodeName.toLowerCase());
-    if (!ajaWidget) return;
-    ajaWidget.bindOutput(node, attrs, this.$actions, contextData);
-    ajaWidget.setup(
-      node,
-      ({ ajaModule, ...opt }) => new Aja(node, opt, ajaModule),
-      contextData
-    );
+    const ajaWidget = this.module.getWidget(node.nodeName);
+    if (ajaWidget) {
+      ajaWidget.bindOutput(node, attrs, this.$actions, contextData);
+      ajaWidget.setup(node, contextData);
+    }
   }
 
   /**
@@ -386,5 +258,3 @@ class Aja {
     return depath;
   }
 }
-
-export default Aja;

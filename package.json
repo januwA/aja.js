@@ -1,7 +1,7 @@
 {
-  "name": "aja.js",
-  "version": "0.0.12",
-  "description": "mvvm",
+  "name": "aja",
+  "version": "0.0.13",
+  "description": "other",
   "private": true,
   "directories": {
     "example": "example"

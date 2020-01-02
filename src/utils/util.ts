@@ -214,3 +214,7 @@ export function hasMultipleStructuredInstructions(node: HTMLElement): boolean {
     }, [] as any[]).length > 1
   );
 }
+
+export function LowerTrim(str: string): string {
+  return str.toLowerCase().trim();
+}

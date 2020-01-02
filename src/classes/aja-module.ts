@@ -1,104 +1,162 @@
-import Aja, { Actions, AjaConfigOpts, Type } from "../aja";
+import { Actions, Type, Aja } from "../aja";
 import {
   templatep,
   attrp,
   eventp,
   elementNodep,
-  numberStringp
+  numberStringp,
+  arrayp
 } from "../utils/p";
 import { ContextData } from "./context-data";
 import { BindingAttrBuilder, BindingEventBuilder } from "./binding-builder";
 import { autorun } from "mobx";
 import { getData } from "../core";
-import { getAttrs } from "../utils/util";
+import { getAttrs, LowerTrim } from "../utils/util";
+import { AjaPipe, defaultPipes } from "./aja-pipe";
 
 const l = console.log;
 
-export function createWidgetName(name: string) {
+function parseImports(m: AjaModule) {
+  if (m.imports && arrayp(m.imports) && m.imports.length) {
+    m.imports.forEach(ajaModuleItem => {
+      const moduleName = ajaModuleItem.name;
+      let ajaModule: AjaModule;
+      const hasModule = AjaModules.hasModule(moduleName);
+      if (hasModule) {
+        ajaModule = AjaModules.getModule(moduleName);
+      } else {
+        ajaModule = new ajaModuleItem();
+        AjaModules.addModule(moduleName, ajaModule);
+      }
+      if (ajaModule instanceof AjaModule) {
+        if (!hasModule && ajaModule.declarations) {
+          parseDeclarations(ajaModule);
+        }
+
+        if (!hasModule && ajaModule.imports) {
+          parseImports(ajaModule);
+        }
+
+        if (ajaModule.exports) {
+          parseExports(ajaModule, m);
+        }
+      }
+    });
+  }
+}
+
+function parseExports(ajaModule: AjaModule, m: AjaModule) {
+  ajaModule.exports?.forEach(el => {
+    const w = ajaModule.getWidget(el.name);
+    if (w) {
+      m.importWidget(el.name, w);
+      return;
+    }
+
+    const pipe = ajaModule.getPipe(el.name);
+    if (pipe) {
+      m.importPipe(pipe);
+      return;
+    }
+
+    // const x = new el();
+    // l(x, el.name)
+    // if (x instanceof AjaWidget) {
+    //   const widgetName = el.name;
+    //   const widget = ajaModule.getWidget(widgetName);
+    //   if (widget) {
+    //     m.importWidget(widgetName, widget);
+    //   }
+    // } else if (x instanceof AjaPipe) {
+    //   const pipeName = x.pipeName
+    //   const pipe = ajaModule.findPipe(pipeName);
+    //   if (pipe) {
+    //     m.importPipe(pipe);
+    //   }
+    // }
+  });
+}
+
+function parseDeclarations(m: AjaModule) {
+  // 在这里，widget和pipe就被实例化，添加到模块了
+  m.declarations?.forEach(el => {
+    const item = new el();
+    if (item instanceof AjaWidget) {
+      m.addWidget(el.name, item);
+    } else if (item instanceof AjaPipe) {
+      m.addPipe(el.name, item);
+    }
+  });
+}
+
+function _usePipes(
+  data: any,
+  pipeList: string[],
+  contextData: ContextData,
+  m: AjaModule
+) {
+  let _result = data;
+  if (pipeList.length) {
+    pipeList.forEach(pipe => {
+      const [pipeName, ...pipeArgs] = pipe.split(":");
+      const ajaPipe = m.findPipe(pipeName);
+      if (ajaPipe) {
+        const parsePipeArgs = pipeArgs.map(arg =>
+          numberStringp(arg) ? arg : getData(arg, contextData)
+        );
+        try {
+          _result = ajaPipe.transform(_result, ...parsePipeArgs);
+        } catch (er) {
+          console.error(er);
+        }
+      } else {
+        console.error(`没有找到管道[${pipeName}], 请注册!!!`);
+      }
+    });
+  }
+  return _result;
+}
+
+function _createWidgetName(name: string) {
   let newName = name.charAt(0).toLowerCase() + name.substr(1);
   newName = newName.replace(/([A-Z])/g, "-$1");
   return newName.toLowerCase();
 }
 
-export abstract class AjaPipe {
-  readonly module?: AjaModule;
+export function bootstrapModule(moduleType: Type<AjaModule>) {
+  if (moduleType.prototype instanceof AjaModule) {
+    const rootModule: AjaModule = new moduleType();
+    const bootstrap = arrayp(rootModule.bootstrap)
+      ? rootModule.bootstrap[0]
+      : rootModule.bootstrap;
+    if (bootstrap) {
+      // 解析 declarations
+      parseDeclarations(rootModule);
 
-  setModule(m: AjaModule) {
-    if (this.module) {
-      throw `管道只能有一个模块`;
+      // 解析imports导入的模块
+      parseImports(rootModule);
+
+      const rootName = _createWidgetName(bootstrap.name);
+      const host = document.querySelector<HTMLElement>(rootName);
+      if (host) {
+        const ajaWidget = rootModule.getWidget(rootName);
+        if (ajaWidget) ajaWidget.setup(host);
+      }
     }
-    (this as { module: AjaModule }).module = m;
   }
-
-  abstract pipeName: string;
-  abstract transform(...value: any[]): any;
 }
-
 /**
- * 全部大写
- * @param value
+ * 保存模块，确保只初始化一次
  */
-class UppercasePipe extends AjaPipe {
-  pipeName = "uppercase";
-
-  transform(value: string) {
-    return value.toUpperCase();
-  }
-}
-
-/**
- * 全部小写
- * @param value
- */
-class LowercasePipe extends AjaPipe {
-  pipeName = "lowercase";
-
-  transform(value: string) {
-    return value.toLowerCase();
-  }
-}
-
-/**
- * 首字母小写
- * @param str
- */
-class CapitalizePipe extends AjaPipe {
-  pipeName = "capitalize";
-
-  transform(value: string) {
-    return value.charAt(0).toUpperCase() + value.substring(1);
-  }
-}
-
-class JsonPipe extends AjaPipe {
-  pipeName = "json";
-
-  transform(value: string) {
-    return JSON.stringify(value, null, " ");
-  }
-}
-
-class SlicePipe extends AjaPipe {
-  pipeName = "slice";
-
-  transform(value: string, start: number, end: number) {
-    return value.slice(start, end);
-  }
-}
-
-const defaultPipes = {
-  [UppercasePipe.name]: new UppercasePipe(),
-  [CapitalizePipe.name]: new CapitalizePipe(),
-  [JsonPipe.name]: new JsonPipe(),
-  [SlicePipe.name]: new SlicePipe()
-};
-
 export class AjaModules {
   private static _modules: {
     [moduleName: string]: AjaModule;
   } = {};
 
   static addModule(name: string, m: AjaModule) {
+    if (this.hasModule(name)) {
+      throw `模块[${name}]已存在`;
+    }
     this._modules[name] = m;
   }
 
@@ -118,17 +176,25 @@ export abstract class AjaModule {
 
   addWidget(name: string, widget: AjaWidget): void {
     widget.setModule(this);
-    this._widgets[createWidgetName(name)] = widget;
+    this._widgets[_createWidgetName(name)] = widget;
   }
 
   importWidget(name: string, widget: AjaWidget) {
-    this._widgets[createWidgetName(name)] = widget;
+    this._widgets[_createWidgetName(name)] = widget;
   }
 
+  /**
+   *
+   * @param name app-home
+   */
   getWidget(name: string): AjaWidget | undefined {
-    return this._widgets[createWidgetName(name)];
+    return this._widgets[LowerTrim(name)];
   }
 
+  /**
+   *
+   * @param name app-home
+   */
   hasWidget(name: string): boolean {
     return !!this.getWidget(name);
   }
@@ -165,26 +231,7 @@ export abstract class AjaModule {
   }
 
   usePipes(data: any, pipeList: string[], contextData: ContextData): any {
-    let _result = data;
-    if (pipeList.length) {
-      pipeList.forEach(pipe => {
-        const [pipeName, ...pipeArgs] = pipe.split(":");
-        const ajaPipe = this.findPipe(pipeName);
-        if (ajaPipe) {
-          const parsePipeArgs = pipeArgs.map(arg =>
-            numberStringp(arg) ? arg : getData(arg, contextData)
-          );
-          try {
-            _result = ajaPipe.transform(_result, ...parsePipeArgs);
-          } catch (er) {
-            console.error(er);
-          }
-        } else {
-          console.error(`没有找到管道[${pipeName}], 请注册!!!`);
-        }
-      });
-    }
-    return _result;
+    return _usePipes(data, pipeList, contextData, this);
   }
 
   /**
@@ -210,8 +257,12 @@ export abstract class AjaModule {
   exports?: any[] = [];
 }
 
+/**
+ * 调用[bootstrapModule]后，就全部解析完毕
+ * TODO: 在解析到组件的时候在调用new
+ */
 export abstract class AjaWidget {
-  readonly module?: AjaModule;
+  readonly module!: AjaModule;
 
   setModule(m: AjaModule) {
     if (this.module) {
@@ -219,8 +270,6 @@ export abstract class AjaWidget {
     }
     (this as { module: AjaModule }).module = m;
   }
-
-  public isRoot: boolean = false;
 
   public readonly host?: HTMLElement;
   private _setHost(host: HTMLElement) {
@@ -240,8 +289,6 @@ export abstract class AjaWidget {
   abstract render: () => HTMLTemplateElement | string | undefined;
   abstract initState?: Function;
 
-  constructor() {}
-
   getWidget() {
     const t = this.render();
     if (!t) {
@@ -256,16 +303,7 @@ export abstract class AjaWidget {
     }
   }
 
-  setup(
-    host: HTMLElement,
-    cb: (opt: {
-      state: any;
-      actions: any;
-      initState: any;
-      ajaModule: any;
-    }) => Aja,
-    parentContextData?: ContextData
-  ) {
+  setup(host: HTMLElement, parentContextData?: ContextData) {
     this._setHost(host);
     if (!this.host) return;
 
@@ -276,12 +314,15 @@ export abstract class AjaWidget {
     if (widget) {
       this.host.append(widget);
     }
-    const aja = cb({
-      state: this.state,
-      actions: this.actions,
-      initState: this.initState?.bind(this),
-      ajaModule: this.module
-    });
+    const aja = new Aja(
+      host,
+      {
+        state: this.state,
+        actions: this.actions,
+        initState: this.initState?.bind(this)
+      },
+      this.module
+    );
     this._setStore(aja.$store);
     if (parentContextData)
       this.bindInputs(aja.$store, parentContextData, attrs);

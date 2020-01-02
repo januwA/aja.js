@@ -23,85 +23,38 @@
 
 <body>
   <app-home></app-home>
+  <template id="app-home">
+    <p>hello {{ name }}</p>
+    <app-loading></app-loading>
+    <app-loading></app-loading>
+  </template>
+
   <script src="../dist/dist/aja.umd.js"></script>
   <script>
     const l = console.log;
     const { AjaWidget, AjaModule, fb } = Aja;
 
-    function requeredValue(control) {
-      return control.value
-        ? null
-        : {
-          requered: "不能为空"
-        };
+    class AppLoading extends AjaWidget {
+      constructor() {
+        super();
+        l('x')
+      }
+      render() {
+        return `<div><em>laoding...</em></div>`;
+      }
     }
 
     class AppHome extends AjaWidget {
       state = {
-        profileForm: fb.group({
-          firstName: ['asdasd'],
-          lastName: [''],
-          address: fb.group({
-            street: [''],
-            city: ['x'],
-            state: fb.control('h'),
-            zip: 's'
-          }),
-        })
+        name: 'ajanuw'
       }
-
-      actions = {
-        asd() {
-          l(this.profileForm)
-        }
-      }
-
       render() {
-        return `
-        <form [formGroup]="profileForm">
-          <label>
-            First Name:
-            <input required type="text" [formControlName]="firstName">
-          </label>
-
-          <label>
-            Last Name:
-            <input type="text" [formControlName]="lastName">
-          </label>
-
-          <div [formGroupName]="address">
-            <h3>Address</h3>
-
-            <label>
-              Street:
-              <input type="text" [formControlName]="street">
-            </label>
-
-            <label>
-              City:
-              <input type="text" [formControlName]="city">
-            </label>
-
-            <label>
-              State:
-              <input type="text" [formControlName]="state">
-            </label>
-
-            <label>
-              Zip Code:
-              <input type="text" [formControlName]="zip">
-            </label>
-          </div>
-
-          <input type="submit" [disabled]="profileForm.invalid" value="submit" />
-          </form>
-          <button (click)="asd()">change</button>
-        `;
+        return document.getElementById('app-home');
       }
     }
 
     class AppModule extends AjaModule {
-      declarations = [AppHome];
+      declarations = [AppHome, AppLoading];
       bootstrap = [AppHome];
     }
 
