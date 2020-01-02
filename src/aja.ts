@@ -110,8 +110,9 @@ export class Aja {
   ) {
     const ajaWidget = this.module.getWidget(node.nodeName);
     if (ajaWidget) {
-      ajaWidget.bindOutput(node, attrs, this.$actions, contextData);
-      ajaWidget.setup(node, contextData);
+      const w = new ajaWidget.widget();
+      w.bindOutput(node, attrs, this.$actions, contextData);
+      w.setup(node, ajaWidget.module, contextData);
     }
   }
 

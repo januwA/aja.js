@@ -24,7 +24,7 @@
 <body>
   <app-home></app-home>
   <template id="app-home">
-    <p>hello {{ name }}</p>
+    <p>{{ name | hello }}</p>
     <app-loading></app-loading>
     <app-loading></app-loading>
   </template>
@@ -32,15 +32,23 @@
   <script src="../dist/dist/aja.umd.js"></script>
   <script>
     const l = console.log;
-    const { AjaWidget, AjaModule, fb } = Aja;
+    const { AjaWidget, AjaModule, AjaPipe } = Aja;
 
     class AppLoading extends AjaWidget {
       constructor() {
         super();
         l('x')
       }
+
+      state = {
+        p: 'xxx'
+      }
+
       render() {
-        return `<div><em>laoding...</em></div>`;
+        return `<div>
+            {{ p | hello }}
+            <em>laoding...</em>
+          </div>`;
       }
     }
 
@@ -53,8 +61,21 @@
       }
     }
 
+    class HelloPipe extends AjaPipe {
+      pipeName = 'hello';
+      transform(v) {
+        return `hello ${v}`;
+      }
+    }
+
+    class SharedModule extends AjaModule { 
+      declarations = [HelloPipe];
+      exports = [HelloPipe]
+    }
+
     class AppModule extends AjaModule {
       declarations = [AppHome, AppLoading];
+      imports = [SharedModule];
       bootstrap = [AppHome];
     }
 

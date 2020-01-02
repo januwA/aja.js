@@ -47,44 +47,27 @@ function parseImports(m: AjaModule) {
 
 function parseExports(ajaModule: AjaModule, m: AjaModule) {
   ajaModule.exports?.forEach(el => {
-    const w = ajaModule.getWidget(el.name);
-    if (w) {
-      m.importWidget(el.name, w);
-      return;
+    if (el.prototype instanceof AjaWidget) {
+      const w = ajaModule.getWidget(el.name);
+      if (w) {
+        m.addWidget(el.name, w.widget, w.module);
+      }
+    } else if (el.prototype instanceof AjaPipe) {
+      const pipe = ajaModule.getPipe(el.name);
+      if (pipe) {
+        m.importPipe(pipe);
+      }
     }
-
-    const pipe = ajaModule.getPipe(el.name);
-    if (pipe) {
-      m.importPipe(pipe);
-      return;
-    }
-
-    // const x = new el();
-    // l(x, el.name)
-    // if (x instanceof AjaWidget) {
-    //   const widgetName = el.name;
-    //   const widget = ajaModule.getWidget(widgetName);
-    //   if (widget) {
-    //     m.importWidget(widgetName, widget);
-    //   }
-    // } else if (x instanceof AjaPipe) {
-    //   const pipeName = x.pipeName
-    //   const pipe = ajaModule.findPipe(pipeName);
-    //   if (pipe) {
-    //     m.importPipe(pipe);
-    //   }
-    // }
   });
 }
 
 function parseDeclarations(m: AjaModule) {
   // 在这里，widget和pipe就被实例化，添加到模块了
   m.declarations?.forEach(el => {
-    const item = new el();
-    if (item instanceof AjaWidget) {
-      m.addWidget(el.name, item);
-    } else if (item instanceof AjaPipe) {
-      m.addPipe(el.name, item);
+    if (el.prototype instanceof AjaWidget) {
+      m.addWidget(el.name, el, m);
+    } else if (el.prototype instanceof AjaPipe) {
+      m.addPipe(el.name, new el());
     }
   });
 }
@@ -140,7 +123,9 @@ export function bootstrapModule(moduleType: Type<AjaModule>) {
       const host = document.querySelector<HTMLElement>(rootName);
       if (host) {
         const ajaWidget = rootModule.getWidget(rootName);
-        if (ajaWidget) ajaWidget.setup(host);
+        if (ajaWidget) {
+          new ajaWidget.widget().setup(host, ajaWidget.module);
+        }
       }
     }
   }
@@ -169,25 +154,29 @@ export class AjaModules {
   }
 }
 
+export interface WidgetItem {
+  module: AjaModule;
+  widget: Type<AjaWidget>;
+}
+
+export interface Widgets {
+  [k: string]: WidgetItem;
+}
+
 export abstract class AjaModule {
-  private _widgets: {
-    [k: string]: AjaWidget;
-  } = {};
+  private _widgets: Widgets = {};
 
-  addWidget(name: string, widget: AjaWidget): void {
-    widget.setModule(this);
-    this._widgets[_createWidgetName(name)] = widget;
+  addWidget(name: string, widget: Type<AjaWidget>, module: AjaModule): void {
+    this._widgets[_createWidgetName(name)] = {
+      module,
+      widget
+    };
   }
-
-  importWidget(name: string, widget: AjaWidget) {
-    this._widgets[_createWidgetName(name)] = widget;
-  }
-
   /**
    *
    * @param name app-home
    */
-  getWidget(name: string): AjaWidget | undefined {
+  getWidget(name: string): WidgetItem | undefined {
     return this._widgets[LowerTrim(name)];
   }
 
@@ -262,15 +251,6 @@ export abstract class AjaModule {
  * TODO: 在解析到组件的时候在调用new
  */
 export abstract class AjaWidget {
-  readonly module!: AjaModule;
-
-  setModule(m: AjaModule) {
-    if (this.module) {
-      throw `组件只能有一个模块`;
-    }
-    (this as { module: AjaModule }).module = m;
-  }
-
   public readonly host?: HTMLElement;
   private _setHost(host: HTMLElement) {
     (this as { host: HTMLElement }).host = host;
@@ -282,12 +262,12 @@ export abstract class AjaWidget {
     return this;
   }
 
-  abstract inputs?: string[];
-  abstract state?: any = {};
-  abstract actions?: Actions = {};
+  inputs?: string[];
+  state?: any;
+  actions?: Actions;
+  initState?: Function;
 
   abstract render: () => HTMLTemplateElement | string | undefined;
-  abstract initState?: Function;
 
   getWidget() {
     const t = this.render();
@@ -303,7 +283,7 @@ export abstract class AjaWidget {
     }
   }
 
-  setup(host: HTMLElement, parentContextData?: ContextData) {
+  setup(host: HTMLElement, module: AjaModule, parentContextData?: ContextData) {
     this._setHost(host);
     if (!this.host) return;
 
@@ -321,7 +301,7 @@ export abstract class AjaWidget {
         actions: this.actions,
         initState: this.initState?.bind(this)
       },
-      this.module
+      module
     );
     this._setStore(aja.$store);
     if (parentContextData)
