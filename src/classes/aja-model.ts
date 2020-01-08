@@ -1,5 +1,6 @@
 import { EventType } from "../utils/const-string";
 import { observable } from "mobx";
+import { AnyObject } from "../aja";
 
 export class AjaModel {
   static classes = {
@@ -84,9 +85,7 @@ export class AjaModel {
     return !this.disabled;
   }
 
-  control: {
-    [k: string]: any;
-  };
+  control: AnyObject;
 
   get dirty(): boolean {
     return this.control.dirty;

@@ -1,16 +1,13 @@
 {
   "name": "aja",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "other",
   "private": true,
-  "directories": {
-    "example": "example"
-  },
+  "main": "./src/index.ts",
   "scripts": {
-    "format": "prettier --write \"src/**/*.ts\"",
-    "build": "rm -rf ./dist/src && tsc && rollup -c",
-    "build:ts": "rm -rf ./dist/src && tsc -w",
-    "build:web": "rollup -c --watch"
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "start": "node ./dev-server.js"
   },
   "keywords": [
     "ajanuw",
@@ -19,17 +16,33 @@
   ],
   "author": "Ajanuw",
   "license": "MIT",
-  "homepage": "https://github.com/januwA/preview-select.js",
+  "homepage": "https://github.com/januwA/aja.js",
   "repository": "januwA/aja.js",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^11.0.0",
-    "@rollup/plugin-typescript": "^2.0.1",
-    "prettier": "^1.19.1",
-    "rollup": "^1.27.14",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-sourcemaps": "^0.4.2",
-    "tslib": "^1.10.0",
-    "typescript": "^3.7.4"
+    "clean-webpack-plugin": "^3.0.0",
+    "css-loader": "^3.4.1",
+    "cssnano": "^4.1.10",
+    "csv-loader": "^3.0.2",
+    "file-loader": "^5.0.2",
+    "html-webpack-plugin": "^3.2.0",
+    "mini-css-extract-plugin": "^0.9.0",
+    "optimize-css-assets-webpack-plugin": "^5.0.3",
+    "postcss-import": "^12.0.1",
+    "postcss-loader": "^3.0.0",
+    "postcss-preset-env": "^6.7.0",
+    "style-loader": "^1.1.2",
+    "stylus": "^0.54.7",
+    "stylus-loader": "^3.0.2",
+    "sugarss": "^2.0.0",
+    "terser-webpack-plugin": "^2.3.1",
+    "ts-loader": "^6.2.1",
+    "typescript": "^3.7.4",
+    "url-loader": "^3.0.0",
+    "webpack": "^4.41.5",
+    "webpack-cli": "^3.3.10",
+    "webpack-dev-server": "^3.10.1",
+    "xml-loader": "^1.2.1",
+    "webpack-copy-file-plugin": "^0.1.5"
   },
   "dependencies": {
     "mobx": "^5.15.1"

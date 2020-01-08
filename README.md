@@ -1,3 +1,5 @@
+`v0.0.14` 此版本已经不能直接在浏览器上跑了，需要[aja-cli](https://github.com/januwA/aja-cli)，下面的文档待更新。
+
 ## 基本
 ```html
 <body>

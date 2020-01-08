@@ -1,4 +1,4 @@
-import { Actions, Type, Aja } from "../aja";
+import { Type, Aja } from "../aja";
 import {
   templatep,
   attrp,
@@ -11,61 +11,65 @@ import { ContextData } from "./context-data";
 import { BindingAttrBuilder, BindingEventBuilder } from "./binding-builder";
 import { autorun } from "mobx";
 import { getData } from "../core";
-import { getAttrs, LowerTrim } from "../utils/util";
+import { getAttrs, LowerTrim, proxyMobx } from "../utils/util";
 import { AjaPipe, defaultPipes } from "./aja-pipe";
 
 const l = console.log;
 
 function parseImports(m: AjaModule) {
-  if (m.imports && arrayp(m.imports) && m.imports.length) {
-    m.imports.forEach(ajaModuleItem => {
-      const moduleName = ajaModuleItem.name;
-      let ajaModule: AjaModule;
-      const hasModule = AjaModules.hasModule(moduleName);
-      if (hasModule) {
-        ajaModule = AjaModules.getModule(moduleName);
-      } else {
-        ajaModule = new ajaModuleItem();
-        AjaModules.addModule(moduleName, ajaModule);
-      }
-      if (ajaModule instanceof AjaModule) {
-        if (!hasModule && ajaModule.declarations) {
+  m.imports?.forEach(ajaModuleItem => {
+    const moduleName = ajaModuleItem.name;
+    let ajaModule: AjaModule;
+    const hasModule = AjaModules.hasModule(moduleName);
+    if (hasModule) {
+      ajaModule = AjaModules.getModule(moduleName);
+    } else {
+      ajaModule = new ajaModuleItem();
+      AjaModules.addModule(moduleName, ajaModule);
+    }
+    if (ajaModule instanceof AjaModule) {
+      if (!hasModule) {
+        if (ajaModule.declarations) {
           parseDeclarations(ajaModule);
         }
 
-        if (!hasModule && ajaModule.imports) {
+        if (ajaModule.imports) {
           parseImports(ajaModule);
         }
-
-        if (ajaModule.exports) {
-          parseExports(ajaModule, m);
-        }
       }
-    });
-  }
+
+      if (ajaModule.exports) {
+        parseExports(ajaModule, m);
+      }
+    }
+  });
 }
 
-function parseExports(ajaModule: AjaModule, m: AjaModule) {
+function parseExports(ajaModule: AjaModule, module: AjaModule) {
   ajaModule.exports?.forEach(el => {
     if (el.prototype instanceof AjaWidget) {
-      const w = ajaModule.getWidget(el.name);
-      if (w) {
-        m.addWidget(el.name, w.widget, w.module);
+      const widgetItem = ajaModule.getWidget(el.name);
+      if (widgetItem) {
+        module.addWidget(el.name, widgetItem);
       }
     } else if (el.prototype instanceof AjaPipe) {
       const pipe = ajaModule.getPipe(el.name);
       if (pipe) {
-        m.importPipe(pipe);
+        module.importPipe(pipe);
       }
     }
   });
 }
 
 function parseDeclarations(m: AjaModule) {
-  // 在这里，widget和pipe就被实例化，添加到模块了
   m.declarations?.forEach(el => {
     if (el.prototype instanceof AjaWidget) {
-      m.addWidget(el.name, el, m);
+      proxyMobx(el);
+      const widgetItem = {
+        module: m,
+        widget: el,
+      };
+      m.addWidget(el.name, widgetItem);
     } else if (el.prototype instanceof AjaPipe) {
       m.addPipe(el.name, new el());
     }
@@ -122,9 +126,11 @@ export function bootstrapModule(moduleType: Type<AjaModule>) {
       const rootName = _createWidgetName(bootstrap.name);
       const host = document.querySelector<HTMLElement>(rootName);
       if (host) {
-        const ajaWidget = rootModule.getWidget(rootName);
-        if (ajaWidget) {
-          new ajaWidget.widget().setup(host, ajaWidget.module);
+        const widgetItem = rootModule.getWidget(rootName);
+        if (widgetItem) {
+          const { widget, module } = widgetItem;
+          const w = new widget;
+          w.setup(host, module);
         }
       }
     }
@@ -158,20 +164,15 @@ export interface WidgetItem {
   module: AjaModule;
   widget: Type<AjaWidget>;
 }
-
-export interface Widgets {
-  [k: string]: WidgetItem;
-}
-
 export abstract class AjaModule {
-  private _widgets: Widgets = {};
+  private _widgets: {
+    [k: string]: WidgetItem;
+  } = {};
 
-  addWidget(name: string, widget: Type<AjaWidget>, module: AjaModule): void {
-    this._widgets[_createWidgetName(name)] = {
-      module,
-      widget
-    };
+  addWidget(name: string, widgetItem: WidgetItem): void {
+    this._widgets[_createWidgetName(name)] = widgetItem;
   }
+
   /**
    *
    * @param name app-home
@@ -246,36 +247,31 @@ export abstract class AjaModule {
   exports?: any[] = [];
 }
 
+export interface AjaInit {
+  initState(): void;
+}
+
 /**
  * 调用[bootstrapModule]后，就全部解析完毕
  * TODO: 在解析到组件的时候在调用new
  */
-export abstract class AjaWidget {
-  public readonly host?: HTMLElement;
+export abstract class AjaWidget implements AjaInit {
+  initState(): void { }
+  public readonly host!: HTMLElement;
   private _setHost(host: HTMLElement) {
     (this as { host: HTMLElement }).host = host;
   }
 
-  public readonly $store?: any;
-  private _setStore(store: any) {
-    (this as { $store: any }).$store = store;
-    return this;
-  }
+  abstract render(): HTMLTemplateElement | string | undefined;
 
-  inputs?: string[];
-  state?: any;
-  actions?: Actions;
-  initState?: Function;
-
-  abstract render: () => HTMLTemplateElement | string | undefined;
-
-  getWidget() {
+  initWidget(): void {
     const t = this.render();
     if (!t) {
       throw `没有找到模板!!! ${this}`;
     }
+    this.host.innerHTML = "";
     if (elementNodep(t) && templatep(t)) {
-      return document.importNode(t.content, true);
+      this.host.append(document.importNode(t.content, true));
     } else {
       if (this.host) {
         this.host.insertAdjacentHTML("beforeend", t);
@@ -283,29 +279,19 @@ export abstract class AjaWidget {
     }
   }
 
-  setup(host: HTMLElement, module: AjaModule, parentContextData?: ContextData) {
+  setup(
+    host: HTMLElement,
+    module: AjaModule,
+    parentContextData?: ContextData
+  ) {
     this._setHost(host);
     if (!this.host) return;
-
     const attrs = getAttrs(host);
-
-    this.host.innerHTML = "";
-    const widget = this.getWidget();
-    if (widget) {
-      this.host.append(widget);
-    }
-    const aja = new Aja(
-      host,
-      {
-        state: this.state,
-        actions: this.actions,
-        initState: this.initState?.bind(this)
-      },
-      module
-    );
-    this._setStore(aja.$store);
+    this.initWidget();
+    if (this.initState) this.initState();
+    new Aja(this, module);
     if (parentContextData)
-      this.bindInputs(aja.$store, parentContextData, attrs);
+      this.bindInputs(parentContextData, attrs);
   }
 
   /**
@@ -313,16 +299,15 @@ export abstract class AjaWidget {
    * @param store
    * @param attrs
    */
-  bindInputs(store: any, parentStore: any, attrs: Attr[]) {
+  bindInputs(parentContextData: any, attrs: Attr[]) {
     attrs
       .filter(attr => attrp(attr.name))
       .forEach(attr => {
+
         const { attrName } = BindingAttrBuilder.parseAttr(attr);
-        if (this.inputs?.includes(attrName)) {
+        if (Reflect.has(this, attrName)) {
           autorun(() => {
-            if (store) {
-              store[attrName] = getData(attr.value.trim(), parentStore);
-            }
+            (<any>this)[attrName] = getData(attr.value.trim(), parentContextData);
           });
         }
       });
@@ -337,24 +322,36 @@ export abstract class AjaWidget {
   bindOutput(
     node: HTMLElement,
     attrs: Attr[],
-    parentActions?: Actions,
+    parent?: AjaWidget,
     parentContextData?: any
   ) {
-    if (!parentActions) return;
+    if (!parent) return;
     attrs
       .filter(attr => eventp(attr.name))
       .forEach(attr => {
-        const type = BindingEventBuilder.parseEventType(attr);
-        if (!(`on${type}` in window)) {
+        const inputEventType: string = BindingEventBuilder.parseEventType(attr);
+        if (!(`on${inputEventType}` in window)) {
           let { funcName } = BindingEventBuilder.parseFun(attr);
-          const f = parentActions[funcName];
-          this.actions = Object.assign(this.actions || {}, {
-            [type]: f.bind(parentContextData.store)
-          });
+          const f = (<any>parent)[funcName];
+          if (!f) return;
+          const output = (<any>this)[inputEventType];
+          if (output && output instanceof EventEmitter) {
+            output.next = f.bind(parent);
+          }
           node.removeAttribute(attr.name);
         } else {
-          new BindingEventBuilder(node, attr, parentContextData, parentActions);
+          new BindingEventBuilder(node, attr, parentContextData, parent);
         }
       });
+  }
+}
+
+
+export class EventEmitter<T> {
+  next?: Function;
+  emit(value: T) {
+    if (this.next) {
+      this.next(value);
+    }
   }
 }

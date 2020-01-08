@@ -1,19 +1,35 @@
-// https://www.typescriptlang.org/docs/handbook/compiler-options.html
-
 {
-  "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
-    "strict": true,
-    "esModuleInterop": true,
-    "emitDecoratorMetadata": true /* 装饰器 */,
-    "experimentalDecorators": true /* 装饰器 */,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "rootDir": "." /* 用于表示源代码的位置src */,
-    "outDir": "./dist",
-    "sourceMap": true,
-    "incremental": true
-  },
-  "exclude": ["node_modules", "dist"]
+	"compilerOptions": {
+		"outDir": "./dist/",
+		"noImplicitAny": true,
+		"module": "commonjs",
+		"target": "es6",
+		"jsx": "react",
+		"allowJs": true,
+		"incremental": true,
+		"strict": true,
+		"emitDecoratorMetadata": true,
+		"experimentalDecorators": true,
+		"forceConsistentCasingInFileNames": true,
+		"declaration": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"sourceMap": true,
+		"baseUrl": "./",
+		"typeRoots": [
+			"node_modules/@types"
+		],
+		"paths": {
+			"~src/*": [
+				"./src/*"
+			],
+			"~assets/*": [
+				"./src/assets/*"
+			]
+		}
+	},
+	"exclude": [
+		"node_modules",
+		"dist"
+	]
 }

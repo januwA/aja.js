@@ -30,12 +30,7 @@ export interface ContextDataOpts {
    *     ...
    */
   forLet?: string;
-
-  /**
-   * * 方便再上下文找到
-   */
   formGroup?: FormGroup;
-
   switch?: ContextDataSwitch;
 }
 

@@ -48,8 +48,7 @@ import {
   formArrayNameAttrName,
   switchAttrName
 } from "../utils/const-string";
-import { Actions } from "../aja";
-import { AjaModule } from "./aja-module";
+import { AjaModule, AjaWidget, EventEmitter } from "./aja-module";
 
 const l = console.log;
 
@@ -64,7 +63,7 @@ export class BindingBuilder {
     public readonly attr: Attr,
     public readonly contextData: ContextData,
     public readonly ajaModule: AjaModule
-  ) {}
+  ) { }
 
   private get _parsePipe() {
     return parsePipe(this.value);
@@ -583,34 +582,29 @@ export class BindingEventBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly actions?: Actions
+    public readonly ajaWidget: AjaWidget
   ) {
     this.type = BindingEventBuilder.parseEventType(attr);
 
+
     let { funcName, args } = BindingEventBuilder.parseFun(attr);
     this.funcName = funcName;
-
     const modelChangep: boolean = attr.name === modelChangeEvent;
     if (modelChangep) this.type = EventType.input;
     if (
-      this.actions &&
-      this.funcName in this.actions &&
+      this.ajaWidget &&
+      this.funcName in this.ajaWidget &&
       `on${this.type}` in window
     ) {
       // 每次只需把新的event传入就行了
       node.addEventListener(this.type, e => {
-        if (!this.actions) return;
-
-        //? 每次事件响应都解析，确保变量更改能够得到新数据
-        //? 如果放在外面，则不会响应新数据
         const transitionArgs = this._parseArgsToArguments(args);
-        this.actions[this.funcName].apply(
-          this.contextData.store,
-          this._parseArgsEvent(
-            transitionArgs,
-            modelChangep ? (<HTMLInputElement>e.target).value : e
-          )
+        const ff = (<any>this.ajaWidget)[this.funcName];
+        const argss = this._parseArgsEvent(
+          transitionArgs,
+          modelChangep ? (<HTMLInputElement>e.target).value : e
         );
+        ff(...argss);
       });
     }
     node.removeAttribute(this.attr.name);
@@ -813,7 +807,10 @@ export class BindingTempvarBuilder {
    */
   readonly templateVariables: TemplateVariable = {};
 
-  constructor(node: HTMLElement, templateVariables: TemplateVariable = {}) {
+  constructor(
+    private readonly node: HTMLElement,
+    templateVariables: TemplateVariable = {}
+  ) {
     // 浅克隆
     Object.assign(this.templateVariables, templateVariables);
     this.deepParse(node);
@@ -832,7 +829,7 @@ export class BindingTempvarBuilder {
   }
 
   copyWith(node: HTMLElement): BindingTempvarBuilder {
-    return new BindingTempvarBuilder(node, this.templateVariables);
+    return new BindingTempvarBuilder(node ?? this.node, this.templateVariables);
   }
 
   /**

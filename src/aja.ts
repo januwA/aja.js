@@ -2,7 +2,8 @@ import {
   toArray,
   getAttrs,
   hasMultipleStructuredInstructions,
-  LowerTrim
+  LowerTrim,
+  proxyMobx
 } from "./utils/util";
 
 import { observable, autorun, action } from "mobx";
@@ -18,45 +19,28 @@ import {
   BindingTempvarBuilder,
   BindingSwitchBuilder
 } from "./classes/binding-builder";
-import { AjaModule } from "./classes/aja-module";
+import { AjaModule, AjaWidget } from "./classes/aja-module";
 
 const l = console.log;
 
 export interface Type<T> extends Function {
-  new (...args: any[]): T;
+  new(...args: any[]): T;
 }
 
 export interface AnyObject {
   [k: string]: any;
 }
 
-export interface Actions {
-  [name: string]: Function;
-}
-
-export interface AjaConfigOpts {
-  state?: any;
-  actions?: Actions;
-  initState?: Function;
-}
-
 export class Aja {
-  public $store?: any;
-  public $actions?: Actions;
-
   constructor(
-    public root: HTMLElement,
-    options: AjaConfigOpts = {},
-    public module: AjaModule
+    private readonly widget: AjaWidget,
+    private readonly module: AjaModule,
   ) {
-    this._proxyState(options);
-    if (options.initState) options.initState();
-
     const contextData = new ContextData({
-      store: this.$store,
-      tData: new BindingTempvarBuilder(root)
+      store: widget,
+      tData: new BindingTempvarBuilder(widget.host)
     });
-    this._scan(root, contextData);
+    this._scan(widget.host, contextData);
   }
 
   /**
@@ -100,7 +84,7 @@ export class Aja {
 
   private _isWidget(node: HTMLElement) {
     const ajaWidget = this.module.getWidget(node.nodeName);
-    return ajaWidget && node !== this.root;
+    return ajaWidget && node !== this.widget.host;
   }
 
   private _parseWidget(
@@ -110,9 +94,10 @@ export class Aja {
   ) {
     const ajaWidget = this.module.getWidget(node.nodeName);
     if (ajaWidget) {
-      const w = new ajaWidget.widget();
-      w.bindOutput(node, attrs, this.$actions, contextData);
-      w.setup(node, ajaWidget.module, contextData);
+      const { widget, module } = ajaWidget;
+      const w = new widget;
+      w.bindOutput(node, attrs, this.widget, contextData);
+      w.setup(node, module, contextData);
     }
   }
 
@@ -137,7 +122,7 @@ export class Aja {
 
       // (click)="echo('hello',$event)"
       if (eventp(name)) {
-        new BindingEventBuilder(node, attr, contextData, this.$actions);
+        new BindingEventBuilder(node, attr, contextData, this.widget);
         continue;
       }
     }
@@ -147,20 +132,7 @@ export class Aja {
       new BindingModelBuilder(node, modleAttr, contextData, this.module);
   }
 
-  private _proxyState(options: AjaConfigOpts): void {
-    const state = options.state || {};
-    this.$actions = options.actions || {};
-    const bounds: AnyObject = Object.keys(this.$actions).reduce(
-      (acc, ac) =>
-        Object.assign(acc, {
-          [ac]: action.bound
-        }),
-      {}
-    );
-    this.$store = observable(Object.assign(state, this.$actions), bounds, {
-      deep: true
-    });
-  }
+
 
   /**
    * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点
