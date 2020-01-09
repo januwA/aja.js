@@ -19,7 +19,7 @@ import {
   BindingTempvarBuilder,
   BindingSwitchBuilder
 } from "./classes/binding-builder";
-import { AjaModule, AjaWidget } from "./classes/aja-module";
+import { AjaModuleProvider, AjaWidget } from "./classes/aja-module-provider";
 
 const l = console.log;
 
@@ -34,7 +34,7 @@ export interface AnyObject {
 export class Aja {
   constructor(
     private readonly widget: AjaWidget,
-    private readonly module: AjaModule,
+    private readonly module: AjaModuleProvider,
   ) {
     const contextData = new ContextData({
       store: widget,

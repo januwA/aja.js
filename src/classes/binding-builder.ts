@@ -48,7 +48,7 @@ import {
   formArrayNameAttrName,
   switchAttrName
 } from "../utils/const-string";
-import { AjaModule, AjaWidget, EventEmitter } from "./aja-module";
+import { AjaModuleProvider, AjaWidget, EventEmitter } from "./aja-module-provider";
 
 const l = console.log;
 
@@ -62,7 +62,7 @@ export class BindingBuilder {
   constructor(
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaModule: AjaModule
+    public readonly ajaModule: AjaModuleProvider
   ) { }
 
   private get _parsePipe() {
@@ -116,7 +116,7 @@ export class BindingAttrBuilder extends BindingBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaModuel: AjaModule
+    public readonly ajaModuel: AjaModuleProvider
   ) {
     super(attr, contextData, ajaModuel);
     if (this.name === formControlAttrName) {
@@ -249,7 +249,7 @@ export class BindingTextBuilder {
   constructor(
     public readonly node: ChildNode,
     public readonly contextData: ContextData,
-    public readonly ajaModuel: AjaModule
+    public readonly ajaModuel: AjaModuleProvider
   ) {
     this.text = node.textContent || "";
     this._setup();
@@ -310,7 +310,7 @@ export class BindingModelBuilder extends BindingBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaModule: AjaModule
+    public readonly ajaModule: AjaModuleProvider
   ) {
     super(attr, contextData, ajaModule);
     this._setup();
@@ -498,7 +498,7 @@ export class BindingIfBuilder extends BindingBuilder {
     attr: Attr,
     public node: HTMLElement,
     public contextData: ContextData,
-    public readonly ajaModuel: AjaModule
+    public readonly ajaModuel: AjaModuleProvider
   ) {
     super(attr, contextData, ajaModuel);
     this.elseElement = this._getElseElement();
@@ -651,7 +651,7 @@ export class BindingForBuilder extends BindingBuilder {
     public node: HTMLElement,
     attr: Attr,
     public contextData: ContextData,
-    public readonly ajaModuel: AjaModule
+    public readonly ajaModuel: AjaModuleProvider
   ) {
     super(attr, contextData, ajaModuel);
     this.node.replaceWith(this.commentNode);
@@ -890,7 +890,7 @@ export class BindingSwitchBuilder extends BindingBuilder {
     public node: HTMLElement,
     attr: Attr,
     public contextData: ContextData,
-    public readonly ajaModuel: AjaModule
+    public readonly ajaModuel: AjaModuleProvider
   ) {
     super(attr, contextData, ajaModuel);
     this.node.before(this.commentNode);

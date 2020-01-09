@@ -1,13 +1,13 @@
-import { AjaModule } from "./aja-module";
+import { AjaModuleProvider } from "./aja-module-provider";
 
 export abstract class AjaPipe {
-  readonly module?: AjaModule;
+  readonly module?: AjaModuleProvider;
 
-  setModule(m: AjaModule) {
+  setModule(m: AjaModuleProvider) {
     if (this.module) {
       throw `管道只能有一个模块`;
     }
-    (this as { module: AjaModule }).module = m;
+    (this as { module: AjaModuleProvider }).module = m;
   }
 
   abstract pipeName: string;
