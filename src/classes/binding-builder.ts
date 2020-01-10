@@ -19,7 +19,7 @@ import {
   getCheckboxRadioValue,
   parsePipe
 } from "../utils/util";
-import { autorun } from "mobx";
+import { autorun } from "../aja-mobx";
 import { AjaModel } from "./aja-model";
 import {
   radiop,

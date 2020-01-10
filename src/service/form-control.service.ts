@@ -1,5 +1,5 @@
 import { EventType } from "../utils/const-string";
-import { autorun } from "mobx";
+import { autorun } from "../aja-mobx";
 import { AbstractControl } from "../classes/forms";
 import { inputp } from "../utils/p";
 

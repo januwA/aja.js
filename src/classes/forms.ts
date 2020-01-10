@@ -1,4 +1,4 @@
-import { observable, toJS } from "mobx";
+import { createObservable, createObservableBox } from "../aja-mobx";
 import { objectp, arrayp, nullp } from "../utils/p";
 
 const l = console.log;
@@ -199,7 +199,7 @@ export abstract class AbstractControl {
     disabled: boolean;
     pending: boolean;
     errors: null | any;
-  } = observable({
+  } = createObservable({
     touched: false,
 
     dirty: false,
@@ -257,7 +257,7 @@ export abstract class AbstractControl {
    * 如果没有错误，则返回null。
    */
   get errors(): ValidationErrors | null {
-    return toJS(this._control.errors);
+    return this._control.errors;
   }
 
   /**
@@ -573,7 +573,7 @@ export class FormControl extends AbstractControl {
   }
   _forEachChild(cb: Function): void {}
 
-  private _value = observable.box("");
+  private _value = createObservableBox("");
 
   get value() {
     return this._value.get();

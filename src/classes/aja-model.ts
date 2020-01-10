@@ -1,5 +1,5 @@
 import { EventType } from "../utils/const-string";
-import { observable } from "mobx";
+import { createObservable } from "../aja-mobx";
 import { AnyObject } from "../aja";
 
 export class AjaModel {
@@ -111,7 +111,7 @@ export class AjaModel {
 
   constructor(public node: HTMLInputElement) {
     AjaModel.classListSetup(node);
-    this.control = observable({
+    this.control = createObservable({
       touched: this.node.classList.contains(AjaModel.classes.touched),
       untouched: this.node.classList.contains(AjaModel.classes.untouched),
 

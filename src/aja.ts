@@ -1,12 +1,10 @@
 import {
   toArray,
   getAttrs,
-  hasMultipleStructuredInstructions,
-  LowerTrim,
-  proxyMobx
+  hasMultipleStructuredInstructions
 } from "./utils/util";
 
-import { observable, autorun, action } from "mobx";
+import { autorun, createClass } from "./aja-mobx";
 import { eventp, boolStringp, attrp, elementNodep, textNodep } from "./utils/p";
 import { ContextData } from "./classes/context-data";
 import {
@@ -24,7 +22,7 @@ import { AjaModuleProvider, AjaWidget } from "./classes/aja-module-provider";
 const l = console.log;
 
 export interface Type<T> extends Function {
-  new(...args: any[]): T;
+  new (...args: any[]): T;
 }
 
 export interface AnyObject {
@@ -34,7 +32,7 @@ export interface AnyObject {
 export class Aja {
   constructor(
     private readonly widget: AjaWidget,
-    private readonly module: AjaModuleProvider,
+    private readonly module: AjaModuleProvider
   ) {
     const contextData = new ContextData({
       store: widget,
@@ -95,7 +93,7 @@ export class Aja {
     const ajaWidget = this.module.getWidget(node.nodeName);
     if (ajaWidget) {
       const { widget, module } = ajaWidget;
-      const w = new widget;
+      const w = createClass(widget);
       w.bindOutput(node, attrs, this.widget, contextData);
       w.setup(node, module, contextData);
     }
@@ -131,8 +129,6 @@ export class Aja {
     if (modleAttr)
       new BindingModelBuilder(node, modleAttr, contextData, this.module);
   }
-
-
 
   /**
    * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点

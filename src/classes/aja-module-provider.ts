@@ -9,9 +9,9 @@ import {
 } from "../utils/p";
 import { ContextData } from "./context-data";
 import { BindingAttrBuilder, BindingEventBuilder } from "./binding-builder";
-import { autorun } from "mobx";
+import { autorun, createClass } from "../aja-mobx";
 import { getData } from "../core";
-import { getAttrs, LowerTrim, proxyMobx } from "../utils/util";
+import { getAttrs, LowerTrim } from "../utils/util";
 import { AjaPipe, defaultPipes } from "./aja-pipe";
 import { AjaModule, ANNOTATIONS } from "./aja-module";
 
@@ -88,7 +88,6 @@ function parseExports(
 function parseDeclarations(m: AjaModuleProvider) {
   m.declarations?.forEach(el => {
     if (el.prototype instanceof AjaWidget) {
-      proxyMobx(el);
       const widgetItem = {
         module: m,
         widget: el
@@ -155,13 +154,12 @@ export function bootstrapModule(moduleType: Type<any>) {
         const widgetItem = ajaModuleProvider.getWidget(rootName);
         if (widgetItem) {
           const { widget, module } = widgetItem;
-          const w = new widget();
+          const w = createClass(widget);
           w.setup(host, module);
         }
       }
     }
   }
-  console.log(AjaModules.modules);
 }
 
 /**

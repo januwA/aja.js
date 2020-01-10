@@ -5,8 +5,6 @@ import {
   stringString,
   structureDirectivePrefix
 } from "./const-string";
-import { Type } from "../aja";
-import { observable, decorate, computed, action, isObservable, isObservableObject } from "mobx";
 
 export function toArray<T>(iterable: Iterable<T> | ArrayLike<T>): T[] {
   if (!iterable) return [];
@@ -96,7 +94,7 @@ export function parsePipe(key: string): [string, string[]] {
   return [bindKey.trim(), pipes.map(e => e.trim())];
 }
 
-const emptyp = function (value: any) {
+const emptyp = function(value: any) {
   return JSON.stringify(value).length === 2 ? true : false;
 };
 
@@ -128,7 +126,7 @@ function _equal(obj: any, other: any, equalp: boolean = false): boolean {
     if (Object.keys(obj).length !== Object.keys(other).length) return false; // 集合元素数量不一样
     if (emptyp(obj) && emptyp(other)) return true; // 类型一样的空集合，永远相等。
 
-    let data: any[] = (function () {
+    let data: any[] = (function() {
       let data = Object.getOwnPropertyNames(obj);
       if (objTag === arrayTag) {
         data.pop();
@@ -219,27 +217,4 @@ export function hasMultipleStructuredInstructions(node: HTMLElement): boolean {
 
 export function LowerTrim(str: string): string {
   return str.toLowerCase().trim();
-}
-
-
-export function proxyMobx(klass: Type<any>) {
-  const h = new klass();
-  const states: string[] = Object.keys(h);
-  const actions: string[] = [];
-  const computeds: string[] = [];
-  Reflect.ownKeys(Reflect.getPrototypeOf(h)).forEach(e => {
-    if (typeof e === 'string') {
-      if (typeof Reflect.get(h, e) === 'function') {
-        actions.push(e);
-      } else {
-        computeds.push(e);
-      }
-    }
-  })
-
-  decorate(klass, {
-    ...states.reduce((acc, name) => Object.assign(acc, { [name]: observable }), {}),
-    ...computeds.reduce((acc, name) => Object.assign(acc, { [name]: computed }), {}),
-    ...actions.reduce((acc, name) => Object.assign(acc, { [name]: action.bound }), {})
-  })
 }
