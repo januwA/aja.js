@@ -18,7 +18,7 @@ export class DependenceManager {
    * 存储所有observable和handler的映射关系
    */
   static _store: {
-    [id: string]: {
+    [name: string]: {
       target: any;
       watchers: any[];
     };
@@ -26,21 +26,23 @@ export class DependenceManager {
 
   /**
    * 填一个当前栈中的依赖到 store 中
-   * @param id
+   * @param name
    */
-  static _add(id: string) {
-    this._store[id] = this._store[id] || {};
-    this._store[id].target = this._lastTarget;
-    this._store[id].watchers = this._store[id].watchers || [];
-    this._store[id].watchers.push(this._lastObserver);
+  static _add(name: string) {
+    this._store[name] = this._store[name] || {};
+    this._store[name].target = this._lastTarget;
+    this._store[name].watchers = this._store[name].watchers || [];
+    this._store[name].watchers.push(this._lastObserver);
   }
 
   /**
-   * 向[id]的所有监听者发出信号, value改变了，快做出响应
-   * @param id
+   * update
+   * 
+   * 向[name]的所有监听者发出信号, value改变了，快做出响应
+   * @param name
    */
-  static trigger(id: string) {
-    var ds = this._store[id];
+  static trigger(name: string) {
+    var ds = this._store[name];
     ds?.watchers?.forEach((d: Function) => {
       d.call(ds.target || this);
     });
@@ -48,24 +50,12 @@ export class DependenceManager {
 
   /**
    * 开始收集依赖
-   * @param observer
+   * @param observer 这个参数普遍是autorun的callback函数
    * @param target computed时，会传入target
    */
   static beginCollect(observer: Function, target: any = null) {
     this._observers.push(observer);
     this._targets.push(target);
-  }
-
-  /**
-   * 收集依赖
-   * @param id
-   * @returns {boolean}
-   */
-  static collect(id: string) {
-    if (this._lastObserver) {
-      this._add(id);
-    }
-    return false;
   }
 
   /**
@@ -76,7 +66,14 @@ export class DependenceManager {
     this._targets.pop();
   }
 
-  static delete(id: string): boolean {
-    return Reflect.deleteProperty(this._store, id);
+  /**
+   * 收集依赖
+   * @param name
+   */
+  static collect(name: string) {
+    if (this._lastObserver) {
+      this._add(name);
+    }
+    return false;
   }
 }

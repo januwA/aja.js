@@ -6,7 +6,8 @@
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch",
-    "start": "node ./dev-server.js"
+    "start": "node ./dev-server.js",
+    "test": "jest"
   },
   "keywords": [
     "ajanuw",
@@ -18,17 +19,21 @@
   "homepage": "https://github.com/januwA/aja.js",
   "repository": "januwA/aja.js",
   "devDependencies": {
+    "@types/jest": "^24.0.25",
     "clean-webpack-plugin": "^3.0.0",
     "file-loader": "^5.0.2",
     "html-webpack-plugin": "^3.2.0",
+    "jest": "^24.9.0",
     "optimize-css-assets-webpack-plugin": "^5.0.3",
     "terser-webpack-plugin": "^2.3.1",
+    "ts-jest": "^24.3.0",
     "ts-loader": "^6.2.1",
+    "ts-node": "^8.6.1",
     "typescript": "^3.7.4",
     "webpack": "^4.41.5",
     "webpack-cli": "^3.3.10",
-    "webpack-dev-server": "^3.10.1",
-    "webpack-copy-file-plugin": "^0.1.5"
+    "webpack-copy-file-plugin": "^0.1.5",
+    "webpack-dev-server": "^3.10.1"
   },
   "dependencies": {}
 }

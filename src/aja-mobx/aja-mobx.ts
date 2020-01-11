@@ -1,65 +1,84 @@
 import { Observable } from "./observable";
 import { AnyObject, Type } from "./interfaces";
-function createObservableProperty(obj: AnyObject, key: string, isGet = false) {
+
+function createObservable(obj: AnyObject, key: string) {
   let value = obj[key];
-  // 强制绑定下
+  // 强制绑定下函数的上下文
   if (typeof value === "function") {
     value = value.bind(obj);
   }
-  const observable = new Observable(value);
+  const obser = new Observable(value);
   Object.defineProperty(obj, key, {
     get() {
-      return observable.get();
+      return obser.get();
     },
     set(newValue) {
-      return observable.set(newValue);
+      return obser.set(newValue);
     }
   });
 
-  //递归包装 observable
+  // 递归下去
   if (typeof value === "object") {
-    for (let k in value) {
-      createObservableProperty(value, k, isGet);
-    }
+    observable.object(value);
   }
 }
 
-export function createClass<T>(cls: Type<T>): T {
-  const obj: T = new cls();
-  Object.keys(obj).forEach(key => {
-    createObservableProperty(obj, key);
-  });
+export function observable(
+  value: number | string | null | undefined | boolean | Type<any>
+): never; // use box or cls
+export function observable<T>(value: T): T;
+export function observable<T>(value: any): any {
+  return observable.object(value);
+}
 
-  (<string[]>Reflect.ownKeys(cls.prototype)).forEach(key => {
-    /// 属性描述对象
-    const des = Object.getOwnPropertyDescriptor(cls.prototype, key);
-    if (des) {
-      if (des.value) {
-        createObservableProperty(obj, key);
-      } else if (des.get) {
-        const getter = des.get;
-        // var computed = new Computed(obj, getter);
-        Object.defineProperty(obj, key, {
-          get() {
-            return getter.call(obj);
-            // computed.target = this;
-            // return computed.get();
-          }
-        });
+export namespace observable {
+  export function box<T = any>(value: T) {
+    return new Observable(value);
+  }
+
+  export function object<T = any>(obj: T) {
+    Object.keys(obj).forEach(key => {
+      const des = Object.getOwnPropertyDescriptor(obj, key);
+      if (des) {
+        if (des.value) {
+          createObservable(obj, key);
+        } else if (des.get) {
+          const getter = des.get;
+          Object.defineProperty(obj, key, {
+            get() {
+              return getter.call(this);
+            }
+          });
+        }
       }
-    }
-  });
+    });
+    return obj;
+  }
 
-  return obj;
-}
+  export function cls<T>(cls: Type<T>) {
+    const obj: T = new cls();
+    observable.object.call(observable, obj);
 
-export function createObservable<T>(obj: T): T {
-  Object.keys(obj).forEach(key => {
-    createObservableProperty(obj, key);
-  });
-  return obj;
-}
+    (<string[]>Reflect.ownKeys(cls.prototype)).forEach(key => {
+      /// 属性描述对象
+      const des = Object.getOwnPropertyDescriptor(cls.prototype, key);
+      if (des) {
+        if (des.value) {
+          createObservable(obj, key);
+        } else if (des.get) {
+          const getter = des.get;
+          // var computed = new Computed(obj, getter);
+          Object.defineProperty(obj, key, {
+            get() {
+              return getter.call(obj);
+              // computed.target = this;
+              // return computed.get();
+            }
+          });
+        }
+      }
+    });
 
-export function createObservableBox<T>(value: T): Observable {
-  return new Observable(value);
+    return obj;
+  }
 }

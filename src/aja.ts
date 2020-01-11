@@ -4,7 +4,7 @@ import {
   hasMultipleStructuredInstructions
 } from "./utils/util";
 
-import { autorun, createClass } from "./aja-mobx";
+import { autorun, observable } from "./aja-mobx";
 import { eventp, boolStringp, attrp, elementNodep, textNodep } from "./utils/p";
 import { ContextData } from "./classes/context-data";
 import {
@@ -93,7 +93,7 @@ export class Aja {
     const ajaWidget = this.module.getWidget(node.nodeName);
     if (ajaWidget) {
       const { widget, module } = ajaWidget;
-      const w = createClass(widget);
+      const w = observable.cls(widget);
       w.bindOutput(node, attrs, this.widget, contextData);
       w.setup(node, module, contextData);
     }

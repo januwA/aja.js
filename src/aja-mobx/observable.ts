@@ -1,14 +1,16 @@
 import { DependenceManager } from "./dependence-manager";
 
+/**
+ * 每个[Observable]都有一个唯一的name
+ */
 export class Observable {
   private static _obIDCounter = 1;
 
-  static getId(): string {
+  static getName(): string {
     return "ob-" + ++Observable._obIDCounter;
   }
 
-  // 全局唯一 id
-  id: string = "";
+  readonly name: string = "";
 
   /**
    * 真实值
@@ -17,7 +19,7 @@ export class Observable {
   value: any = null;
 
   constructor(value: any) {
-    this.id = Observable.getId();
+    this.name = Observable.getName();
     if (Array.isArray(value)) {
       this._wrapArrayProxy(value);
     } else {
@@ -27,7 +29,7 @@ export class Observable {
 
   get() {
     // 这里的收集依赖，可能是在[autorun]里面
-    DependenceManager.collect(this.id);
+    DependenceManager.collect(this.name);
     return this.value;
   }
 
@@ -37,24 +39,24 @@ export class Observable {
     } else {
       this.value = v;
     }
-    DependenceManager.trigger(this.id);
+    this.trigger();
   }
 
   /**
    * 手动触发依赖
    */
   trigger() {
-    DependenceManager.trigger(this.id);
+    DependenceManager.trigger(this.name);
   }
 
   /**
    * 对数组包装Proxy拦截数组操作的动作
    */
-  _wrapArrayProxy(arr: any[]) {
-    this.value = new Proxy(arr, {
-      set: (obj, key, value) => {
-        (<any>obj)[key] = value;
-        if (key !== "length") this.trigger();
+  _wrapArrayProxy(arrValue: any[]) {
+    this.value = new Proxy(arrValue, {
+      set: (arr, index, newValue) => {
+        (<any>arr)[index] = newValue;
+        if (index !== "length") this.trigger();
 
         //? 为什么要返回true
         return true;

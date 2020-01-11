@@ -1,4 +1,4 @@
-import { createObservable, createObservableBox } from "../aja-mobx";
+import { observable } from "../aja-mobx";
 import { objectp, arrayp, nullp } from "../utils/p";
 
 const l = console.log;
@@ -199,7 +199,7 @@ export abstract class AbstractControl {
     disabled: boolean;
     pending: boolean;
     errors: null | any;
-  } = createObservable({
+  } = observable({
     touched: false,
 
     dirty: false,
@@ -573,7 +573,7 @@ export class FormControl extends AbstractControl {
   }
   _forEachChild(cb: Function): void {}
 
-  private _value = createObservableBox("");
+  private _value = observable.box("");
 
   get value() {
     return this._value.get();

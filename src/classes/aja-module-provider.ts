@@ -9,7 +9,7 @@ import {
 } from "../utils/p";
 import { ContextData } from "./context-data";
 import { BindingAttrBuilder, BindingEventBuilder } from "./binding-builder";
-import { autorun, createClass } from "../aja-mobx";
+import { autorun, observable } from "../aja-mobx";
 import { getData } from "../core";
 import { getAttrs, LowerTrim } from "../utils/util";
 import { AjaPipe, defaultPipes } from "./aja-pipe";
@@ -154,7 +154,7 @@ export function bootstrapModule(moduleType: Type<any>) {
         const widgetItem = ajaModuleProvider.getWidget(rootName);
         if (widgetItem) {
           const { widget, module } = widgetItem;
-          const w = createClass(widget);
+          const w = observable.cls(widget);
           w.setup(host, module);
         }
       }
