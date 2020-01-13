@@ -48,7 +48,8 @@ import {
   formArrayNameAttrName,
   switchAttrName
 } from "../utils/const-string";
-import { AjaModuleProvider, AjaWidget, EventEmitter } from "./aja-module-provider";
+import { AjaModuleProvider } from "./aja-module-provider";
+import { AjaWidget } from "./aja-weidget-provider";
 
 const l = console.log;
 
@@ -63,7 +64,7 @@ export class BindingBuilder {
     public readonly attr: Attr,
     public readonly contextData: ContextData,
     public readonly ajaModule: AjaModuleProvider
-  ) { }
+  ) {}
 
   private get _parsePipe() {
     return parsePipe(this.value);
@@ -585,7 +586,6 @@ export class BindingEventBuilder {
     public readonly ajaWidget: AjaWidget
   ) {
     this.type = BindingEventBuilder.parseEventType(attr);
-
 
     let { funcName, args } = BindingEventBuilder.parseFun(attr);
     this.funcName = funcName;

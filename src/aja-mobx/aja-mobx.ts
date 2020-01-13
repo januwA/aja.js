@@ -59,25 +59,27 @@ export namespace observable {
     const obj: T = new cls();
     observable.object.call(observable, obj);
 
-    (<string[]>Reflect.ownKeys(cls.prototype)).forEach(key => {
-      /// 属性描述对象
-      const des = Object.getOwnPropertyDescriptor(cls.prototype, key);
-      if (des) {
-        if (des.value) {
-          createObservable(obj, key);
-        } else if (des.get) {
-          const getter = des.get;
-          // var computed = new Computed(obj, getter);
-          Object.defineProperty(obj, key, {
-            get() {
-              return getter.call(obj);
-              // computed.target = this;
-              // return computed.get();
-            }
-          });
+    (<string[]>Reflect.ownKeys(cls.prototype))
+      .filter(name => name !== "constructor")
+      .forEach(key => {
+        /// 属性描述对象
+        const des = Object.getOwnPropertyDescriptor(cls.prototype, key);
+        if (des) {
+          if (des.value) {
+            createObservable(obj, key);
+          } else if (des.get) {
+            const getter = des.get;
+            // var computed = new Computed(obj, getter);
+            Object.defineProperty(obj, key, {
+              get() {
+                return getter.call(obj);
+                // computed.target = this;
+                // return computed.get();
+              }
+            });
+          }
         }
-      }
-    });
+      });
 
     return obj;
   }

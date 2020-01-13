@@ -1,6 +1,7 @@
-import { Type } from "../aja";
+import { Type } from "../../src/aja-mobx/interfaces";
 
 export const ANNOTATIONS = "__annotations__";
+export const PROP_METADATA = "__prop__metadata__";
 
 export interface AjaModule {
   /**
@@ -86,4 +87,58 @@ function makeDecorator<T>(
 
 export const AjaModule: AjaModuleDecorator = makeDecorator(
   (opts: AjaModule) => opts
+);
+
+export interface Input {
+  bindingPropertyName?: string;
+}
+
+export interface InputDecorator {
+  (bindingPropertyName?: string): any;
+  new (bindingPropertyName?: string): any;
+}
+
+export function makePropDecorator(props?: (...args: any[]) => any): any {
+  const metaCtor = makeMetadataCtor(props);
+  function PropDecoratorFactory(
+    this: unknown | typeof PropDecoratorFactory,
+    ...args: any[]
+  ): any {
+    // 这里的套路和[AjaModule]哪里差不多
+    if (this instanceof PropDecoratorFactory) {
+      metaCtor.apply(this, args);
+      return this;
+    }
+    const decoratorInstance = new (<any>PropDecoratorFactory)(...args);
+    function PropDecorator(target: any, name: string) {
+      const constructor = target.constructor;
+      // 使用Object.defineProperty非常重要，因为它会创建不可枚举的属性，
+      // 防止在子类化过程中复制属性。
+      const meta = constructor.hasOwnProperty(PROP_METADATA)
+        ? (constructor as any)[PROP_METADATA]
+        : Object.defineProperty(constructor, PROP_METADATA, { value: {} })[
+            PROP_METADATA
+          ];
+      meta[name] = (meta.hasOwnProperty(name) && meta[name]) || [];
+      meta[name].unshift(decoratorInstance);
+    }
+    return PropDecorator;
+  }
+  return PropDecoratorFactory;
+}
+
+/**
+ * 使用:
+ *
+ * ```
+ * class A {
+ *   @Input() title = "";
+ * }
+ * ```
+ *
+ * 向A的实例的constructor注入一个不可枚举的属性[PROP_METADATA], 默认是{} 。
+ * 让后再把title写进去: { title, ... }, title的值是PropDecoratorFactory实例
+ */
+export const Input: InputDecorator = makePropDecorator(
+  (bindingPropertyName: string) => ({ bindingPropertyName })
 );

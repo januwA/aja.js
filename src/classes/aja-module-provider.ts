@@ -13,7 +13,13 @@ import { autorun, observable } from "../aja-mobx";
 import { getData } from "../core";
 import { getAttrs, LowerTrim } from "../utils/util";
 import { AjaPipe, defaultPipes } from "./aja-pipe";
-import { AjaModule, ANNOTATIONS } from "./aja-module";
+import {
+  AjaModule,
+  ANNOTATIONS,
+  PROP_METADATA,
+  Input
+} from "../metadata/directives";
+import { AjaWidget } from "./aja-weidget-provider";
 
 const l = console.log;
 
@@ -155,7 +161,7 @@ export function bootstrapModule(moduleType: Type<any>) {
         if (widgetItem) {
           const { widget, module } = widgetItem;
           const w = observable.cls(widget);
-          w.setup(host, module);
+          w.setup({ host, module });
         }
       }
     }
@@ -263,114 +269,5 @@ export class AjaModuleProvider {
 
   usePipes(data: any, pipeList: string[], contextData: ContextData): any {
     return _usePipes(data, pipeList, contextData, this);
-  }
-}
-
-export interface AjaInit {
-  initState(): void;
-}
-
-/**
- * 调用[bootstrapModule]后，就全部解析完毕
- * TODO: 在解析到组件的时候在调用new
- */
-export abstract class AjaWidget implements AjaInit {
-  initState(): void {}
-  public readonly host!: HTMLElement;
-  private _setHost(host: HTMLElement) {
-    (this as { host: HTMLElement }).host = host;
-  }
-
-  abstract render(): HTMLTemplateElement | string | undefined;
-
-  initWidget(): void {
-    const t = this.render();
-    if (!t) {
-      throw `没有找到模板!!! ${this}`;
-    }
-    this.host.innerHTML = "";
-    if (elementNodep(t) && templatep(t)) {
-      this.host.append(document.importNode(t.content, true));
-    } else {
-      if (this.host) {
-        this.host.insertAdjacentHTML("beforeend", t);
-      }
-    }
-  }
-
-  setup(
-    host: HTMLElement,
-    module: AjaModuleProvider,
-    parentContextData?: ContextData
-  ) {
-    this._setHost(host);
-    if (!this.host) return;
-    const attrs = getAttrs(host);
-    this.initWidget();
-    if (this.initState) this.initState();
-    new Aja(this, module);
-    if (parentContextData) this.bindInputs(parentContextData, attrs);
-  }
-
-  /**
-   * 解析在组建上绑定的属性
-   * @param store
-   * @param attrs
-   */
-  bindInputs(parentContextData: any, attrs: Attr[]) {
-    attrs
-      .filter(attr => attrp(attr.name))
-      .forEach(attr => {
-        const { attrName } = BindingAttrBuilder.parseAttr(attr);
-        if (Reflect.has(this, attrName)) {
-          autorun(() => {
-            (<any>this)[attrName] = getData(
-              attr.value.trim(),
-              parentContextData
-            );
-          });
-        }
-      });
-  }
-
-  /**
-   * 解析在组件上绑定的事件
-   * @param attrs
-   * @param parentActions
-   * @param context
-   */
-  bindOutput(
-    node: HTMLElement,
-    attrs: Attr[],
-    parent?: AjaWidget,
-    parentContextData?: any
-  ) {
-    if (!parent) return;
-    attrs
-      .filter(attr => eventp(attr.name))
-      .forEach(attr => {
-        const inputEventType: string = BindingEventBuilder.parseEventType(attr);
-        if (!(`on${inputEventType}` in window)) {
-          let { funcName } = BindingEventBuilder.parseFun(attr);
-          const f = (<any>parent)[funcName];
-          if (!f) return;
-          const output = (<any>this)[inputEventType];
-          if (output && output instanceof EventEmitter) {
-            output.next = f.bind(parent);
-          }
-          node.removeAttribute(attr.name);
-        } else {
-          new BindingEventBuilder(node, attr, parentContextData, parent);
-        }
-      });
-  }
-}
-
-export class EventEmitter<T> {
-  next?: Function;
-  emit(value: T) {
-    if (this.next) {
-      this.next(value);
-    }
   }
 }

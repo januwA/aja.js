@@ -17,7 +17,8 @@ import {
   BindingTempvarBuilder,
   BindingSwitchBuilder
 } from "./classes/binding-builder";
-import { AjaModuleProvider, AjaWidget } from "./classes/aja-module-provider";
+import { AjaModuleProvider } from "./classes/aja-module-provider";
+import { AjaWidget } from "./classes/aja-weidget-provider";
 
 const l = console.log;
 
@@ -95,7 +96,7 @@ export class Aja {
       const { widget, module } = ajaWidget;
       const w = observable.cls(widget);
       w.bindOutput(node, attrs, this.widget, contextData);
-      w.setup(node, module, contextData);
+      w.setup({ module, host: node, parentContextData: contextData });
     }
   }
 

@@ -5,12 +5,8 @@ export {
   FormArray
 } from "./classes/forms";
 
-export {
-  AjaWidget,
-  bootstrapModule,
-  EventEmitter,
-  AjaInit
-} from "./classes/aja-module-provider";
-export { AjaModule } from "./classes/aja-module";
+export { bootstrapModule } from "./classes/aja-module-provider";
+export { AjaInit, AjaWidget, EventEmitter } from "./classes/aja-weidget-provider";
+export { AjaModule, Input } from "./metadata/directives";
 
 export { AjaPipe } from "./classes/aja-pipe";
