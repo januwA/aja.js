@@ -1,2 +1,2 @@
-export { observable } from "./aja-mobx";
+export { observable, extendObservable } from "./aja-mobx";
 export { autorun } from "./autorun";

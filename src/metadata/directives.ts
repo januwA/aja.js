@@ -98,7 +98,10 @@ export interface InputDecorator {
   new (bindingPropertyName?: string): any;
 }
 
-export function makePropDecorator(props?: (...args: any[]) => any): any {
+export function makePropDecorator(
+  metadataName: string,
+  props?: (...args: any[]) => any
+): any {
   const metaCtor = makeMetadataCtor(props);
   function PropDecoratorFactory(
     this: unknown | typeof PropDecoratorFactory,
@@ -110,7 +113,7 @@ export function makePropDecorator(props?: (...args: any[]) => any): any {
       return this;
     }
     const decoratorInstance = new (<any>PropDecoratorFactory)(...args);
-    function PropDecorator(target: any, name: string) {
+    function PropDecorator(target: any, propName: string) {
       const constructor = target.constructor;
       // 使用Object.defineProperty非常重要，因为它会创建不可枚举的属性，
       // 防止在子类化过程中复制属性。
@@ -119,11 +122,14 @@ export function makePropDecorator(props?: (...args: any[]) => any): any {
         : Object.defineProperty(constructor, PROP_METADATA, { value: {} })[
             PROP_METADATA
           ];
-      meta[name] = (meta.hasOwnProperty(name) && meta[name]) || [];
-      meta[name].unshift(decoratorInstance);
+      meta[propName] = (meta.hasOwnProperty(propName) && meta[propName]) || [];
+      meta[propName].unshift(decoratorInstance);
     }
     return PropDecorator;
   }
+
+  // 将[metadataName]写在私有属性上
+  PropDecoratorFactory.prototype.metadataName = metadataName;
   return PropDecoratorFactory;
 }
 
@@ -140,5 +146,18 @@ export function makePropDecorator(props?: (...args: any[]) => any): any {
  * 让后再把title写进去: { title, ... }, title的值是PropDecoratorFactory实例
  */
 export const Input: InputDecorator = makePropDecorator(
+  "Input",
   (bindingPropertyName: string) => ({ bindingPropertyName })
+);
+
+export interface Output {
+  bindingPropertyName?: string;
+}
+export interface OutputDecorator {
+  (bindingPropertyName?: string): any;
+  new (bindingPropertyName?: string): any;
+}
+export const Output: OutputDecorator = makePropDecorator(
+  "Output",
+  (bindingPropertyName?: string) => ({ bindingPropertyName })
 );

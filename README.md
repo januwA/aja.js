@@ -160,6 +160,7 @@
 </script>
 ```
 
+
 ## 属性绑定
 ```html
   <app-home></app-home>
@@ -231,6 +232,33 @@ state: {
 ```html
 <button (click)="setTitle()">设置 title</button>
 <button (click)="setName($event)">设置 name</button>
+```
+
+
+
+## 输入 `@Input()`
+```html
+<app-tile [name]="name"></app-tile>
+```
+```ts
+import { AjaWidget, Input } from "@aja";
+
+export class AppTile extends AjaWidget {
+  @Input() name = "<default name>";
+}
+
+export class AppTile extends AjaWidget {
+  private _name = "xxx";
+
+  @Input()
+  set name(nv: string) {
+    this._name = "Hello " + nv;
+  }
+
+  get name() {
+    return this._name;
+  }
+}
 ```
 
 ## 插值表达式

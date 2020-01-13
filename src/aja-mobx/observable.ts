@@ -34,6 +34,8 @@ export class Observable {
   }
 
   set(v: any) {
+    // 设置相同的值无效
+    if (v === this.value) return;
     if (Array.isArray(v)) {
       this._wrapArrayProxy(v);
     } else {

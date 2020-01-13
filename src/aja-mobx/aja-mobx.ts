@@ -31,6 +31,25 @@ export function observable<T>(value: any): any {
   return observable.object(value);
 }
 
+function transform<T>(context: T, key: string, o: any) {
+  const des = Object.getOwnPropertyDescriptor(o, key);
+  if (des) {
+    if (des.value) {
+      createObservable(context, key);
+    } else if (des.get) {
+      const getter = des.get;
+      Object.defineProperty(context, key, {
+        get() {
+          return getter.call(context);
+        },
+        set: des.set,
+        configurable: des.configurable,
+        enumerable: des.enumerable
+      });
+    }
+  }
+}
+
 export namespace observable {
   export function box<T = any>(value: T) {
     return new Observable(value);
@@ -38,49 +57,35 @@ export namespace observable {
 
   export function object<T = any>(obj: T) {
     Object.keys(obj).forEach(key => {
-      const des = Object.getOwnPropertyDescriptor(obj, key);
-      if (des) {
-        if (des.value) {
-          createObservable(obj, key);
-        } else if (des.get) {
-          const getter = des.get;
-          Object.defineProperty(obj, key, {
-            get() {
-              return getter.call(this);
-            }
-          });
-        }
-      }
+      transform(obj, key, obj);
     });
     return obj;
   }
 
+  const filterMethods: string[] = [
+    "constructor",
+    "render",
+    "inputChanges",
+    "initState"
+  ];
+
   export function cls<T>(cls: Type<T>) {
     const obj: T = new cls();
-    observable.object.call(observable, obj);
+    observable.object(obj);
 
     (<string[]>Reflect.ownKeys(cls.prototype))
-      .filter(name => name !== "constructor")
+      .filter(name => !filterMethods.includes(name))
       .forEach(key => {
-        /// 属性描述对象
-        const des = Object.getOwnPropertyDescriptor(cls.prototype, key);
-        if (des) {
-          if (des.value) {
-            createObservable(obj, key);
-          } else if (des.get) {
-            const getter = des.get;
-            // var computed = new Computed(obj, getter);
-            Object.defineProperty(obj, key, {
-              get() {
-                return getter.call(obj);
-                // computed.target = this;
-                // return computed.get();
-              }
-            });
-          }
-        }
+        transform(obj, key, cls.prototype);
       });
 
     return obj;
+  }
+}
+
+export function extendObservable(target: any, obj: { [key: string]: any }) {
+  for (let key in obj) {
+    target[key] = obj[key];
+    transform(target, key, target);
   }
 }

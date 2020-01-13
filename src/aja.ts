@@ -95,8 +95,12 @@ export class Aja {
     if (ajaWidget) {
       const { widget, module } = ajaWidget;
       const w = observable.cls(widget);
-      w.bindOutput(node, attrs, this.widget, contextData);
-      w.setup({ module, host: node, parentContextData: contextData });
+      w.setup({
+        module,
+        host: node,
+        parentContextData: contextData,
+        parent: this.widget
+      });
     }
   }
 

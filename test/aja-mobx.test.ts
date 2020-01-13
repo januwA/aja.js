@@ -1,4 +1,4 @@
-import { observable, autorun } from "../src/aja-mobx";
+import { observable, extendObservable } from "../src/aja-mobx";
 
 describe("test aja-mobx", () => {
   it("test [observable.object]", () => {
@@ -47,6 +47,7 @@ describe("test aja-mobx", () => {
     expect(x.name).toBe("Ajanuw");
     expect(x.hello).toBe("hello Ajanuw");
     x.change();
+    // x.name = "ajanuw";
     expect(x.name).toBe("ajanuw");
     expect(x.hello).toBe("hello ajanuw");
   });
@@ -56,5 +57,15 @@ describe("test aja-mobx", () => {
     expect(x.get()).toBe(1);
     x.set(2);
     expect(x.get()).toBe(2);
+  });
+
+  it("test extendObservable", () => {
+    const o: any = observable({});
+    extendObservable(o, {
+      name: "ajanuw"
+    });
+    expect(o.name).toBe("ajanuw");
+    o.name = "Ajanuw";
+    expect(o.name).toBe("Ajanuw");
   });
 });
