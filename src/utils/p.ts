@@ -20,6 +20,10 @@ export function attrp(value: string) {
   return /^\[\w.+\]$/.test(value);
 }
 
+export function modelp(value: string) {
+  return /^\[\(/.test(value) && /\)\]/.test(value);
+}
+
 /**
  * (click)="hello('hello')"
  */

@@ -3,6 +3,11 @@ import { observable } from "../aja-mobx";
 import { AnyObject } from "../aja";
 
 export class AjaModel {
+  static getModelprop(value: string): string | undefined {
+    if (!value.trim()) return;
+    const r = value.match(/\[\((?<prop>[\s\S]+)\)\]/);
+    return r?.groups?.prop?.trim();
+  }
   static classes = {
     // 控件被访问过
     // 一般就是监听blur事件

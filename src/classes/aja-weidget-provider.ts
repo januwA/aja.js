@@ -1,12 +1,13 @@
 import { BindingEventBuilder, BindingAttrBuilder } from "./binding-builder";
-import { eventp, attrp, elementNodep, templatep } from "../utils/p";
+import { eventp, attrp, elementNodep, templatep, modelp } from "../utils/p";
 import { autorun, observable, extendObservable } from "../aja-mobx";
-import { getData } from "../core";
+import { getData, setData } from "../core";
 import { PROP_METADATA, Input, Output } from "../metadata/directives";
 import { getAttrs } from "../utils/util";
 import { Aja } from "../aja";
 import { AjaModuleProvider } from "./aja-module-provider";
 import { ContextData } from "./context-data";
+import { AjaModel } from "./aja-model";
 
 function _findAliasName(
   value: (Input | Output)[],
@@ -27,6 +28,8 @@ export interface AjaInputChanges {
    * 当input被改变就会运行一次
    *
    * 第一次运行在[initState]之前
+   *
+   * TODO: 增加changes参数，https://angular.cn/guide/component-interaction#intercept-input-property-changes-with-ngonchanges
    */
   inputChanges(): void;
 }
@@ -36,6 +39,8 @@ export interface AjaInitState {
    * 在检查input和output后，在检测视图之前运行
    *
    * 只会运行一次
+   *
+   * :if true 会执行
    */
   initState(): void;
 }
@@ -50,6 +55,8 @@ export interface AjaViewInit {
 export interface AjaDispose {
   /**
    * 清理资源
+   *
+   * :if false 会执行
    */
   dispose(): void;
 }
@@ -92,10 +99,11 @@ export abstract class AjaWidget
     if (!this.host) return;
 
     // 检查input和output
-    if (opt.parentContextData && opt.parent) {
+    if (opt.parentContextData && opt.parent && this._meta) {
       const attrs = getAttrs(this.host);
       this._bindInputs(opt.parentContextData, attrs);
-      this._bindOutput(attrs, opt.parent, opt.parentContextData);
+      this._bindOutputs(attrs, opt.parent, opt.parentContextData);
+      this._bindModels(attrs, opt.parent, opt.parentContextData);
     }
 
     // 执行钩子
@@ -115,44 +123,49 @@ export abstract class AjaWidget
    * @param attrs
    */
   private _bindInputs(parentContextData: any, attrs: Attr[]) {
-    if (!this._meta) return;
     let init = true;
     let t: number;
-    attrs.forEach(attr => {
-      const { attrName } = BindingAttrBuilder.parseAttr(attr);
+    attrs
+      .filter(({ name }) => {
+        // 过滤掉(click)和[(data)]
+        return !eventp(name) || !modelp(name);
+      })
+      .forEach(attr => {
+        const { attrName } = BindingAttrBuilder.parseAttr(attr);
 
-      this._eachMeta((key, value) => {
-        const hasAliasName = _findAliasName(value, "Input");
-        if (
-          (hasAliasName && hasAliasName === attrName) ||
-          (!hasAliasName && key === attrName)
-        ) {
-          autorun(() => {
-            const parentData = getData(attr.value.trim(), parentContextData);
-            if (init) {
-              extendObservable(this, {
-                [key]: parentData
+        this._eachMeta((key, value) => {
+          const hasAliasName = _findAliasName(value, "Input");
+          if (
+            (hasAliasName && hasAliasName === attrName) ||
+            (!hasAliasName && key === attrName)
+          ) {
+            autorun(() => {
+              const parentData = getData(attr.value.trim(), parentContextData);
+              if (init) {
+                extendObservable(this, {
+                  [key]: parentData
+                });
+                init = false;
+              } else {
+                (<any>this)[key] = parentData;
+              }
+
+              // 这里用异步是为了避免[inputChanges]里面使用了get，如
+              //
+              // ```
+              //  inputChanges() { console.log(this.name); }
+              // ```
+              // 上面的情况很可能会造成无限的递归
+              // 先用异步解决这种情况
+              if (t) window.clearTimeout(t);
+              t = setTimeout(() => {
+                this.inputChanges();
               });
-            } else {
-              (<any>this)[key] = parentData;
-            }
-
-            // 这里用异步是为了避免[inputChanges]里面使用了get，如
-            //
-            // ```
-            //  inputChanges() { console.log(this.name); }
-            // ```
-            // 上面的情况很可能会造成无限的递归
-            // 先用异步解决这种情况
-            if (t) window.clearTimeout(t);
-            t = setTimeout(() => {
-              this.inputChanges();
             });
-          });
-        }
+          }
+        });
+        this.host.removeAttribute(attr.name);
       });
-      this.host.removeAttribute(attr.name);
-    });
   }
 
   /**
@@ -161,12 +174,11 @@ export abstract class AjaWidget
    * @param parentActions
    * @param context
    */
-  private _bindOutput(
+  private _bindOutputs(
     attrs: Attr[],
     parent: AjaWidget,
     parentContextData: any
   ) {
-    if (!this._meta) return;
     attrs
       .filter(attr => eventp(attr.name))
       .forEach(attr => {
@@ -196,6 +208,51 @@ export abstract class AjaWidget
               );
             }
           });
+        }
+      });
+  }
+
+  /**
+   * 解析[(data)]="data"
+   * child需要设置[@Input() data]和[@Output dataChange]才生效
+   * TODO: 读取属性别名
+   * @param attrs
+   * @param parent
+   * @param parentContextData
+   */
+  private _bindModels(
+    attrs: Attr[],
+    parent: AjaWidget,
+    parentContextData: any
+  ) {
+    let init = true;
+    attrs
+      .filter(({ name }) => modelp(name))
+      .forEach(attr => {
+        const prop = AjaModel.getModelprop(attr.name);
+        if (prop && this._meta) {
+          const propEvent = `${prop}Change`;
+          if (
+            this._meta.hasOwnProperty(prop) &&
+            this._meta.hasOwnProperty(propEvent) &&
+            (<any>this)[propEvent] instanceof EventEmitter
+          ) {
+            const parentProp = attr.value.trim();
+            autorun(() => {
+              const parentData = getData(parentProp, parentContextData);
+              if (init) {
+                extendObservable(this, {
+                  [prop]: parentData
+                });
+                (<any>this)[propEvent].next = (value: any) => {
+                  (<any>parent)[parentProp] = value;
+                };
+                init = false;
+              } else {
+                (<any>this)[prop] = parentData;
+              }
+            });
+          }
         }
       });
   }

@@ -139,6 +139,7 @@ function _createWidgetName(name: string) {
   return newName.toLowerCase();
 }
 
+// TODO: 添加opt.prefix参数用来配置自定义组件前缀
 export function bootstrapModule(moduleType: Type<any>) {
   const ajaModuleProvider = createAjaModuleProvider(moduleType);
   if (ajaModuleProvider) {
