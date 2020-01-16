@@ -1,10 +1,10 @@
 import { BindingEventBuilder, BindingAttrBuilder } from "./binding-builder";
-import { eventp, attrp, elementNodep, templatep, modelp } from "../utils/p";
-import { autorun, observable, extendObservable } from "../aja-mobx";
-import { getData, setData } from "../core";
-import { PROP_METADATA, Input, Output } from "../metadata/directives";
+import { eventp, modelp } from "../utils/p";
+import { autorun, extendObservable, observable } from "../aja-mobx";
+import { getData } from "../core";
+import { Input, Output, Widget } from "../metadata/directives";
 import { getAttrs } from "../utils/util";
-import { Aja } from "../aja";
+import { Aja, AnyObject, Type } from "../aja";
 import { AjaModuleProvider } from "./aja-module-provider";
 import { ContextData } from "./context-data";
 import { AjaModel } from "./aja-model";
@@ -61,60 +61,79 @@ export interface AjaDispose {
   dispose(): void;
 }
 
-export abstract class AjaWidget
-  implements AjaInitState, AjaInputChanges, AjaViewInit, AjaDispose {
-  dispose(): void {}
-  viewInit(): void {}
-  inputChanges(): void {}
-  initState(): void {}
-  public readonly host!: HTMLElement;
-  private _setHost(host: HTMLElement): void {
-    (this as { host: HTMLElement }).host = host;
+export class AjaWidgetProvider {
+  /**
+   * 自定义组件的前缀，默认app-
+   * 在调用[bootstrapModule]函数时，可以设置
+   */
+  static prefix: string = "app-";
+
+  private get _attrs() {
+    return getAttrs(this.host);
   }
 
-  abstract render(): HTMLTemplateElement | string;
-
-  private _initWidget(): void {
-    const t = this.render();
-    if (!t) {
-      throw `没有找到模板!!! ${this}`;
-    }
-    this.host.innerHTML = "";
-    if (elementNodep(t) && templatep(t)) {
-      this.host.append(document.importNode(t.content, true));
-    } else {
-      if (this.host) {
-        this.host.insertAdjacentHTML("beforeend", t);
+  private _metadata:
+    | {
+        [key: string]: (Input | Output)[];
       }
+    | undefined;
+
+  private _eachMeta(cb: (key: string, value: (Input | Output)[]) => void) {
+    if (!this._metadata) return;
+    for (const [key, value] of Object.entries(this._metadata)) {
+      cb(key, value);
     }
   }
 
-  setup(opt: {
+  public readonly context: AnyObject;
+  public readonly widgetItem: WidgetItem;
+  public readonly host: HTMLElement;
+  public readonly parent?: AjaWidgetProvider;
+  public readonly parentContextData?: ContextData;
+
+  /**
+   *
+   * @param template 模板
+   * @param context 用户的widget配置
+   */
+  constructor(opt: {
+    widgetItem: WidgetItem;
     host: HTMLElement;
-    module: AjaModuleProvider;
-    parent?: AjaWidget;
+    parent?: AjaWidgetProvider;
     parentContextData?: ContextData;
   }) {
-    this._setHost(opt.host);
-    if (!this.host) return;
+    if (!opt.widgetItem) {
+      throw `没有找到widget!!!`;
+    }
+    this.widgetItem = opt.widgetItem;
+    this.host = opt.host;
+    this.parent = opt.parent;
+    this.parentContextData = opt.parentContextData;
+    this.context = observable.cls(this.widgetItem.widget, metadata => {
+      // 获取注入的元数据
+      this._metadata = metadata;
+    });
 
     // 检查input和output
-    if (opt.parentContextData && opt.parent && this._meta) {
-      const attrs = getAttrs(this.host);
-      this._bindInputs(opt.parentContextData, attrs);
-      this._bindOutputs(attrs, opt.parent, opt.parentContextData);
-      this._bindModels(attrs, opt.parent, opt.parentContextData);
+    if (this.parentContextData && this.parent && this._metadata) {
+      this._bindInputs();
+      this._bindOutputs();
+      this._bindModels();
     }
 
     // 执行钩子
-    this.initState();
+    if (this.context.initState) this.context.initState();
 
     // 检查视图
-    this._initWidget();
-    new Aja(this, opt.module);
+    this.host.innerHTML = "";
+    this.host.insertAdjacentHTML(
+      "beforeend",
+      this.widgetItem.widgetMetaData.template
+    );
+    new Aja(this);
 
     // 视图检擦完毕
-    this.viewInit();
+    if (this.context.viewInit) this.context.viewInit();
   }
 
   /**
@@ -122,10 +141,10 @@ export abstract class AjaWidget
    * @param store
    * @param attrs
    */
-  private _bindInputs(parentContextData: any, attrs: Attr[]) {
+  private _bindInputs() {
     let init = true;
     let t: number;
-    attrs
+    this._attrs
       .filter(({ name }) => {
         // 过滤掉(click)和[(data)]
         return !eventp(name) || !modelp(name);
@@ -140,14 +159,18 @@ export abstract class AjaWidget
             (!hasAliasName && key === attrName)
           ) {
             autorun(() => {
-              const parentData = getData(attr.value.trim(), parentContextData);
+              if (!this.parentContextData) return;
+              const parentData = getData(
+                attr.value.trim(),
+                this.parentContextData
+              );
               if (init) {
-                extendObservable(this, {
+                extendObservable(this.context, {
                   [key]: parentData
                 });
                 init = false;
               } else {
-                (<any>this)[key] = parentData;
+                this.context[key] = parentData;
               }
 
               // 这里用异步是为了避免[inputChanges]里面使用了get，如
@@ -159,7 +182,7 @@ export abstract class AjaWidget
               // 先用异步解决这种情况
               if (t) window.clearTimeout(t);
               t = setTimeout(() => {
-                this.inputChanges();
+                if (this.context.inputChanges) this.context.inputChanges();
               });
             });
           }
@@ -174,20 +197,16 @@ export abstract class AjaWidget
    * @param parentActions
    * @param context
    */
-  private _bindOutputs(
-    attrs: Attr[],
-    parent: AjaWidget,
-    parentContextData: any
-  ) {
-    attrs
+  private _bindOutputs() {
+    this._attrs
       .filter(attr => eventp(attr.name))
       .forEach(attr => {
         // 全小写，还有可能是别名
         const eventType: string = BindingEventBuilder.parseEventType(attr);
         let { funcName } = BindingEventBuilder.parseFun(attr);
-        const parentMethod = (<any>parent)[funcName];
+        const parentMethod = this.parent?.context[funcName];
         if (parentMethod && typeof parentMethod === "function") {
-          const output = (<any>this)[eventType];
+          const output = this.context[eventType];
           this._eachMeta((key, value) => {
             const hasAliasName = _findAliasName(value, "Output");
             if (
@@ -195,17 +214,19 @@ export abstract class AjaWidget
               (!hasAliasName && key === eventType)
             ) {
               if (output && output instanceof EventEmitter) {
-                output.next = parentMethod.bind(parent);
+                output.next = parentMethod.bind(this.parent?.context);
               }
               this.host.removeAttribute(attr.name);
             } else {
               // 没注册output，当作普通事件处理
-              new BindingEventBuilder(
-                this.host,
-                attr,
-                parentContextData,
-                parent
-              );
+              if (this.parentContextData && this.parent) {
+                new BindingEventBuilder(
+                  this.host,
+                  attr,
+                  this.parentContextData,
+                  this.parent
+                );
+              }
             }
           });
         }
@@ -220,59 +241,38 @@ export abstract class AjaWidget
    * @param parent
    * @param parentContextData
    */
-  private _bindModels(
-    attrs: Attr[],
-    parent: AjaWidget,
-    parentContextData: any
-  ) {
+  private _bindModels() {
     let init = true;
-    attrs
+    this._attrs
       .filter(({ name }) => modelp(name))
       .forEach(attr => {
         const prop = AjaModel.getModelprop(attr.name);
-        if (prop && this._meta) {
+        if (prop && this._metadata) {
           const propEvent = `${prop}Change`;
           if (
-            this._meta.hasOwnProperty(prop) &&
-            this._meta.hasOwnProperty(propEvent) &&
-            (<any>this)[propEvent] instanceof EventEmitter
+            this._metadata.hasOwnProperty(prop) &&
+            this._metadata.hasOwnProperty(propEvent) &&
+            this.context[propEvent] instanceof EventEmitter
           ) {
             const parentProp = attr.value.trim();
             autorun(() => {
-              const parentData = getData(parentProp, parentContextData);
+              if (!this.parentContextData) return;
+              const parentData = getData(parentProp, this.parentContextData);
               if (init) {
-                extendObservable(this, {
+                extendObservable(this.context, {
                   [prop]: parentData
                 });
-                (<any>this)[propEvent].next = (value: any) => {
-                  (<any>parent)[parentProp] = value;
+                this.context[propEvent].next = (value: any) => {
+                  (<any>this.parent).context[parentProp] = value;
                 };
                 init = false;
               } else {
-                (<any>this)[prop] = parentData;
+                this.context[prop] = parentData;
               }
             });
           }
         }
       });
-  }
-
-  private get _meta():
-    | {
-        [key: string]: (Input | Output)[];
-      }
-    | undefined {
-    const constructor = this.constructor;
-    if (constructor.hasOwnProperty(PROP_METADATA)) {
-      return (constructor as any)[PROP_METADATA];
-    }
-  }
-
-  private _eachMeta(cb: (key: string, value: (Input | Output)[]) => void) {
-    if (!this._meta) return;
-    for (const [key, value] of Object.entries(this._meta)) {
-      cb(key, value);
-    }
   }
 }
 
@@ -282,5 +282,52 @@ export class EventEmitter<T> {
     if (this.next) {
       this.next(value);
     }
+  }
+}
+
+export interface WidgetItem {
+  /**
+   * 注入的元数据
+   */
+  widgetMetaData: Widget;
+
+  /**
+   * 该widget属于那个模块
+   */
+  module: AjaModuleProvider;
+
+  /**
+   * widget对象
+   */
+  widget: Type<AjaWidgetProvider>;
+}
+
+/**
+ * 保存所有widget
+ * 每个widget的数据为[WidgetItem]
+ */
+export class Widgets {
+  private static _widgets: {
+    [k: string]: WidgetItem;
+  } = {};
+
+  static addWidget(widgetItem: WidgetItem): void {
+    this._widgets[widgetItem.widgetMetaData.selector] = widgetItem;
+  }
+
+  /**
+   *
+   * @param name app-home or APP-HOME
+   */
+  static getWidget(name: string): WidgetItem {
+    return this._widgets[name.toLowerCase()];
+  }
+
+  /**
+   *
+   * @param name app-home
+   */
+  static hasWidget(name: string): boolean {
+    return !!this.getWidget(name);
   }
 }

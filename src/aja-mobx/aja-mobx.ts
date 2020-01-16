@@ -1,5 +1,6 @@
 import { Observable } from "./observable";
 import { AnyObject, Type } from "./interfaces";
+import { PROP_METADATA, Input, Output } from "../metadata/directives";
 
 function createObservable(obj: AnyObject, key: string) {
   let value = obj[key];
@@ -7,6 +8,9 @@ function createObservable(obj: AnyObject, key: string) {
   if (typeof value === "function") {
     value = value.bind(obj);
   }
+  if (typeof value === "object") {
+  }
+
   const obser = new Observable(value);
   Object.defineProperty(obj, key, {
     get() {
@@ -31,11 +35,35 @@ export function observable<T>(value: any): any {
   return observable.object(value);
 }
 
-function transform<T>(context: T, key: string, o: any) {
-  const des = Object.getOwnPropertyDescriptor(o, key);
+function transform<T>(context: T, key: string, obj: AnyObject) {
+  const des = Object.getOwnPropertyDescriptor(obj, key);
   if (des) {
     if (des.value) {
-      createObservable(context, key);
+      let value = obj[key];
+
+      if (typeof value === "function") {
+        value = value.bind(context);
+      }
+
+      // if (typeof value === "object") {
+      //   value = Object.assign({}, value);
+      // }
+
+      const obser = new Observable(value);
+      Object.defineProperty(context, key, {
+        get() {
+          return obser.get();
+        },
+        set(newValue) {
+          return obser.set(newValue);
+        },
+        enumerable: true
+      });
+
+      // 递归下去
+      if (typeof value === "object") {
+        observable.object(value);
+      }
     } else if (des.get) {
       const getter = des.get;
       Object.defineProperty(context, key, {
@@ -55,37 +83,60 @@ export namespace observable {
     return new Observable(value);
   }
 
-  export function object<T = any>(obj: T) {
+  export function object<T = any>(
+    obj: T,
+    result?: AnyObject,
+    depath: boolean = false
+  ) {
+    const context = result ? result : obj;
     Object.keys(obj).forEach(key => {
-      transform(obj, key, obj);
+      transform(context, key, obj);
     });
-    return obj;
+
+    // 获取原型上的方法
+    if (depath) {
+      const prototype = Object.getPrototypeOf(obj);
+      (<string[]>Reflect.ownKeys(prototype)).forEach(key => {
+        transform(context, key, prototype);
+      });
+    }
+    return context;
   }
 
-  const filterMethods: string[] = [
-    "constructor",
-    "render",
-    "inputChanges",
-    "initState"
-  ];
+  export function cls<T>(
+    cls: Type<T>,
+    metadataCallback?: (
+      metadata:
+        | {
+            [key: string]: (Input | Output)[];
+          }
+        | undefined
+    ) => void
+  ) {
+    const context: T = new cls();
 
-  export function cls<T>(cls: Type<T>) {
-    const obj: T = new cls();
-    observable.object(obj);
+    // 先获取注入的元数据
+    if (metadataCallback) {
+      const constructor = (context as any).constructor;
+      constructor.hasOwnProperty(PROP_METADATA)
+        ? metadataCallback(constructor[PROP_METADATA])
+        : metadataCallback(undefined);
+    }
 
-    (<string[]>Reflect.ownKeys(cls.prototype))
-      .filter(name => !filterMethods.includes(name))
-      .forEach(key => {
-        transform(obj, key, cls.prototype);
-      });
+    observable.object(context);
 
-    return obj;
+    (<string[]>Reflect.ownKeys(cls.prototype)).forEach(key => {
+      transform(context, key, cls.prototype);
+    });
+
+    return context;
   }
 }
 
 export function extendObservable(target: any, obj: { [key: string]: any }) {
-  for (let key in obj) {
+  for (const key in obj) {
     target[key] = obj[key];
     transform(target, key, target);
   }
+  return target;
 }

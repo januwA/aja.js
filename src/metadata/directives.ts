@@ -56,6 +56,7 @@ function makeMetadataCtor(props?: (...args: any[]) => any): any {
 }
 
 function makeDecorator<T>(
+  name: string,
   props?: (...args: any[]) => any
 ): {
   new (...args: any[]): any;
@@ -82,10 +83,13 @@ function makeDecorator<T>(
       return cls;
     };
   }
+
+  DecoratorFactory.prototype.metadataName = name;
   return DecoratorFactory as any;
 }
 
 export const AjaModule: AjaModuleDecorator = makeDecorator(
+  "AjaModule",
   (opts: AjaModule) => opts
 );
 
@@ -160,4 +164,31 @@ export interface OutputDecorator {
 export const Output: OutputDecorator = makePropDecorator(
   "Output",
   (bindingPropertyName?: string) => ({ bindingPropertyName })
+);
+
+export interface Widget {
+  /**
+   * widget 标签
+   */
+  selector: string;
+
+  /**
+   * 模板位置
+   */
+  template: string;
+
+  /**
+   * 样式位置
+   */
+  styleUrls?: string[];
+}
+
+export interface WidgetDecorator {
+  (obj: Widget): TypeDecorator;
+  new (obj: Widget): Widget;
+}
+
+export const Widget: WidgetDecorator = makeDecorator(
+  "Widget",
+  (opts: Widget) => opts
 );

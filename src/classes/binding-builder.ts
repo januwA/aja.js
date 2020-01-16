@@ -49,7 +49,7 @@ import {
   switchAttrName
 } from "../utils/const-string";
 import { AjaModuleProvider } from "./aja-module-provider";
-import { AjaWidget } from "./aja-weidget-provider";
+import { AjaWidgetProvider } from "./aja-weidget-provider";
 
 const l = console.log;
 
@@ -583,7 +583,7 @@ export class BindingEventBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaWidget: AjaWidget
+    public readonly ajaWidget: AjaWidgetProvider
   ) {
     this.type = BindingEventBuilder.parseEventType(attr);
 
@@ -591,20 +591,18 @@ export class BindingEventBuilder {
     this.funcName = funcName;
     const modelChangep: boolean = attr.name === modelChangeEvent;
     if (modelChangep) this.type = EventType.input;
-    if (
-      this.ajaWidget &&
-      this.funcName in this.ajaWidget &&
-      `on${this.type}` in window
-    ) {
+    const context = this.ajaWidget.context;
+    if (this.funcName in context && `on${this.type}` in window) {
       // 每次只需把新的event传入就行了
       node.addEventListener(this.type, e => {
         const transitionArgs = this._parseArgsToArguments(args);
-        const ff = (<any>this.ajaWidget)[this.funcName];
-        const argss = this._parseArgsEvent(
-          transitionArgs,
-          modelChangep ? (<HTMLInputElement>e.target).value : e
+        context[this.funcName].apply(
+          ajaWidget,
+          this._parseArgsEvent(
+            transitionArgs,
+            modelChangep ? (<HTMLInputElement>e.target).value : e
+          )
         );
-        ff(...argss);
       });
     }
     node.removeAttribute(this.attr.name);

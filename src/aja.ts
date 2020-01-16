@@ -4,7 +4,7 @@ import {
   hasMultipleStructuredInstructions
 } from "./utils/util";
 
-import { autorun, observable } from "./aja-mobx";
+import { autorun } from "./aja-mobx";
 import { eventp, boolStringp, attrp, elementNodep, textNodep } from "./utils/p";
 import { ContextData } from "./classes/context-data";
 import {
@@ -17,8 +17,7 @@ import {
   BindingTempvarBuilder,
   BindingSwitchBuilder
 } from "./classes/binding-builder";
-import { AjaModuleProvider } from "./classes/aja-module-provider";
-import { AjaWidget } from "./classes/aja-weidget-provider";
+import { AjaWidgetProvider, Widgets } from "./classes/aja-weidget-provider";
 
 const l = console.log;
 
@@ -31,12 +30,12 @@ export interface AnyObject {
 }
 
 export class Aja {
-  constructor(
-    private readonly widget: AjaWidget,
-    private readonly module: AjaModuleProvider
-  ) {
+  get module() {
+    return this.widget.widgetItem.module;
+  }
+  constructor(private readonly widget: AjaWidgetProvider) {
     const contextData = new ContextData({
-      store: widget,
+      store: widget.context,
       tData: new BindingTempvarBuilder(widget.host)
     });
     this._scan(widget.host, contextData);
@@ -59,7 +58,7 @@ export class Aja {
       if (depath) depath = this._parseBindSwitch(node, contextData);
       if (depath) {
         if (isWidget) {
-          this._parseWidget(node, attrs, contextData);
+          this._parseWidget(node, contextData);
           return;
         } else {
           this._parseBindAttrs(node, attrs, contextData);
@@ -67,7 +66,7 @@ export class Aja {
       }
     } else {
       if (isWidget) {
-        this._parseWidget(node, attrs, contextData);
+        this._parseWidget(node, contextData);
         return;
       }
     }
@@ -81,27 +80,30 @@ export class Aja {
     }
   }
 
+  /**
+   * 检查node是否为自定义widget
+   * 检查模块是否存在这个widget
+   * 检查node不等于host，避免无限递归
+   * @param node
+   */
   private _isWidget(node: HTMLElement) {
-    const ajaWidget = this.module.getWidget(node.nodeName);
-    return ajaWidget && node !== this.widget.host;
+    const name = node.nodeName.toLowerCase();
+    if (name.startsWith(AjaWidgetProvider.prefix)) {
+      if (this.module.hasWidget(name) && node !== this.widget.host) {
+        return true;
+      }
+    } else {
+      return false;
+    }
   }
 
-  private _parseWidget(
-    node: HTMLElement,
-    attrs: Attr[],
-    contextData: ContextData
-  ) {
-    const ajaWidget = this.module.getWidget(node.nodeName);
-    if (ajaWidget) {
-      const { widget, module } = ajaWidget;
-      const w = observable.cls(widget);
-      w.setup({
-        module,
-        host: node,
-        parentContextData: contextData,
-        parent: this.widget
-      });
-    }
+  private _parseWidget(node: HTMLElement, contextData: ContextData) {
+    new AjaWidgetProvider({
+      widgetItem: Widgets.getWidget(node.nodeName),
+      host: node,
+      parent: this.widget,
+      parentContextData: contextData
+    });
   }
 
   /**

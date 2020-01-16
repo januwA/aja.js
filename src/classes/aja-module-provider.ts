@@ -1,27 +1,11 @@
-import { Type, Aja } from "../aja";
-import {
-  templatep,
-  attrp,
-  eventp,
-  elementNodep,
-  numberStringp,
-  arrayp
-} from "../utils/p";
+import { Type } from "../aja";
+import { numberStringp, arrayp } from "../utils/p";
 import { ContextData } from "./context-data";
-import { BindingAttrBuilder, BindingEventBuilder } from "./binding-builder";
-import { autorun, observable } from "../aja-mobx";
 import { getData } from "../core";
-import { getAttrs, LowerTrim } from "../utils/util";
 import { AjaPipe, defaultPipes } from "./aja-pipe";
-import {
-  AjaModule,
-  ANNOTATIONS,
-  PROP_METADATA,
-  Input
-} from "../metadata/directives";
-import { AjaWidget } from "./aja-weidget-provider";
-
-const l = console.log;
+import { AjaModule, ANNOTATIONS, Widget } from "../metadata/directives";
+import { AjaWidgetProvider, Widgets } from "./aja-weidget-provider";
+import { MetaData } from "./meta-data";
 
 function createAjaModuleProvider<T>(
   cls: Type<T>
@@ -72,15 +56,23 @@ function parseImports(m: AjaModuleProvider) {
   });
 }
 
+/**
+ * 导入其它模块的导出
+ * @param ajaModule
+ * @param parentModule
+ */
 function parseExports(
   ajaModule: AjaModuleProvider,
   parentModule: AjaModuleProvider
 ) {
   ajaModule.exports?.forEach(el => {
-    if (el.prototype instanceof AjaWidget) {
-      const widgetItem = ajaModule.getWidget(_createWidgetName(el.name));
-      if (widgetItem) {
-        parentModule.addWidget(el.name, widgetItem);
+    const meta = (<any>el)[ANNOTATIONS];
+    if (meta && arrayp(meta) && meta.length) {
+      const widgetMetaData = meta[0] as Widget;
+      if ((widgetMetaData as any)["metadataName"] === "Widget") {
+        if (ajaModule.hasWidget(widgetMetaData.selector)) {
+          parentModule.addWidget(widgetMetaData.selector);
+        }
       }
     } else if (el.prototype instanceof AjaPipe) {
       const pipe = ajaModule.getPipe(el.name);
@@ -93,12 +85,15 @@ function parseExports(
 
 function parseDeclarations(m: AjaModuleProvider) {
   m.declarations?.forEach(el => {
-    if (el.prototype instanceof AjaWidget) {
-      const widgetItem = {
+    const meta = new MetaData(el);
+    if (meta.metadata && meta.isWidget) {
+      const widgetMetaData = meta.metadata as Widget;
+      Widgets.addWidget({
+        widgetMetaData,
         module: m,
         widget: el
-      };
-      m.addWidget(el.name, widgetItem);
+      });
+      m.addWidget(widgetMetaData.selector);
     } else if (el.prototype instanceof AjaPipe) {
       m.addPipe(el.name, new el());
     }
@@ -139,8 +134,13 @@ function _createWidgetName(name: string) {
   return newName.toLowerCase();
 }
 
-// TODO: 添加opt.prefix参数用来配置自定义组件前缀
-export function bootstrapModule(moduleType: Type<any>) {
+export function bootstrapModule(
+  moduleType: Type<any>,
+  opt?: {
+    prefix: string;
+  }
+) {
+  if (opt && opt.prefix) AjaWidgetProvider.prefix = `${opt.prefix}-`;
   const ajaModuleProvider = createAjaModuleProvider(moduleType);
   if (ajaModuleProvider) {
     AjaModules.addModule(moduleType.name, ajaModuleProvider);
@@ -155,14 +155,19 @@ export function bootstrapModule(moduleType: Type<any>) {
       // 解析imports导入的模块
       parseImports(ajaModuleProvider);
 
-      const rootName = _createWidgetName(bootstrap.name);
-      const host = document.querySelector<HTMLElement>(rootName);
-      if (host) {
-        const widgetItem = ajaModuleProvider.getWidget(rootName);
-        if (widgetItem) {
-          const { widget, module } = widgetItem;
-          const w = observable.cls(widget);
-          w.setup({ host, module });
+      const meta = new MetaData(bootstrap);
+      if (meta.metadata && meta.isWidget) {
+        const widgetMetaData = meta.metadata;
+        const host = document.querySelector<HTMLElement>(
+          widgetMetaData.selector
+        );
+        if (host) {
+          if (ajaModuleProvider.hasWidget(widgetMetaData.selector)) {
+            new AjaWidgetProvider({
+              widgetItem: Widgets.getWidget(widgetMetaData.selector),
+              host
+            });
+          }
         }
       }
     }
@@ -197,10 +202,6 @@ export class AjaModules {
   }
 }
 
-export interface WidgetItem {
-  module: AjaModuleProvider;
-  widget: Type<AjaWidget>;
-}
 export class AjaModuleProvider {
   imports?: Type<any>[];
   declarations?: Type<any>[];
@@ -214,27 +215,19 @@ export class AjaModuleProvider {
     this.bootstrap = decoratorFactory.bootstrap;
   }
   private _widgets: {
-    [k: string]: WidgetItem;
+    [widgetName: string]: boolean;
   } = {};
 
-  addWidget(name: string, widgetItem: WidgetItem): void {
-    this._widgets[_createWidgetName(name)] = widgetItem;
+  addWidget(widgetName: string): void {
+    this._widgets[widgetName] = true;
   }
 
   /**
    *
-   * @param name app-home
-   */
-  getWidget(name: string): WidgetItem | undefined {
-    return this._widgets[LowerTrim(name)];
-  }
-
-  /**
-   *
-   * @param name app-home
+   * @param name app-home or APP-HOME
    */
   hasWidget(name: string): boolean {
-    return !!this.getWidget(name);
+    return !!this._widgets[name.toLowerCase()];
   }
 
   private _pipes: { [name: string]: AjaPipe } = Object.assign(defaultPipes);

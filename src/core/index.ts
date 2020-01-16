@@ -1,6 +1,7 @@
 import { ContextData } from "../classes/context-data";
 import { parsePipe, emptyString } from "../utils/util";
 import { undefinedp, stringp } from "../utils/p";
+import { extendObservable } from "../aja-mobx";
 
 const l = console.log;
 
@@ -18,13 +19,11 @@ export function getData(key: string, contextData: ContextData): any {
   // 抽掉所有空格，再把管道排除
   let [bindKey] = parsePipe(key);
   let _result: any;
-  
   const allData = Object.assign(
-    Object.create(contextData.store),
+    extendObservable({}, contextData.store),
     contextData.forState,
     contextData.tData.templateVariables
   );
-
   _result = evalFun(bindKey, allData);
 
   if (undefinedp(_result)) _result = emptyString;

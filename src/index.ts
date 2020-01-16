@@ -11,9 +11,8 @@ export {
   AjaDispose,
   AjaInputChanges,
   AjaViewInit,
-  AjaWidget,
   EventEmitter
 } from "./classes/aja-weidget-provider";
-export { AjaModule, Input, Output } from "./metadata/directives";
+export { AjaModule, Input, Output, Widget } from "./metadata/directives";
 
 export { AjaPipe } from "./classes/aja-pipe";
