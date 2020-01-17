@@ -4,10 +4,12 @@ import { autorun, extendObservable, observable } from "../aja-mobx";
 import { getData } from "../core";
 import { Input, Output, Widget } from "../metadata/directives";
 import { getAttrs } from "../utils/util";
-import { Aja, AnyObject, Type } from "../aja";
+import { Aja } from "../aja";
 import { AjaModuleProvider } from "./aja-module-provider";
 import { ContextData } from "./context-data";
 import { AjaModel } from "./aja-model";
+import { AnyObject } from "../interfaces/any-object";
+import { Type } from "../interfaces/type";
 
 function _findAliasName(
   value: (Input | Output)[],

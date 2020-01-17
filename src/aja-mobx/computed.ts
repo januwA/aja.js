@@ -1,5 +1,5 @@
 import { DependenceManager } from "./dependence-manager";
-import { AnyObject } from "./interfaces";
+import { AnyObject } from "../interfaces/any-object";
 
 export class Computed {
   private static _cpIDCounter = 1;

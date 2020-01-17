@@ -1,6 +1,8 @@
 import { Observable } from "./observable";
-import { AnyObject, Type } from "./interfaces";
-import { PROP_METADATA, Input, Output } from "../metadata/directives";
+import { Input, Output } from "../metadata/directives";
+import { AnyObject } from "../interfaces/any-object";
+import { Type } from "../interfaces/type";
+import { PROP_METADATA } from "../utils/decorators";
 
 function createObservable(obj: AnyObject, key: string) {
   let value = obj[key];

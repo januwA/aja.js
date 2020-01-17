@@ -1,6 +1,6 @@
 import { EventType } from "../utils/const-string";
 import { observable } from "../aja-mobx";
-import { AnyObject } from "../aja";
+import { AnyObject } from "../interfaces/any-object";
 
 export class AjaModel {
   static getModelprop(value: string): string | undefined {

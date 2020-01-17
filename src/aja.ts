@@ -19,16 +19,6 @@ import {
 } from "./classes/binding-builder";
 import { AjaWidgetProvider, Widgets } from "./classes/aja-weidget-provider";
 
-const l = console.log;
-
-export interface Type<T> extends Function {
-  new (...args: any[]): T;
-}
-
-export interface AnyObject {
-  [k: string]: any;
-}
-
 export class Aja {
   get module() {
     return this.widget.widgetItem.module;

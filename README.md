@@ -1,196 +1,98 @@
 `v0.0.14` 此版本已经不能直接在浏览器上跑了，需要[aja-cli](https://github.com/januwA/aja-cli)，下面的文档待更新。
 
-## 基本
-```html
-<body>
-  <app-home></app-home>
-
-  <template id="app">
-    <p>{{ name | uppercase }}</p>
-    <p>{{ helloName }}</p>
-    <app-tile [title]="'hello world'" (alert)="test"></app-tile>
-    <button (click)="test()" #btn>test</button>
-  </template>
-
-  <template id="tile">
-    <h3>title: {{ title }}</h3>
-    <p>subtitle: {{subtitle | hello }}</p>
-    <button (click)="send()">emit</button>
-  </template>
-
-  <script src="../dist/dist/aja.umd.js"></script>
-  <script>
-    const l = console.log;
-    const { AjaWidget, AjaModule, AjaPipe } = Aja;
-
-    class HelloPipe extends AjaPipe {
-      pipeName = 'hello';
-      transform(v) {
-        return `hello ${v}`;
-      }
-    }
-
-    class AppTile extends AjaWidget {
-
-      inputs = ['title'];
-
-      state = {
-        subtitle: '模板'
-      }
-
-      actions = {
-        send() {
-          l(this.subtitle)
-          this.alert(this.title);
-        }
-      }
-
-      constructor() {
-        super();
-      }
-
-      render() {
-        return document.querySelector('#tile')
-      }
-    }
-
-    class AppHome extends AjaWidget {
-      state = {
-        name: 'x',
-        get helloName() {
-          return `hello ${this.name}`
-        }
-      }
-
-      actions = {
-        test(title) {
-          l(title)
-          this.name = 'c'
-        },
-      }
-
-      render() {
-        return document.querySelector('#app');
-      }
-    }
-    
-    class SharedModule extends AjaModule {
-      declarations = [HelloPipe];
-      exports = [HelloPipe];
-    }
-    
-    class AppModule extends AjaModule {
-      declarations = [
-        AppHome,
-        AppTile
-      ];
-      imports = [
-        SharedModule
-      ];
-      bootstrap = AppHome;
-    }
-
-    Aja.bootstrapModule(AppModule);
-  </script>
-</body>
+## 模块
+```ts
+@AjaModule({
+  declarations: [AppRoottt, HelloPipe],
+  imports: [SharedModule],
+  bootstrap: [AppRoottt]
+})
+export class AppModule {}
 ```
 
-## 返回字符串
-```html
-<app-home></app-home>
+## 组件
+```ts
+import { Widget, Input } from "@aja";
 
-<script>
-  const l = console.log;
-  const { AjaWidget, AjaModule } = Aja;
-  class AppHome extends AjaWidget {
+@Widget({
+  selector: "app-root",
+  template: require("./app.html")
+})
+export class AppRoottt {
+  @Input()
+  name: any = { name: "ajanuw" };
 
-    // 模板中绑定的变量
-    state = {
-      name: 'x',
-      get helloName() {
-        return `hello ${this.name}`
-      }
-    }
-
-    // 模板中绑定的事件
-    actions = {
-
-      // 这些函数的[this]指向[this.$store]
-      test() {
-        this.name = 'c'
-      },
-    }
-
-    initHostStyle() {
-      this.host.style.display = 'block';
-      this.host.classList.add('p-2', 'color');
-    }
-
-    // 没什么用，应为什么都没有开始
-    constructor() {
-      super();
-    }
-
-    // 这个函数的[this]指向[AjaWidget]
-    initState() {
-      this.initHostStyle();
-      setTimeout(() => {
-        this.$store.name = 'ajanuw'
-      }, 2000);
-    }
-
-    render() {
-      return `
-        hello {{  name }}
-        <p>{{ name | uppercase }}</p>
-        <p>{{ helloName }}</p>
-        <button (click)="test()" #btn>test</button>
-      `;
-    }
+  show() {
+    this.name = "xxx";
   }
-
-  class AppModule extends AjaModule {
-    declarations = [
-      AppHome,
-    ];
-    bootstrap = AppHome;
-  }
-
-  Aja.bootstrapModule(AppModule);
-</script>
+}
 ```
 
+## 管道
+```ts
+@Pipe({
+  name: "hello"
+})
+class HelloPipe implements PipeTransform {
+  transform(value: any) {
+    return `hello ${value}`;
+  }
+}
+```
+```html
+<h1>{{ name | json }}</h1>
+```
+
+## 组件输入和输出
+```ts
+import { Widget, Input, Output, EventEmitter } from "@aja";
+
+@Widget({
+  selector: "app-root",
+  template: require("./app.html")
+})
+export class AppRoottt {
+  @Input()
+  name: string = "<default name>";
+
+  @Output() emit = new EventEmitter<string>();
+}
+```
+```html
+<app-root [name]="name" (emit)="emit"></app-root>
+```
+
+## 组件属性双向绑定
+```ts
+import { Widget, Input, Output, EventEmitter } from "@aja";
+
+@Widget({
+  selector: "app-root",
+  template: require("./app.html")
+})
+export class AppRoottt {
+  @Input() name = "";
+  @Output() nameChange = new EventEmitter<string>();
+}
+```
+```html
+<app-root [(name)]="name"></app-root>
+```
 
 ## 属性绑定
+```ts
+import { Widget } from "@aja";
+
+@Widget({
+  selector: "app-root",
+  template: require("./app.html")
+})
+export class AppRoottt {
+  name = "Ajanuw";
+}
+```
 ```html
-  <app-home></app-home>
-  <script src="../dist/dist/aja.umd.js"></script>
-  <script>
-    const { AjaWidget, AjaModule } = Aja;
-
-    class AppHome extends AjaWidget {
-      state = {
-        title: 'title...',
-        style: {
-          padding: '1em',
-          color: 'red'
-        }
-      }
-      render() {
-        return `
-          <p [title]="title" class="c" [style]="style">{{ title }}</p>
-          <p [html]="'name'"></p>
-        `;
-      }
-    }
-
-    class AppModule extends AjaModule {
-      declarations = [AppHome];
-      bootstrap = [AppHome];
-    }
-
-    Aja.bootstrapModule(AppModule);
-  </script>
+<h1>{{ name }}</h1>
 ```
 
 ## 绑定class
@@ -203,13 +105,6 @@
 
 <!-- a text-red p-2 -->
 <p class="a" [class]="classes">x</p>
-state: {
-  classes: {
-    'text-red': true,
-    'p-2': true,
-    'm-2': false,
-  }
-}
 ```
 
 ## 绑定style
@@ -235,37 +130,7 @@ state: {
 ```
 
 
-
-## 输入 `@Input()`
-```html
-<app-tile [name]="name"></app-tile>
-```
-```ts
-import { AjaWidget, Input } from "@aja";
-
-export class AppTile extends AjaWidget {
-  @Input() name = "<default name>";
-}
-
-export class AppTile extends AjaWidget {
-  private _name = "xxx";
-
-  @Input()
-  set name(nv: string) {
-    this._name = "Hello " + nv;
-  }
-
-  get name() {
-    return this._name;
-  }
-}
-```
-
 ## 插值表达式
-<html>
-  <p style="color: red;">!!!复杂的表达式还是推荐使用计算属性，速度快点</p>
-</html>
-
 ```
 <p>{{ name }}, {{ obj.age * 10 }}</p>
 
@@ -303,56 +168,19 @@ export class AppTile extends AjaWidget {
 
 ## for自带的上下文
 ```html
-<app-home></app-home>
-<script src="../dist/dist/aja.umd.js"></script>
-<script>
-  const l = console.log;
-  const { AjaWidget, AjaModule } = Aja;
+<div :for="of 3">
+  <p># {{ $_ }}</p>
+  <ul>
+    <li :for="of 2">## {{ $__ }}</li>
+  </ul>
+</div>
 
-  class AppHome extends AjaWidget {
-    state = {
-      arr: [
-        {
-          key: 1,
-          list: ['x', 'y', 'z']
-        },
-        {
-          key: 2,
-          list: ['q', 'w', 'e']
-        },
-        {
-          key: 3,
-          list: ['a', 'b', 'c']
-        },
-      ],
-    }
-
-    render() {
-      return `
-        <div :for="of 3">
-          <p># {{ $_ }}</p>
-          <ul>
-            <li :for="of 2">## {{ $__ }}</li>
-          </ul>
-        </div>
-
-        <div :for="of arr">
-          <p>{{ $_.key }}</p>
-          <ul>
-            <li :for="of $_.list">{{ $__}}</li>
-          </ul>
-        </div>
-      `;
-    }
-  }
-
-  class AppModule extends AjaModule {
-    declarations = [AppHome];
-    bootstrap = [AppHome];
-  }
-
-  Aja.bootstrapModule(AppModule);
-</script>
+<div :for="of arr">
+  <p>{{ $_.key }}</p>
+  <ul>
+    <li :for="of $_.list">{{ $__}}</li>
+  </ul>
+</div>
 ```
 
 ## if&else

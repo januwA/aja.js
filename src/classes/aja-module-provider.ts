@@ -1,11 +1,10 @@
-import { Type } from "../aja";
-import { numberStringp, arrayp } from "../utils/p";
-import { ContextData } from "./context-data";
-import { getData } from "../core";
-import { AjaPipe, defaultPipes } from "./aja-pipe";
-import { AjaModule, ANNOTATIONS, Widget } from "../metadata/directives";
+import { arrayp } from "../utils/p";
+import { Pipes } from "./pipes";
+import { AjaModule, Widget, Pipe } from "../metadata/directives";
 import { AjaWidgetProvider, Widgets } from "./aja-weidget-provider";
-import { MetaData } from "./meta-data";
+import { Type } from "../interfaces/type";
+import { ANNOTATIONS } from "../utils/decorators";
+import { ParseAnnotations } from "../utils/parse-annotations";
 
 function createAjaModuleProvider<T>(
   cls: Type<T>
@@ -27,14 +26,14 @@ function parseImports(m: AjaModuleProvider) {
   m.imports?.forEach(ajaModuleItem => {
     const moduleName = ajaModuleItem.name;
     let ajaModule: AjaModuleProvider | undefined;
-    const hasModule = AjaModules.hasModule(moduleName);
+    const hasModule = AjaModules.has(moduleName);
     if (hasModule) {
-      ajaModule = AjaModules.getModule(moduleName);
+      ajaModule = AjaModules.get(moduleName);
     } else {
       const ajaModuleProvider = createAjaModuleProvider(ajaModuleItem);
       if (ajaModuleProvider) {
         ajaModule = ajaModuleProvider;
-        AjaModules.addModule(moduleName, ajaModule);
+        AjaModules.add(moduleName, ajaModule);
       }
     }
 
@@ -58,26 +57,26 @@ function parseImports(m: AjaModuleProvider) {
 
 /**
  * 导入其它模块的导出
- * @param ajaModule
- * @param parentModule
+ * @param exportModule
+ * @param importModule
  */
 function parseExports(
-  ajaModule: AjaModuleProvider,
-  parentModule: AjaModuleProvider
+  exportModule: AjaModuleProvider,
+  importModule: AjaModuleProvider
 ) {
-  ajaModule.exports?.forEach(el => {
-    const meta = (<any>el)[ANNOTATIONS];
-    if (meta && arrayp(meta) && meta.length) {
-      const widgetMetaData = meta[0] as Widget;
-      if ((widgetMetaData as any)["metadataName"] === "Widget") {
-        if (ajaModule.hasWidget(widgetMetaData.selector)) {
-          parentModule.addWidget(widgetMetaData.selector);
+  exportModule.exports?.forEach(el => {
+    const parseAnnotations = new ParseAnnotations(el);
+    if (parseAnnotations.annotations) {
+      if (parseAnnotations.isWidget) {
+        const widgetMetaData = parseAnnotations.annotations as Widget;
+        if (exportModule.hasWidget(widgetMetaData.selector)) {
+          importModule.addWidget(widgetMetaData.selector);
         }
-      }
-    } else if (el.prototype instanceof AjaPipe) {
-      const pipe = ajaModule.getPipe(el.name);
-      if (pipe) {
-        parentModule.importPipe(pipe);
+      } else if (parseAnnotations.isPipe) {
+        const pipeMetaData = parseAnnotations.annotations as Pipe;
+        if (exportModule.hasPipe(pipeMetaData.name)) {
+          importModule.addPipe(pipeMetaData.name);
+        }
       }
     }
   });
@@ -85,53 +84,27 @@ function parseExports(
 
 function parseDeclarations(m: AjaModuleProvider) {
   m.declarations?.forEach(el => {
-    const meta = new MetaData(el);
-    if (meta.metadata && meta.isWidget) {
-      const widgetMetaData = meta.metadata as Widget;
-      Widgets.addWidget({
-        widgetMetaData,
-        module: m,
-        widget: el
-      });
-      m.addWidget(widgetMetaData.selector);
-    } else if (el.prototype instanceof AjaPipe) {
-      m.addPipe(el.name, new el());
+    const parseAnnotations = new ParseAnnotations(el);
+    if (parseAnnotations.annotations) {
+      if (parseAnnotations.isWidget) {
+        const widgetMetaData = parseAnnotations.annotations as Widget;
+        Widgets.addWidget({
+          widgetMetaData,
+          module: m,
+          widget: el
+        });
+        m.addWidget(widgetMetaData.selector);
+      } else if (parseAnnotations.isPipe) {
+        const pipeMetaData = parseAnnotations.annotations as Pipe;
+        if (!Pipes.has(pipeMetaData.name)) {
+          m.addPipe(pipeMetaData.name);
+          Pipes.add(pipeMetaData.name, el);
+        } else {
+          throw `Error: Pipe ${pipeMetaData.name}已经注册。`;
+        }
+      }
     }
   });
-}
-
-function _usePipes(
-  data: any,
-  pipeList: string[],
-  contextData: ContextData,
-  m: AjaModuleProvider
-) {
-  let _result = data;
-  if (pipeList.length) {
-    pipeList.forEach(pipe => {
-      const [pipeName, ...pipeArgs] = pipe.split(":");
-      const ajaPipe = m.findPipe(pipeName);
-      if (ajaPipe) {
-        const parsePipeArgs = pipeArgs.map(arg =>
-          numberStringp(arg) ? arg : getData(arg, contextData)
-        );
-        try {
-          _result = ajaPipe.transform(_result, ...parsePipeArgs);
-        } catch (er) {
-          console.error(er);
-        }
-      } else {
-        console.error(`没有找到管道[${pipeName}], 请注册!!!`);
-      }
-    });
-  }
-  return _result;
-}
-
-function _createWidgetName(name: string) {
-  let newName = name.charAt(0).toLowerCase() + name.substr(1);
-  newName = newName.replace(/([A-Z])/g, "-$1");
-  return newName.toLowerCase();
 }
 
 export function bootstrapModule(
@@ -143,7 +116,7 @@ export function bootstrapModule(
   if (opt && opt.prefix) AjaWidgetProvider.prefix = `${opt.prefix}-`;
   const ajaModuleProvider = createAjaModuleProvider(moduleType);
   if (ajaModuleProvider) {
-    AjaModules.addModule(moduleType.name, ajaModuleProvider);
+    AjaModules.add(moduleType.name, ajaModuleProvider);
 
     const bootstrap = arrayp(ajaModuleProvider.bootstrap)
       ? ajaModuleProvider.bootstrap[0]
@@ -155,9 +128,9 @@ export function bootstrapModule(
       // 解析imports导入的模块
       parseImports(ajaModuleProvider);
 
-      const meta = new MetaData(bootstrap);
-      if (meta.metadata && meta.isWidget) {
-        const widgetMetaData = meta.metadata;
+      const meta = new ParseAnnotations(bootstrap);
+      if (meta.annotations && meta.isWidget) {
+        const widgetMetaData = meta.annotations;
         const host = document.querySelector<HTMLElement>(
           widgetMetaData.selector
         );
@@ -182,19 +155,19 @@ export class AjaModules {
     [moduleName: string]: AjaModuleProvider;
   } = {};
 
-  static addModule(name: string, m: AjaModuleProvider) {
-    if (this.hasModule(name)) {
+  static add(name: string, m: AjaModuleProvider) {
+    if (this.has(name)) {
       throw `模块[${name}]已存在`;
     }
     this._modules[name] = m;
   }
 
-  static getModule(name: string) {
+  static get(name: string) {
     return this._modules[name];
   }
 
-  static hasModule(name: string) {
-    return !!this.getModule(name);
+  static has(name: string) {
+    return !!this.get(name);
   }
 
   static get modules() {
@@ -214,6 +187,7 @@ export class AjaModuleProvider {
     this.exports = decoratorFactory.exports;
     this.bootstrap = decoratorFactory.bootstrap;
   }
+
   private _widgets: {
     [widgetName: string]: boolean;
   } = {};
@@ -230,38 +204,13 @@ export class AjaModuleProvider {
     return !!this._widgets[name.toLowerCase()];
   }
 
-  private _pipes: { [name: string]: AjaPipe } = Object.assign(defaultPipes);
-
-  /**
-   * 使用pipeName属性查找
-   * @param name [json]
-   */
-  findPipe(name: string): AjaPipe | undefined {
-    return Object.values(this._pipes).find(pipe => pipe.pipeName === name);
-  }
-
-  /**
-   * 使用对象名查找
-   * @param name [JsonPipe]
-   */
-  getPipe(name: string) {
-    return this._pipes[name];
-  }
+  private _pipes: { [pipeName: string]: boolean } = {};
 
   hasPipe(name: string): boolean {
-    return !!this.findPipe(name);
+    return !!this._pipes[name];
   }
 
-  addPipe(name: string, pipe: AjaPipe): void {
-    pipe.setModule(this);
-    this._pipes[name] = pipe;
-  }
-
-  importPipe(pipe: AjaPipe): void {
-    this._pipes[name] = pipe;
-  }
-
-  usePipes(data: any, pipeList: string[], contextData: ContextData): any {
-    return _usePipes(data, pipeList, contextData, this);
+  addPipe(name: string): void {
+    this._pipes[name] = true;
   }
 }

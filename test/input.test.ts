@@ -1,5 +1,5 @@
 import { Input } from "../src";
-import { PROP_METADATA } from "../src/metadata/directives";
+import { PROP_METADATA } from "../src/utils/decorators";
 
 /**
  * 测试 @Input 装饰器

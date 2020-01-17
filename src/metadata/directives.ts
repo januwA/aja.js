@@ -1,7 +1,9 @@
-import { Type } from "../../src/aja-mobx/interfaces";
-
-export const ANNOTATIONS = "__annotations__";
-export const PROP_METADATA = "__prop__metadata__";
+import { Type } from "../interfaces/type";
+import {
+  TypeDecorator,
+  makeDecorator,
+  makePropDecorator
+} from "../utils/decorators";
 
 export interface AjaModule {
   /**
@@ -27,65 +29,9 @@ export interface AjaModule {
   bootstrap?: Array<Type<any>>;
 }
 
-export interface TypeDecorator {
-  /**
-   * 调用作为装饰器。
-   */
-  <T extends Type<any>>(type: T): T;
-  (
-    target: Object,
-    propertyKey?: string | symbol,
-    parameterIndex?: number
-  ): void;
-}
-
 export interface AjaModuleDecorator {
   (opts?: AjaModule): TypeDecorator;
   new (opts?: AjaModule): AjaModule;
-}
-
-function makeMetadataCtor(props?: (...args: any[]) => any): any {
-  return function ctor(this: any, opts: AjaModule) {
-    if (props) {
-      const values = props(opts);
-      for (const propName in values) {
-        this[propName] = values[propName];
-      }
-    }
-  };
-}
-
-function makeDecorator<T>(
-  name: string,
-  props?: (...args: any[]) => any
-): {
-  new (...args: any[]): any;
-  (...args: any[]): any;
-  (...args: any[]): (cls: any) => any;
-} {
-  const metaCtor = makeMetadataCtor(props);
-  function DecoratorFactory(
-    this: unknown | typeof DecoratorFactory,
-    ...args: any[]
-  ): (cls: Type<T>) => any {
-    if (this instanceof DecoratorFactory) {
-      // 将options挂在[this]上
-      metaCtor.apply(this, args);
-      return this as typeof DecoratorFactory;
-    }
-
-    const annotationInstance = new (DecoratorFactory as any)(...args);
-    return function TypeDecorator(cls: Type<T>) {
-      const annotations = cls.hasOwnProperty(ANNOTATIONS)
-        ? (cls as any)[ANNOTATIONS]
-        : Object.defineProperty(cls, ANNOTATIONS, { value: [] })[ANNOTATIONS];
-      annotations.push(annotationInstance);
-      return cls;
-    };
-  }
-
-  DecoratorFactory.prototype.metadataName = name;
-  return DecoratorFactory as any;
 }
 
 export const AjaModule: AjaModuleDecorator = makeDecorator(
@@ -100,41 +46,6 @@ export interface Input {
 export interface InputDecorator {
   (bindingPropertyName?: string): any;
   new (bindingPropertyName?: string): any;
-}
-
-export function makePropDecorator(
-  metadataName: string,
-  props?: (...args: any[]) => any
-): any {
-  const metaCtor = makeMetadataCtor(props);
-  function PropDecoratorFactory(
-    this: unknown | typeof PropDecoratorFactory,
-    ...args: any[]
-  ): any {
-    // 这里的套路和[AjaModule]哪里差不多
-    if (this instanceof PropDecoratorFactory) {
-      metaCtor.apply(this, args);
-      return this;
-    }
-    const decoratorInstance = new (<any>PropDecoratorFactory)(...args);
-    function PropDecorator(target: any, propName: string) {
-      const constructor = target.constructor;
-      // 使用Object.defineProperty非常重要，因为它会创建不可枚举的属性，
-      // 防止在子类化过程中复制属性。
-      const meta = constructor.hasOwnProperty(PROP_METADATA)
-        ? (constructor as any)[PROP_METADATA]
-        : Object.defineProperty(constructor, PROP_METADATA, { value: {} })[
-            PROP_METADATA
-          ];
-      meta[propName] = (meta.hasOwnProperty(propName) && meta[propName]) || [];
-      meta[propName].unshift(decoratorInstance);
-    }
-    return PropDecorator;
-  }
-
-  // 将[metadataName]写在私有属性上
-  PropDecoratorFactory.prototype.metadataName = metadataName;
-  return PropDecoratorFactory;
 }
 
 /**
@@ -192,3 +103,15 @@ export const Widget: WidgetDecorator = makeDecorator(
   "Widget",
   (opts: Widget) => opts
 );
+
+export interface Pipe {
+  /**
+   * 管道名
+   */
+  name: string;
+}
+export interface PipeDecorator {
+  (obj: Pipe): TypeDecorator;
+  new (obj: Pipe): Pipe;
+}
+export const Pipe: PipeDecorator = makeDecorator("Pipe", (p: Pipe) => p);

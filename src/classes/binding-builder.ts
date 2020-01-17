@@ -50,6 +50,7 @@ import {
 } from "../utils/const-string";
 import { AjaModuleProvider } from "./aja-module-provider";
 import { AjaWidgetProvider } from "./aja-weidget-provider";
+import { usePipes } from "./pipes";
 
 const l = console.log;
 
@@ -82,10 +83,11 @@ export class BindingBuilder {
    * 自动将数据使用管道过滤后返回
    */
   getPipeData<T extends any>(): T {
-    return this.ajaModule.usePipes(
+    return usePipes(
       getData(this.bindKey, this.contextData),
       this.pipeList,
-      this.contextData
+      this.contextData,
+      this.ajaModule
     );
   }
 }
@@ -276,7 +278,7 @@ export class BindingTextBuilder {
   private getPipeData(key: string) {
     const [bindKey, pipeList] = parsePipe(key);
     const data = getData(bindKey, this.contextData);
-    return this.ajaModuel.usePipes(data, pipeList, this.contextData);
+    return usePipes(data, pipeList, this.contextData, this.ajaModuel);
   }
 }
 
@@ -659,16 +661,17 @@ export class BindingForBuilder extends BindingBuilder {
 
   setup() {
     if (this.isNumberData) {
-      const _data = this.ajaModuel.usePipes(
+      const _data = usePipes(
         +this.bindKey,
         this.pipes,
-        this.contextData
+        this.contextData,
+        this.ajaModuel
       );
       this.draw(_data);
     } else {
       autorun(() => {
         let data = getData(this.bindKey, this.contextData);
-        data = this.ajaModuel.usePipes(data, this.pipes, this.contextData);
+        data = usePipes(data, this.pipes, this.contextData, this.ajaModuel);
         this.clear();
         this.draw(data);
       });
