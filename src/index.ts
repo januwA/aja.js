@@ -2,7 +2,9 @@ export {
   FormControl,
   FormGroup,
   FormBuilder as fb,
-  FormArray
+  FormArray,
+  ValidationErrors,
+  AbstractControl
 } from "./classes/forms";
 
 export { bootstrapModule } from "./classes/aja-module-provider";
@@ -15,4 +17,4 @@ export {
 } from "./classes/aja-weidget-provider";
 export { AjaModule, Input, Output, Widget, Pipe } from "./metadata/directives";
 
-export { PipeTransform } from "./classes/pipes"
+export { PipeTransform } from "./classes/pipes";

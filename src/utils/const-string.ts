@@ -36,7 +36,7 @@ export const structureDirectives = {
 /**
  * * 双向绑定指令
  */
-export let modelDirective: string = "[(model)]".toLowerCase();
+export const modelDirective: string = "[(model)]".toLowerCase();
 
 /**
  * * (modelChange)="f()"

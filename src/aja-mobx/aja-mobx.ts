@@ -3,6 +3,7 @@ import { Input, Output } from "../metadata/directives";
 import { AnyObject } from "../interfaces/any-object";
 import { Type } from "../interfaces/type";
 import { PROP_METADATA } from "../utils/decorators";
+import { undefinedp } from "../utils/p";
 
 function createObservable(obj: AnyObject, key: string) {
   let value = obj[key];
@@ -40,7 +41,7 @@ export function observable<T>(value: any): any {
 function transform<T>(context: T, key: string, obj: AnyObject) {
   const des = Object.getOwnPropertyDescriptor(obj, key);
   if (des) {
-    if (des.value) {
+    if (des.hasOwnProperty("value")) {
       let value = obj[key];
 
       if (typeof value === "function") {
@@ -50,21 +51,26 @@ function transform<T>(context: T, key: string, obj: AnyObject) {
       // if (typeof value === "object") {
       //   value = Object.assign({}, value);
       // }
+      try {
+        const obser = new Observable(value);
 
-      const obser = new Observable(value);
-      Object.defineProperty(context, key, {
-        get() {
-          return obser.get();
-        },
-        set(newValue) {
-          return obser.set(newValue);
-        },
-        enumerable: true
-      });
+        Object.defineProperty(context, key, {
+          get() {
+            return obser.get();
+          },
+          set(newValue) {
+            return obser.set(newValue);
+          },
+          enumerable: true
+        });
 
-      // 递归下去
-      if (typeof value === "object") {
-        observable.object(value);
+        // 递归下去
+        if (value !== null && typeof value === "object") {
+          observable.object(value);
+        }
+      } catch (error) {
+        console.error(`构建Observable出现错误: {key: ${key}, value: ${value}}`);
+        console.error(error);
       }
     } else if (des.get) {
       const getter = des.get;
@@ -81,7 +87,7 @@ function transform<T>(context: T, key: string, obj: AnyObject) {
 }
 
 export namespace observable {
-  export function box<T = any>(value: T) {
+  export function box<T = any>(value: T): Observable<T> {
     return new Observable(value);
   }
 

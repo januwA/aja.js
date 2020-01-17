@@ -1,9 +1,10 @@
 import { DependenceManager } from "./dependence-manager";
+import { arrayp } from "../utils/p";
 
 /**
  * 每个[Observable]都有一个唯一的name
  */
-export class Observable {
+export class Observable<T> {
   private static _obIDCounter = 1;
 
   static getName(): string {
@@ -20,7 +21,7 @@ export class Observable {
 
   constructor(value: any) {
     this.name = Observable.getName();
-    if (Array.isArray(value)) {
+    if (arrayp(value)) {
       this._wrapArrayProxy(value);
     } else {
       this.value = value;

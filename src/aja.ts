@@ -123,8 +123,9 @@ export class Aja {
     }
 
     const modleAttr = BindingModelBuilder.findModelAttr(node);
-    if (modleAttr)
+    if (modleAttr) {
       new BindingModelBuilder(node, modleAttr, contextData, this.module);
+    }
   }
 
   /**

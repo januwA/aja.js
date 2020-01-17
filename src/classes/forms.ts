@@ -1,5 +1,6 @@
 import { observable } from "../aja-mobx";
 import { objectp, arrayp, nullp } from "../utils/p";
+import { AnyObject } from "../interfaces/any-object";
 
 const l = console.log;
 
@@ -39,7 +40,7 @@ function _mergeErrors(
 }
 
 /**
- * * 将验证器数组转化为一个验证器
+ * 将验证器数组转化为一个验证器
  * @param validators
  */
 function compose(
@@ -130,9 +131,7 @@ function coerceToAsyncValidator(
 /**
  * 验证失败返回的错误对象
  */
-export type ValidationErrors = {
-  [key: string]: any;
-};
+export interface ValidationErrors extends AnyObject {}
 
 /**
  * 同步验证函数
@@ -144,7 +143,7 @@ export interface ValidatorFn {
 }
 
 /**
- * * 异步验证器，我这里只支持了[Promise]
+ * 异步验证器，我这里只支持了[Promise]
  * angular 还支持rxjs
  */
 export interface AsyncValidatorFn {
@@ -167,14 +166,35 @@ export interface AbstractControlOptions {
 }
 
 export abstract class AbstractControl {
+  /**
+   * 父级表单
+   */
   private _parent?: FormGroup | FormArray;
+  get parent() {
+    return this._parent;
+  }
+  setParent(parent: FormGroup | FormArray) {
+    this._parent = parent;
+  }
+
+  /**
+   * * 当前控件的值。
+   * * 对于`FormControl`，当前value。
+   * * 对于已启用的“ FormGroup”，已启用控件的值作为一个对象 *带有组中每个成员的键/值对。
+   * * 对于禁用的“ FormGroup”，所有控件的值均作为对象
+   * * 带有组中每个成员的键/值对。
+   * * 对于“ FormArray”，已启用控件的值作为数组
+   *
+   */
+  readonly value: any;
 
   /**
    * 当控件组发生改变，将调用这个回调
    */
   _onCollectionChange = () => {};
+
   /**
-   * * 默认注册一个全新的回调函数
+   * 默认注册一个全新的回调函数
    * @param fn
    */
   _registerOnCollectionChange(fn: () => void = () => {}): void {
@@ -186,20 +206,13 @@ export abstract class AbstractControl {
     public asyncValidator: AsyncValidatorFn | null
   ) {}
 
-  get parent() {
-    return this._parent;
-  }
-  setParent(parent: FormGroup | FormArray) {
-    this._parent = parent;
-  }
-
   _control: {
     touched: boolean;
     dirty: boolean;
     disabled: boolean;
     pending: boolean;
     errors: null | any;
-  } = observable({
+  } = observable.object({
     touched: false,
 
     dirty: false,
@@ -211,18 +224,7 @@ export abstract class AbstractControl {
     // 没有错误 valid
     // 有错误 invalid
     errors: null
-  });
-
-  /**
-   * * 控件的当前值。
-   * * 对于`FormControl`，当前值。
-   * * 对于已启用的“ FormGroup”，已启用控件的值作为一个对象 *带有组中每个成员的键/值对。
-   * * 对于禁用的“ FormGroup”，所有控件的值均作为对象
-   * * 带有组中每个成员的键/值对。
-   * * 对于“ FormArray”，已启用控件的值作为数组
-   *
-   */
-  readonly value: any;
+  }) as any;
 
   /**
    * * 控件的确认状态。 有四种可能
@@ -374,7 +376,7 @@ export abstract class AbstractControl {
   /**
    * 将控件标记为“已触摸”。
    * [opts.onlySelf]：为true时，仅标记此控件。 如果为假或未提供
-   * 标志着所有[parent]。 默认为false。
+   * 标记着所有[parent]。 默认为false。
    *
    * ?什么时候可能为[true]，当父级更新子级时
    * ?什么时候可能为[false]，当控件与control同步时
@@ -517,6 +519,8 @@ export abstract class AbstractControl {
     opts: { onlySelf?: boolean; emitEvent?: boolean } = {}
   ): void {
     if (this.enabled) {
+
+      // TODO: 当子级验证错误时，如何把错误传递给父级
       this._control.errors = this._runValidator();
 
       if (this.status === VALID || this.status === PENDING) {
@@ -534,12 +538,14 @@ export abstract class AbstractControl {
     return this.validator ? this.validator(this) : null;
   }
 
-  private async _runAsyncValidator() {
+  private _runAsyncValidator() {
     if (!this.asyncValidator) return;
     // 挂起
     this.markAsPending();
-    this._control.errors = await this.asyncValidator(this);
-    this._control.pending = false;
+    this.asyncValidator(this).then(errors => {
+      this._control.errors = errors;
+      this._control.pending = false;
+    });
   }
 
   _anyControlsTouched(): boolean {
