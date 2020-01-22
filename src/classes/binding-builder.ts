@@ -243,6 +243,7 @@ export class BindingAttrBuilder extends BindingBuilder {
       if (data === null) data = emptyString;
       if (data) {
         this.node.setAttribute(this.attrName, data);
+        (this.node as any)[this.attrName] = data;
       } else {
         this.node.removeAttribute(this.attrName);
       }
@@ -603,7 +604,7 @@ export class BindingEventBuilder {
   ) {
     this.type = BindingEventBuilder.parseEventType(attr);
 
-    let { funcName, args } = BindingEventBuilder.parseFun(attr);
+    const { funcName, args } = BindingEventBuilder.parseFun(attr);
     this.funcName = funcName;
     const modelChangep: boolean = attr.name === modelChangeEvent;
     if (modelChangep) {
@@ -612,19 +613,20 @@ export class BindingEventBuilder {
           ? EventType.input
           : EventType.change;
     }
-    const context = this.ajaWidget.context;
-    if (this.funcName in context && `on${this.type}` in window) {
-      node.addEventListener(this.type, e => {
-        const transitionArgs = this._parseArgsToArguments(args);
-        context[this.funcName].apply(
-          ajaWidget,
-          this._parseArgsEvent(
-            transitionArgs,
+    const f = getData(this.funcName, this.contextData);
+
+    node.addEventListener(this.type, e => {
+      try {
+        f(
+          ...this._parseArgsEvent(
+            this._parseArgsToArguments(args),
             modelChangep ? (this.node as any).value : e
           )
         );
-      });
-    }
+      } catch (error) {
+        console.error(error);
+      }
+    });
     node.removeAttribute(this.attr.name);
   }
 

@@ -3,31 +3,10 @@ import { Input, Output } from "../metadata/directives";
 import { AnyObject } from "../interfaces/any-object";
 import { Type } from "../interfaces/type";
 import { PROP_METADATA } from "../utils/decorators";
-import { undefinedp } from "../utils/p";
 
-function createObservable(obj: AnyObject, key: string) {
-  let value = obj[key];
-  // 强制绑定下函数的上下文
-  if (typeof value === "function") {
-    value = value.bind(obj);
-  }
-  if (typeof value === "object") {
-  }
-
-  const obser = new Observable(value);
-  Object.defineProperty(obj, key, {
-    get() {
-      return obser.get();
-    },
-    set(newValue) {
-      return obser.set(newValue);
-    }
-  });
-
-  // 递归下去
-  if (typeof value === "object") {
-    observable.object(value);
-  }
+function isObservable(value: any): boolean {
+  if (value === null || value === undefined) return false;
+  return value.hasOwnProperty("__isObservable");
 }
 
 export function observable(
@@ -40,17 +19,18 @@ export function observable<T>(value: any): any {
 
 function transform<T>(context: T, key: string, obj: AnyObject) {
   const des = Object.getOwnPropertyDescriptor(obj, key);
+
   if (des) {
     if (des.hasOwnProperty("value")) {
       let value = obj[key];
+      if (isObservable(value)) {
+        return;
+      }
 
       if (typeof value === "function") {
         value = value.bind(context);
       }
 
-      // if (typeof value === "object") {
-      //   value = Object.assign({}, value);
-      // }
       try {
         const obser = new Observable(value);
 
@@ -93,21 +73,25 @@ export namespace observable {
 
   export function object<T = any>(
     obj: T,
-    result?: AnyObject,
-    depath: boolean = false
+    opt?: {
+      result?: AnyObject;
+      depath: boolean;
+    }
   ) {
-    const context = result ? result : obj;
+    const context = opt?.result ? opt.result : obj;
     Object.keys(obj).forEach(key => {
       transform(context, key, obj);
     });
 
     // 获取原型上的方法
-    if (depath) {
+    if (opt?.depath) {
       const prototype = Object.getPrototypeOf(obj);
       (<string[]>Reflect.ownKeys(prototype)).forEach(key => {
         transform(context, key, prototype);
       });
     }
+
+    Object.defineProperty(context, "__isObservable", { value: true });
     return context;
   }
 
@@ -119,9 +103,11 @@ export namespace observable {
             [key: string]: (Input | Output)[];
           }
         | undefined
-    ) => void
+    ) => void,
+    ctorParameters?: any[]
   ) {
-    const context: T = new cls();
+    // cls.prototype["__isObservable"] = true;
+    const context: T = new cls(...(ctorParameters || []));
 
     // 先获取注入的元数据
     if (metadataCallback) {
@@ -137,6 +123,7 @@ export namespace observable {
       transform(context, key, cls.prototype);
     });
 
+    Object.defineProperty(context, "__isObservable", { value: true });
     return context;
   }
 }
@@ -146,5 +133,6 @@ export function extendObservable(target: any, obj: { [key: string]: any }) {
     target[key] = obj[key];
     transform(target, key, target);
   }
+  Object.defineProperty(target, "__isObservable", { value: true });
   return target;
 }

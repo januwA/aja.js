@@ -1,6 +1,6 @@
 {
   "name": "aja",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "description": "other",
   "main": "./src/index.ts",
   "scripts": {
@@ -35,5 +35,7 @@
     "webpack-copy-file-plugin": "^0.1.5",
     "webpack-dev-server": "^3.10.1"
   },
-  "dependencies": {}
+  "dependencies": {
+    "reflect-metadata": "^0.1.13"
+  }
 }

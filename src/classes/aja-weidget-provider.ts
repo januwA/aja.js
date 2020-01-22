@@ -114,7 +114,7 @@ export class AjaWidgetProvider {
     this.context = observable.cls(this.widgetItem.widget, metadata => {
       // 获取注入的元数据
       this._metadata = metadata;
-    });
+    }, (this.widgetItem.widgetMetaData as any).ctorParameters);
 
     // 检查input和output
     if (this.parentContextData && this.parent && this._metadata) {

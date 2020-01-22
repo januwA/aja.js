@@ -1,5 +1,7 @@
+import "reflect-metadata";
 import { Type } from "../interfaces/type";
 import { AjaModule } from "../metadata/directives";
+import { Services } from "../classes/services";
 
 /**
  * 装饰器
@@ -63,6 +65,25 @@ export function makeDecorator<T>(
         ? (cls as any)[ANNOTATIONS]
         : Object.defineProperty(cls, ANNOTATIONS, { value: [] })[ANNOTATIONS];
       annotations.push(annotationInstance);
+      if (name === "Widget") {
+        annotationInstance.ctorParameters = [];
+        const paramtypes: Type<any>[] = Reflect.getMetadata(
+          "design:paramtypes",
+          cls
+        );
+        if (paramtypes && paramtypes.length) {
+          paramtypes.forEach(param => {
+            if(Services.has(param.name)){
+              annotationInstance.ctorParameters.push(Services.get(param.name));
+            }
+            
+          });
+        }
+      }
+      
+      if (name === "Injectable") {
+        Services.add(cls);
+      }
       return cls;
     };
   }

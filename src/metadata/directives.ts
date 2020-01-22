@@ -115,3 +115,12 @@ export interface PipeDecorator {
   new (obj: Pipe): Pipe;
 }
 export const Pipe: PipeDecorator = makeDecorator("Pipe", (p: Pipe) => p);
+
+export interface Injectable {}
+
+export interface InjectableDecorator {
+  (): TypeDecorator;
+  new (): Injectable;
+}
+
+export const Injectable: InjectableDecorator = makeDecorator("Injectable");

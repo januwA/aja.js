@@ -49,9 +49,7 @@ export function evalFun(bindKey: string, data: any) {
   if (undefinedp(data)) return;
   try {
     const r = Function(`with(this){ return ${bindKey} }`).apply(
-      data,
-      arguments
-    );
+      data);
     return r === "" ? undefined : r;
   } catch (error) {}
 }

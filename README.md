@@ -95,6 +95,70 @@ export class AppRoottt {
 <h1>{{ name }}</h1>
 ```
 
+## constructor依赖注入
+
+创建一个服务`FinderService`
+```ts
+// finder.service.ts
+
+import { Injectable } from "@aja";
+
+@Injectable()
+export class FinderService {
+  name = "Ajanuw";
+
+  setName(name: string) {
+    this.name = name;
+  }
+}
+```
+
+在`app-tile`中使用
+```ts
+// app-tile.ts
+
+import { Widget } from "@aja";
+import { FinderService } from "../../finder.service";
+
+@Widget({
+  selector: "app-tile",
+  template: require("./app-tile.html")
+})
+export class AppTile {
+  constructor(public readonly finder: FinderService) {}
+}
+```
+```html
+<input
+  #el_name
+  type="text"
+  [value]="finder.name"
+  (input)="finder.setName(el_name.value)"
+  [title]="finder.name"
+/>
+```
+
+同时在`app-root`中使用
+```ts
+import { Widget } from "@aja";
+import { FinderService } from "./finder.service";
+
+@Widget({
+  selector: "app-root",
+  template: require("./app.html")
+})
+export class AppRoot {
+  constructor(public readonly finder: FinderService) {}
+}
+```
+```html
+<p>{{ finder.name }}</p>
+<button (click)="finder.setName('suou')">setName</button>
+
+<hr />
+<app-tile></app-tile>
+```
+
 ## 绑定class
 ```html
 <!-- [text-red] -->
