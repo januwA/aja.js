@@ -20,6 +20,10 @@ export function attrp(value: string) {
   return /^\[\w.+\]$/.test(value);
 }
 
+/**
+ * [(name)]="xxx"
+ * @param value
+ */
 export function modelp(value: string) {
   return /^\[\(/.test(value) && /\)\]/.test(value);
 }
@@ -43,12 +47,6 @@ export function stringp(data: string) {
   return dataTag(data) === stringTag;
 }
 
-export function numberStringp(str: any): boolean {
-  if (undefinedp(str)) return false;
-  if (!str.trim()) return false;
-  return !isNaN(+str);
-}
-
 export function numberp(data: any) {
   return (
     typeof data === "number" &&
@@ -57,14 +55,6 @@ export function numberp(data: any) {
     data < Number.MAX_VALUE &&
     data > Number.MIN_VALUE
   );
-}
-
-/**
- * 'false' || 'true'
- * @param str
- */
-export function boolStringp(str: string): boolean {
-  return str === "true" || str === "false";
 }
 
 export function objectp(data: any): boolean {

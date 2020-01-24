@@ -26,11 +26,12 @@ export const templateEvent: string = "$event".toLowerCase();
  */
 export let structureDirectivePrefix = ":";
 export const structureDirectives = {
-  if: structureDirectivePrefix + "if".toLowerCase(),
-  for: structureDirectivePrefix + "for".toLowerCase(),
-  else: structureDirectivePrefix + "else".toLowerCase(),
-  case: structureDirectivePrefix + "case".toLowerCase(),
-  default: structureDirectivePrefix + "default".toLowerCase()
+  if: structureDirectivePrefix + "if",
+  unless: structureDirectivePrefix + "unless",
+  for: structureDirectivePrefix + "for",
+  else: structureDirectivePrefix + "else",
+  case: structureDirectivePrefix + "case",
+  default: structureDirectivePrefix + "default"
 };
 
 /**

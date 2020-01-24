@@ -5,7 +5,7 @@ import {
 } from "./utils/util";
 
 import { autorun } from "./aja-mobx";
-import { eventp, boolStringp, attrp, elementNodep, textNodep } from "./utils/p";
+import { eventp, attrp, elementNodep, textNodep } from "./utils/p";
 import { ContextData } from "./classes/context-data";
 import {
   BindingAttrBuilder,
@@ -18,6 +18,10 @@ import {
   BindingSwitchBuilder
 } from "./classes/binding-builder";
 import { AjaWidgetProvider, Widgets } from "./classes/aja-weidget-provider";
+import {
+  structureDirectivePrefix,
+  structureDirectives
+} from "./utils/const-string";
 
 export class Aja {
   get module() {
@@ -43,9 +47,44 @@ export class Aja {
     const isWidget = this._isWidget(node);
     let depath = true;
     if (attrs.length) {
-      depath = this._parseBindIf(node, contextData);
-      if (depath) depath = this._parseBindFor(node, contextData);
-      if (depath) depath = this._parseBindSwitch(node, contextData);
+      // 找到第一个结构型指令
+      const attr = attrs.find(
+        ({ name }) => name.charAt(0) === structureDirectivePrefix
+      );
+      if (attr) {
+        switch (attr.name) {
+          case structureDirectives.if:
+            depath = false;
+            this._parseBindIf({ node, contextData, attr });
+            break;
+          case structureDirectives.unless:
+            depath = false;
+            this._parseBindIf({ node, contextData, attr, unless: true });
+            break;
+          case structureDirectives.for:
+            depath = false;
+            new BindingForBuilder(node, attr, contextData, this.module)
+              .addRenderListener((root, newContextData) => {
+                this._scan(root, newContextData);
+              })
+              .setup();
+            break;
+          case structureDirectives.case:
+            if (contextData.switch) {
+              new BindingSwitchBuilder(node, attr, contextData, this.module);
+            }
+            break;
+          case structureDirectives.default:
+            if (contextData.switch) {
+              new BindingSwitchBuilder(node, attr, contextData, this.module);
+            }
+            break;
+          default:
+            // 其它结构型指令
+            break;
+        }
+      }
+
       if (depath) {
         if (isWidget) {
           this._parseWidget(node, contextData);
@@ -128,59 +167,38 @@ export class Aja {
     }
   }
 
-  /**
-   * 解析一个节点上是否绑定了:if指令, 更具指令的值来解析节点
-   * @param node
-   * @param attrs
-   */
-  private _parseBindIf(node: HTMLElement, contextData: ContextData): boolean {
-    let show = true;
-    let ifAttr = BindingIfBuilder.findIfAttr(node);
-    if (ifAttr) {
-      const ifBuilder = new BindingIfBuilder(
-        ifAttr,
-        node,
-        contextData,
-        this.module
-      );
-      if (boolStringp(ifBuilder.bindKey)) {
-        show = ifBuilder.bindKey === "true";
-        ifBuilder.checked(show);
-      } else {
-        autorun(() => {
-          show = ifBuilder.getPipeData();
-          if (show) {
-            this._scan(
-              node,
-              contextData.copyWith({
-                tData: contextData.tData.copyWith(node)
-              })
-            );
-          }
-          ifBuilder.checked(show);
-        });
+  private _parseBindIf({
+    node,
+    contextData,
+    attr,
+    unless
+  }: {
+    node: HTMLElement;
+    contextData: ContextData;
+    attr: Attr;
+    unless?: boolean;
+  }) {
+    const ifBuilder = new BindingIfBuilder(
+      attr,
+      node,
+      contextData,
+      this.module
+    );
+    autorun(() => {
+      let show = ifBuilder.getPipeData();
+      if (unless) show = !show;
+      if (show) {
+        this._scan(
+          node,
+          contextData.copyWith({
+            tData: contextData.tData.copyWith(node)
+          })
+        );
       }
-    }
-    return show;
+      ifBuilder.checked(show);
+    });
   }
 
-  /**
-   * 解析节点上绑定的for指令
-   * 如果节点绑定了for指令，这个节点将不会继续被解析
-   * @param node
-   * @param contextData
-   */
-  private _parseBindFor(node: HTMLElement, contextData: ContextData): boolean {
-    let forAttr = BindingForBuilder.findForAttr(node);
-    if (forAttr) {
-      new BindingForBuilder(node, forAttr, contextData, this.module)
-        .addRenderListener((root, newContextData) => {
-          this._scan(root, newContextData);
-        })
-        .setup();
-    }
-    return !forAttr;
-  }
   /**
    * * 递归解析子节点
    * @param childNodes
@@ -199,29 +217,5 @@ export class Aja {
       new BindingTextBuilder(node, contextData, this.module);
     }
     return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
-  }
-
-  /**
-   * 解析节点上是否有 :case :default
-   * @param root
-   * @param contextData
-   */
-  private _parseBindSwitch(
-    root: HTMLElement,
-    contextData: ContextData
-  ): boolean {
-    if (!contextData.switch) return true;
-    let depath = true;
-    const caseAttr = BindingSwitchBuilder.findCaseAttr(root);
-    if (caseAttr) {
-      new BindingSwitchBuilder(root, caseAttr, contextData, this.module);
-    } else {
-      const defaultAttr = BindingSwitchBuilder.findDefaultAttr(root);
-      if (defaultAttr) {
-        new BindingSwitchBuilder(root, defaultAttr, contextData, this.module);
-      }
-    }
-
-    return depath;
   }
 }

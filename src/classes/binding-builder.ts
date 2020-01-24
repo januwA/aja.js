@@ -30,7 +30,6 @@ import {
   checkboxp,
   arrayp,
   objectp,
-  numberStringp,
   elementNodep,
   tempvarp,
   formp
@@ -50,7 +49,6 @@ import {
   switchAttrName
 } from "../utils/const-string";
 import { AjaModuleProvider } from "./aja-module-provider";
-import { AjaWidgetProvider, Widgets } from "./aja-weidget-provider";
 import { usePipes } from "./pipes";
 
 const l = console.log;
@@ -522,7 +520,7 @@ export class BindingIfBuilder extends BindingBuilder {
     super(attr, contextData, ajaModuel);
     this.elseElement = this._getElseElement();
     this.node.before(this.commentNode);
-    this.node.removeAttribute(structureDirectives.if);
+    this.node.removeAttribute(attr.name);
   }
 
   checked(show: any) {
@@ -688,22 +686,32 @@ export class BindingForBuilder extends BindingBuilder {
   }
 
   setup() {
-    if (this.isNumberData) {
-      const _data = usePipes(
-        +this.bindKey,
+    autorun(() => {
+      let data = usePipes(
+        getData(this.bindKey, this.contextData),
         this.pipes,
         this.contextData,
         this.ajaModuel
       );
-      this.draw(_data);
-    } else {
-      autorun(() => {
-        let data = getData(this.bindKey, this.contextData);
-        data = usePipes(data, this.pipes, this.contextData, this.ajaModuel);
-        this.clear();
-        this.draw(data);
-      });
-    }
+      this._clear();
+      const isNumber = typeof data === "number";
+      if (isNumber) {
+        data = new Array(data).fill(undefined);
+      }
+
+      for (const k in data) {
+        const newContextData = this.contextData.copyWith({
+          forState: isNumber
+            ? this._createForContextState(null, k)
+            : this._createForContextState(k, data[k]),
+          tData: this.contextData.tData.copyWith(this.node),
+          forLet: this.forLet
+        });
+        this._render && this._render(this._createItem(), newContextData);
+      }
+      this.commentNode.after(this.fragment);
+      this._updateComment(data);
+    });
   }
 
   private get _forAttrValue(): {
@@ -750,9 +758,6 @@ export class BindingForBuilder extends BindingBuilder {
   get bindKey(): string {
     return this._forAttrValue.bindKey;
   }
-  get isNumberData(): boolean {
-    return numberStringp(this.bindKey);
-  }
   get pipes(): string[] {
     return this._forAttrValue.pipes || [];
   }
@@ -761,54 +766,20 @@ export class BindingForBuilder extends BindingBuilder {
   }
 
   /**
-   * * 将所有节点插入DOM
-   * @param data
-   */
-  draw(data: any) {
-    if (this.isNumberData) {
-      new Array(data).fill(undefined).forEach((_, v) => {
-        const root = this.createItem();
-        const newContextData = this.contextData.copyWith({
-          forState: this.createForContextState(v),
-          tData: this.contextData.tData.copyWith(this.node),
-          forLet: this.forLet
-        });
-        this._render && this._render(root, newContextData);
-      });
-    } else {
-      for (const k in data) {
-        const root = this.createItem();
-        const newContextData = this.contextData.copyWith({
-          forState: this.createForContextState(k, data[k]),
-          tData: this.contextData.tData.copyWith(this.node),
-          forLet: this.forLet
-        });
-        this._render && this._render(root, newContextData);
-      }
-    }
-    this.commentNode.after(this.fragment);
-    this._updateComment(data);
-  }
-
-  /**
    * * 清除所有节点
    */
-  clear() {
+  private _clear() {
     this.forBuffer.forEach(forItem => (<HTMLElement>forItem).remove());
     this.forBuffer = [];
   }
 
-  createForContextState(k: any, v: any = null): {} {
+  private _createForContextState(k: any, v: any = null): {} {
     const forState: { [k: string]: any } = {};
-    if (this.isNumberData) {
-      forState[this.forVar] = k;
+    if (this.forKey && this.forValue) {
+      forState[this.forKey] = k;
+      forState[this.forValue] = v;
     } else {
-      if (this.forKey && this.forValue) {
-        forState[this.forKey] = k;
-        forState[this.forValue] = v;
-      } else if (this.forKey) {
-        forState[this.forKey] = v;
-      }
+      forState[this.forKey] = v;
     }
     return forState;
   }
@@ -818,7 +789,7 @@ export class BindingForBuilder extends BindingBuilder {
     this.commentNode.data = `{":for": "${obj}"}`;
   }
 
-  createItem(): HTMLElement {
+  private _createItem(): HTMLElement {
     const item = this.node.cloneNode(true);
     this.forBuffer.push(item);
     this.fragment.append(item);
@@ -896,21 +867,6 @@ export class BindingTempvarBuilder {
 }
 
 export class BindingSwitchBuilder extends BindingBuilder {
-  static findCaseAttr(node: HTMLElement): Attr | undefined {
-    if (node.attributes && node.attributes.length) {
-      return getAttrs(node).find(
-        ({ name }) => name === structureDirectives.case
-      );
-    }
-  }
-  static findDefaultAttr(node: HTMLElement): Attr | undefined {
-    if (node.attributes && node.attributes.length) {
-      return getAttrs(node).find(
-        ({ name }) => name === structureDirectives.default
-      );
-    }
-  }
-
   commentNode: Comment = document.createComment("");
 
   private _key: number;
