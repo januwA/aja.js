@@ -15,7 +15,7 @@ export function toArray<T>(iterable: Iterable<T> | ArrayLike<T>): T[] {
   }
 }
 
-export const emptyString: string = "";
+export const EMPTY_STRING: string = "";
 
 /**
  * setAge( obj.age   , '        ') -> ["obj.age   ", " '        '"]
@@ -29,7 +29,7 @@ export function parseTemplateEventArgs(str: string): string[] {
   return str
     .substr(index)
     .trim()
-    .replace(/(^\(*)|(\)$)/g, emptyString)
+    .replace(/(^\(*)|(\)$)/g, EMPTY_STRING)
     .split(",");
 }
 
@@ -215,6 +215,6 @@ export function hasMultipleStructuredInstructions(node: HTMLElement): boolean {
   );
 }
 
-export function LowerTrim(str: string): string {
-  return str.toLowerCase().trim();
+export function trim(value: string): string {
+  return value.trim();
 }

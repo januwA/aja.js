@@ -88,7 +88,7 @@ function parseDeclarations(m: AjaModuleProvider) {
     if (parseAnnotations.annotations) {
       if (parseAnnotations.isWidget) {
         const widgetMetaData = parseAnnotations.annotations as Widget;
-        Widgets.addWidget({
+        Widgets.add({
           widgetMetaData,
           module: m,
           widget: el
@@ -137,7 +137,7 @@ export function bootstrapModule(
         if (host) {
           if (ajaModuleProvider.hasWidget(widgetMetaData.selector)) {
             new AjaWidgetProvider({
-              widgetItem: Widgets.getWidget(widgetMetaData.selector),
+              widgetItem: Widgets.get(widgetMetaData.selector),
               host
             });
           }

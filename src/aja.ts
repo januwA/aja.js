@@ -78,18 +78,18 @@ export class Aja {
    */
   private _isWidget(node: HTMLElement) {
     const name = node.nodeName.toLowerCase();
-    if (name.startsWith(AjaWidgetProvider.prefix)) {
-      if (this.module.hasWidget(name) && node !== this.widget.host) {
-        return true;
-      }
-    } else {
-      return false;
+    if (
+      AjaWidgetProvider.isWidgetNode(node) &&
+      this.module.hasWidget(name) &&
+      node !== this.widget.host
+    ) {
+      return true;
     }
   }
 
   private _parseWidget(node: HTMLElement, contextData: ContextData) {
     new AjaWidgetProvider({
-      widgetItem: Widgets.getWidget(node.nodeName),
+      widgetItem: Widgets.get(node.nodeName),
       host: node,
       parent: this.widget,
       parentContextData: contextData
@@ -117,7 +117,7 @@ export class Aja {
 
       // (click)="echo('hello',$event)"
       if (eventp(name)) {
-        new BindingEventBuilder(node, attr, contextData, this.widget);
+        new BindingEventBuilder(node, attr, contextData, this.module);
         continue;
       }
     }

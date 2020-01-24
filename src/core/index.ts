@@ -1,9 +1,7 @@
 import { ContextData } from "../classes/context-data";
-import { parsePipe, emptyString } from "../utils/util";
+import { parsePipe, EMPTY_STRING } from "../utils/util";
 import { undefinedp, stringp } from "../utils/p";
 import { extendObservable } from "../aja-mobx";
-
-const l = console.log;
 
 /**
  * * 1. 优先寻找模板变量
@@ -12,7 +10,6 @@ const l = console.log;
  * * 'name' 'object.name'
  * @param key
  * @param contextData
- * @param isDeep  添加这个参数避免堆栈溢出
  */
 export function getData(key: string, contextData: ContextData): any {
   if (!stringp(key)) return null;
@@ -26,7 +23,7 @@ export function getData(key: string, contextData: ContextData): any {
   );
   _result = evalFun(bindKey, allData);
 
-  if (undefinedp(_result)) _result = emptyString;
+  if (undefinedp(_result)) _result = EMPTY_STRING;
   return _result;
 }
 
@@ -48,8 +45,7 @@ export function setData(key: string, newValue: any, contextData: ContextData) {
 export function evalFun(bindKey: string, data: any) {
   if (undefinedp(data)) return;
   try {
-    const r = Function(`with(this){ return ${bindKey} }`).apply(
-      data);
+    const r = Function(`with(this){ return ${bindKey} }`).apply(data);
     return r === "" ? undefined : r;
   } catch (error) {}
 }

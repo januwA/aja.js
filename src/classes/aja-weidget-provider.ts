@@ -70,6 +70,14 @@ export class AjaWidgetProvider {
    */
   static prefix: string = "app-";
 
+  /**
+   * 判断是否以[prefix]开始
+   */
+  static isWidgetNode(node: HTMLElement): boolean {
+    const name = node.nodeName.toLowerCase();
+    return name.startsWith(AjaWidgetProvider.prefix);
+  }
+
   private get _attrs() {
     return getAttrs(this.host);
   }
@@ -111,13 +119,23 @@ export class AjaWidgetProvider {
     this.host = opt.host;
     this.parent = opt.parent;
     this.parentContextData = opt.parentContextData;
-    this.context = observable.cls(this.widgetItem.widget, metadata => {
-      // 获取注入的元数据
-      this._metadata = metadata;
-    }, (this.widgetItem.widgetMetaData as any).ctorParameters);
+    this.context = observable.cls(
+      this.widgetItem.widget,
+      metadata => {
+        // 获取注入的元数据
+        this._metadata = metadata;
+      },
+      (this.widgetItem.widgetMetaData as any)
+        .ctorParameters /*动态constructor依赖注入*/
+    );
 
     // 检查input和output
-    if (this.parentContextData && this.parent && this._metadata) {
+    if (
+      this.parentContextData &&
+      this.parent &&
+      this._metadata &&
+      this._attrs.length
+    ) {
       this._bindInputs();
       this._bindOutputs();
       this._bindModels();
@@ -147,10 +165,8 @@ export class AjaWidgetProvider {
     let init = true;
     let t: number;
     this._attrs
-      .filter(({ name }) => {
-        // 过滤掉(click)和[(data)]
-        return !eventp(name) || !modelp(name);
-      })
+      .filter(({ name }) => !eventp(name))
+      .filter(({ name }) => !modelp(name))
       .forEach(attr => {
         const { attrName } = BindingAttrBuilder.parseAttr(attr);
 
@@ -195,6 +211,7 @@ export class AjaWidgetProvider {
 
   /**
    * 解析在组件上绑定的事件
+   * 取消解析别名
    * @param attrs
    * @param parentActions
    * @param context
@@ -203,35 +220,39 @@ export class AjaWidgetProvider {
     this._attrs
       .filter(attr => eventp(attr.name))
       .forEach(attr => {
-        // 全小写，还有可能是别名
         const eventType: string = BindingEventBuilder.parseEventType(attr);
-        let { funcName } = BindingEventBuilder.parseFun(attr);
+        const { funcName, args } = BindingEventBuilder.parseFun(attr);
         const parentMethod = this.parent?.context[funcName];
-        if (parentMethod && typeof parentMethod === "function") {
-          const output = this.context[eventType];
-          this._eachMeta((key, value) => {
-            const hasAliasName = _findAliasName(value, "Output");
-            if (
-              (hasAliasName && hasAliasName === eventType) ||
-              (!hasAliasName && key === eventType)
-            ) {
-              if (output && output instanceof EventEmitter) {
-                output.next = parentMethod.bind(this.parent?.context);
-              }
-              this.host.removeAttribute(attr.name);
-            } else {
-              // 没注册output，当作普通事件处理
-              if (this.parentContextData && this.parent) {
-                new BindingEventBuilder(
-                  this.host,
-                  attr,
-                  this.parentContextData,
-                  this.parent
+        const output = this.context[eventType];
+
+        if (output && output instanceof EventEmitter) {
+          output.next = (emitRrg: any) => {
+            if (this.parentContextData) {
+              try {
+                parentMethod(
+                  ...BindingEventBuilder.argsToArguments(
+                    args,
+                    this.parentContextData,
+                    emitRrg
+                  )
                 );
+              } catch (er) {
+                console.error(er);
               }
             }
-          });
+          };
+        } else {
+          // 没注册output，当作普通事件处理
+          if (this.parentContextData && this.parent) {
+            new BindingEventBuilder(
+              this.host,
+              attr,
+              this.parentContextData,
+              this.parent.widgetItem.module
+            );
+          }
         }
+        this.host.removeAttribute(attr.name);
       });
   }
 
@@ -313,7 +334,7 @@ export class Widgets {
     [k: string]: WidgetItem;
   } = {};
 
-  static addWidget(widgetItem: WidgetItem): void {
+  static add(widgetItem: WidgetItem): void {
     this._widgets[widgetItem.widgetMetaData.selector] = widgetItem;
   }
 
@@ -321,7 +342,7 @@ export class Widgets {
    *
    * @param name app-home or APP-HOME
    */
-  static getWidget(name: string): WidgetItem {
+  static get(name: string): WidgetItem {
     return this._widgets[name.toLowerCase()];
   }
 
@@ -329,7 +350,7 @@ export class Widgets {
    *
    * @param name app-home
    */
-  static hasWidget(name: string): boolean {
-    return !!this.getWidget(name);
+  static has(name: string): boolean {
+    return !!this.get(name);
   }
 }

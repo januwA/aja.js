@@ -11,13 +11,14 @@ import {
   tempvarExp
 } from "../utils/exp";
 import {
-  emptyString,
+  EMPTY_STRING,
   hasStructureDirective,
   getAttrs,
   eachChildNodes,
   toArray,
   getCheckboxRadioValue,
-  parsePipe
+  parsePipe,
+  trim
 } from "../utils/util";
 import { autorun } from "../aja-mobx";
 import { AjaModel } from "./aja-model";
@@ -49,7 +50,7 @@ import {
   switchAttrName
 } from "../utils/const-string";
 import { AjaModuleProvider } from "./aja-module-provider";
-import { AjaWidgetProvider } from "./aja-weidget-provider";
+import { AjaWidgetProvider, Widgets } from "./aja-weidget-provider";
 import { usePipes } from "./pipes";
 
 const l = console.log;
@@ -108,8 +109,8 @@ export class BindingAttrBuilder extends BindingBuilder {
   } {
     // [style.coloe] => [style, coloe]
     const [attrName, attrChild] = attr.name
-      .replace(attrStartExp, emptyString)
-      .replace(attrEndExp, emptyString)
+      .replace(attrStartExp, EMPTY_STRING)
+      .replace(attrEndExp, EMPTY_STRING)
       .split(".");
     return { attrName, attrChild };
   }
@@ -215,7 +216,7 @@ export class BindingAttrBuilder extends BindingBuilder {
   private _classSetup() {
     autorun(() => {
       let data = this.getPipeData();
-      if (data === null) data = emptyString;
+      if (data === null) data = EMPTY_STRING;
       if (!this.attrChild) {
         if (objectp(data)) {
           for (const klass in data) {
@@ -240,7 +241,7 @@ export class BindingAttrBuilder extends BindingBuilder {
   private _otherAttrSetup() {
     autorun(() => {
       let data = this.getPipeData();
-      if (data === null) data = emptyString;
+      if (data === null) data = EMPTY_STRING;
       if (data) {
         this.node.setAttribute(this.attrName, data);
         (this.node as any)[this.attrName] = data;
@@ -565,13 +566,21 @@ export class BindingIfBuilder extends BindingBuilder {
   }
 }
 
-export class BindingEventBuilder {
+export class BindingEventBuilder extends BindingBuilder {
+  /**
+   * (click)="x()" -> click
+   * @param attr
+   */
   static parseEventType(attr: Attr) {
     return attr.name
-      .replace(eventStartExp, emptyString)
-      .replace(eventEndExp, emptyString);
+      .replace(eventStartExp, EMPTY_STRING)
+      .replace(eventEndExp, EMPTY_STRING);
   }
 
+  /**
+   * (click)="x('a', $event)" -> { funcName: 'x', args: ['a', '$event'] }
+   * @param attr
+   */
   static parseFun(attr: Attr) {
     let funcName = attr.value;
     let args: string[] = [];
@@ -587,10 +596,19 @@ export class BindingEventBuilder {
       args = attr.value
         .substr(index)
         .trim()
-        .replace(/(^\(*)|(\)$)/g, emptyString)
-        .split(",");
+        .replace(/(^\(*)|(\)$)/g, EMPTY_STRING)
+        .split(",")
+        .map(trim);
     }
     return { funcName, args };
+  }
+
+  static argsToArguments(args: string[], contextData: ContextData, event: any) {
+    return args.map(arg => {
+      if (!arg) return arg;
+      if (arg === templateEvent) return event;
+      return getData(arg, contextData);
+    });
   }
 
   public type: string;
@@ -600,8 +618,9 @@ export class BindingEventBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaWidget: AjaWidgetProvider
+    public readonly ajaModuel: AjaModuleProvider
   ) {
+    super(attr, contextData, ajaModuel);
     this.type = BindingEventBuilder.parseEventType(attr);
 
     const { funcName, args } = BindingEventBuilder.parseFun(attr);
@@ -613,13 +632,15 @@ export class BindingEventBuilder {
           ? EventType.input
           : EventType.change;
     }
-    const f = getData(this.funcName, this.contextData);
-
     node.addEventListener(this.type, e => {
       try {
-        f(
-          ...this._parseArgsEvent(
-            this._parseArgsToArguments(args),
+        getData(
+          this.funcName,
+          this.contextData
+        )(
+          ...BindingEventBuilder.argsToArguments(
+            args,
+            this.contextData,
             modelChangep ? (this.node as any).value : e
           )
         );
@@ -628,19 +649,6 @@ export class BindingEventBuilder {
       }
     });
     node.removeAttribute(this.attr.name);
-  }
-
-  private _parseArgsToArguments(args: string[]) {
-    return args.map(arg => {
-      if (!arg) return arg;
-      let el = arg.trim().toLowerCase();
-      if (el === templateEvent) return el;
-      return getData(el, this.contextData);
-    });
-  }
-
-  private _parseArgsEvent(args: string[], e: any) {
-    return args.map(arg => (arg === templateEvent ? e : arg));
   }
 }
 
@@ -716,8 +724,8 @@ export class BindingForBuilder extends BindingBuilder {
     let variables: string[] = [];
     if (variable) {
       variables = variable
-        .replace(eventStartExp, emptyString)
-        .replace(eventEndExp, emptyString)
+        .replace(eventStartExp, EMPTY_STRING)
+        .replace(eventEndExp, EMPTY_STRING)
         .split(",")
         .map(v => v.trim());
     }
@@ -876,7 +884,7 @@ export class BindingTempvarBuilder {
    * @param param1
    */
   private _tempvarBindHandle(node: HTMLElement, { name, value }: Attr): void {
-    const _key = name.replace(tempvarExp, emptyString);
+    const _key = name.replace(tempvarExp, EMPTY_STRING);
     if (value === ajaModelString) {
       // 表单元素才绑定 ajaModel
       this.set(_key, new AjaModel(node as HTMLInputElement));

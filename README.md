@@ -44,6 +44,9 @@ class HelloPipe implements PipeTransform {
 ```
 
 ## 组件输入和输出
+
+使用`$event`来获取emit出来的值
+
 ```ts
 import { Widget, Input, Output, EventEmitter } from "@aja";
 
@@ -59,7 +62,7 @@ export class AppRoottt {
 }
 ```
 ```html
-<app-root [name]="name" (emit)="emit"></app-root>
+<app-root [name]="name" (emit)="emit($event, 'other arg')"></app-root>
 ```
 
 ## 组件属性双向绑定
