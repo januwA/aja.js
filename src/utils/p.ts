@@ -17,7 +17,7 @@ import {
  * @param value
  */
 export function attrp(value: string) {
-  return /^\[\w.+\]$/.test(value);
+  return /^\[\w+\]$/.test(value);
 }
 
 /**
