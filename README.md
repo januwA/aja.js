@@ -3,7 +3,7 @@
 ## 模块
 ```ts
 @AjaModule({
-  declarations: [AppRoottt, HelloPipe],
+  declarations: [AppRoottt],
   imports: [SharedModule],
   bootstrap: [AppRoottt]
 })

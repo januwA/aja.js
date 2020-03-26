@@ -43,7 +43,8 @@ function makeMetadataCtor(props?: (...args: any[]) => any): any {
  */
 export function makeDecorator<T>(
   name: string,
-  props?: (...args: any[]) => any
+  props?: (...args: any[]) => any,
+  typeFn?: (type: Type<T>, ...args: any[]) => void
 ): {
   new (...args: any[]): any;
   (...args: any[]): any;
@@ -60,40 +61,26 @@ export function makeDecorator<T>(
       return this as typeof DecoratorFactory;
     }
 
-    const annotationInstance = new (DecoratorFactory as any)(...args);
+    const annotationInstance = new (<any>DecoratorFactory)(...args);
+
     return function TypeDecorator(cls: Type<T>) {
+      if (typeFn) typeFn(cls, ...args);
       const annotations = cls.hasOwnProperty(ANNOTATIONS)
         ? (cls as any)[ANNOTATIONS]
         : Object.defineProperty(cls, ANNOTATIONS, { value: [] })[ANNOTATIONS];
       annotations.push(annotationInstance);
-      if (name === "Widget") {
-        annotationInstance.ctorParameters = [];
 
-        // 解析出动态的constructor注入参数
-        const paramtypes: Type<any>[] = Reflect.getMetadata(
-          "design:paramtypes",
-          cls
-        );
-        if (paramtypes && paramtypes.length) {
-          paramtypes.forEach(param => {
-            const s = new ServiceFactory(param.name);
-            if (s) {
-              annotationInstance.ctorParameters.push(s.value);
-            }
-          });
+      // 对所有类装饰器，进行依赖注入解析
+      // 如果有注入则会返回[...class]，否则返回undefined
+      const ctorParameters: any[] = [];
+      Reflect.getMetadata("design:paramtypes", cls)?.forEach(
+        (param: Type<any>) => {
+          // 现在默认判断注入的数据只有Service
+          const s = new ServiceFactory(param.name);
+          if (s) ctorParameters.push(s.value);
         }
-      }
-
-      if (name === "Injectable") {
-        // 在解析装饰器期间，就在工厂函数中注册
-        new ServiceFactory(cls.name, cls);
-      }
-
-      if (name === "Pipe") {
-        // 在解析装饰器期间，就在工厂函数中注册
-        const { name } = args[0];
-        new PipeFactory(name, cls);
-      }
+      );
+      annotationInstance.ctorParameters = ctorParameters;
       return cls;
     };
   }

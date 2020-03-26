@@ -1,6 +1,6 @@
 {
   "name": "aja",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "other",
   "main": "./src/index.ts",
   "scripts": {

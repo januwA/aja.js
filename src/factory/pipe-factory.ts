@@ -1,8 +1,10 @@
 import { Pipe } from "../metadata/directives";
-import { AjaModuleProvider } from "../classes/aja-module-provider";
+import { ModuleProxy } from "../classes/module-proxy";
 import { Type } from "../interfaces/type";
 import { ContextData } from "../classes/context-data";
 import { getData } from "../core";
+import { ANNOTATIONS } from "../utils/decorators";
+import { putIfAbsent } from "../utils/util";
 
 export function usePipes(
   value: any,
@@ -42,7 +44,7 @@ export interface PipeItem {
   /**
    * 该widget属于那个模块
    */
-  module: AjaModuleProvider;
+  module: ModuleProxy;
 
   /**
    * pipe实例化对象
@@ -51,18 +53,15 @@ export interface PipeItem {
 }
 
 /**
- * 存储所有管道
+ * 存储使用[@Pipe]注册的管道
  */
 export class PipeFactory {
-  private _pipe!: Type<PipeTransform>;
-
-  // 懒惰的单一模式pipe
-  // 确保值实例化一次
-  private _pipeCache?: PipeTransform;
+  private _value!: Type<PipeTransform>;
+  private _valueCache?: PipeTransform;
 
   public get value(): PipeTransform {
-    if (this._pipeCache) return this._pipeCache;
-    return (this._pipeCache = new this._pipe());
+    if (this._valueCache) return this._valueCache;
+    return (this._valueCache = new this._value(...this._getParams()));
   }
 
   private static _cache = new Map<String, PipeFactory>();
@@ -73,14 +72,17 @@ export class PipeFactory {
    * @param pipe 管道[PipeTransform]，在内部会被实例化一次
    */
   constructor(name: string, pipe?: Type<any>) {
-    return PipeFactory._cache.putIfAbsent(
-      name,
-      pipe ? () => this._constructor(pipe) : undefined
+    return putIfAbsent(PipeFactory._cache, name, () =>
+      this._constructor(pipe as Type<any>)
     );
   }
 
   private _constructor(pipe: Type<PipeTransform>) {
-    this._pipe = pipe;
+    this._value = pipe;
     return this;
+  }
+
+  private _getParams() {
+    return (<any>this._value)[ANNOTATIONS][0].ctorParameters;
   }
 }

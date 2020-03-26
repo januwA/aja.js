@@ -7,14 +7,14 @@ export {
   AbstractControl
 } from "./classes/forms";
 
-export { bootstrapModule } from "./classes/aja-module-provider";
+export { bootstrapModule } from "./classes/module-proxy";
 export {
   AjaInitState,
   AjaDispose,
   AjaInputChanges,
   AjaViewInit,
   EventEmitter
-} from "./classes/aja-weidget-provider";
+} from "./classes/widget-proxy";
 export {
   AjaModule,
   Input,

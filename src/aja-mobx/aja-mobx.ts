@@ -97,17 +97,13 @@ export namespace observable {
 
   export function cls<T>(
     cls: Type<T>,
-    metadataCallback?: (
-      metadata:
-        | {
-            [key: string]: (Input | Output)[];
-          }
-        | undefined
-    ) => void,
-    ctorParameters?: any[]
+    metadataCallback?: (metadata?: {
+      [key: string]: (Input | Output)[];
+    }) => void,
+    ctorParameters: any[] = []
   ) {
     // cls.prototype["__isObservable"] = true;
-    const context: T = new cls(...(ctorParameters || []));
+    const context: T = new cls(...ctorParameters);
 
     // 先获取注入的元数据
     if (metadataCallback) {

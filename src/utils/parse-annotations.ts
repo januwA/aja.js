@@ -11,10 +11,6 @@ export class ParseAnnotations {
     return this.annotations[METADATANAME] === "Widget";
   }
 
-  public get isPipe() {
-    return this.annotations[METADATANAME] === "Pipe";
-  }
-
   public get isAjaModule() {
     return this.annotations[METADATANAME] === "AjaModule";
   }

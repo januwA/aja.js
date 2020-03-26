@@ -5,11 +5,12 @@ import { getData } from "../core";
 import { Input, Output, Widget } from "../metadata/directives";
 import { getAttrs } from "../utils/util";
 import { Aja } from "../aja";
-import { AjaModuleProvider } from "./aja-module-provider";
+import { ModuleProxy } from "./module-proxy";
 import { ContextData } from "./context-data";
 import { AjaModel } from "./aja-model";
 import { AnyObject } from "../interfaces/any-object";
 import { Type } from "../interfaces/type";
+import { ANNOTATIONS } from "../utils/decorators";
 
 function _findAliasName(
   value: (Input | Output)[],
@@ -63,7 +64,7 @@ export interface AjaDispose {
   dispose(): void;
 }
 
-export class AjaWidgetProvider {
+export class WidgetProxy {
   /**
    * 自定义组件的前缀，默认app-
    * 在调用[bootstrapModule]函数时，可以设置
@@ -75,18 +76,16 @@ export class AjaWidgetProvider {
    */
   static isWidgetNode(node: HTMLElement): boolean {
     const name = node.nodeName.toLowerCase();
-    return name.startsWith(AjaWidgetProvider.prefix);
+    return name.startsWith(WidgetProxy.prefix);
   }
 
   private get _attrs() {
     return getAttrs(this.host);
   }
 
-  private _metadata:
-    | {
-        [key: string]: (Input | Output)[];
-      }
-    | undefined;
+  private _metadata?: {
+    [key: string]: (Input | Output)[];
+  };
 
   private _eachMeta(cb: (key: string, value: (Input | Output)[]) => void) {
     if (!this._metadata) return;
@@ -96,10 +95,15 @@ export class AjaWidgetProvider {
   }
 
   public readonly context: AnyObject;
-  public readonly widgetItem: WidgetItem;
+  public readonly widget: Type<any>;
   public readonly host: HTMLElement;
-  public readonly parent?: AjaWidgetProvider;
+  public readonly parent?: WidgetProxy;
   public readonly parentContextData?: ContextData;
+  public readonly module?: ModuleProxy;
+
+  get widgetMetaData() {
+    return (<any>this.widget)[ANNOTATIONS][0];
+  }
 
   /**
    *
@@ -107,26 +111,27 @@ export class AjaWidgetProvider {
    * @param context 用户的widget配置
    */
   constructor(opt: {
-    widgetItem: WidgetItem;
+    widget: Type<any>;
     host: HTMLElement;
-    parent?: AjaWidgetProvider;
+    parent?: WidgetProxy;
     parentContextData?: ContextData;
+    module?: ModuleProxy;
   }) {
-    if (!opt.widgetItem) {
+    if (!opt.widget) {
       throw `没有找到widget!!!`;
     }
-    this.widgetItem = opt.widgetItem;
+    this.widget = opt.widget;
     this.host = opt.host;
     this.parent = opt.parent;
     this.parentContextData = opt.parentContextData;
+    this.module = opt.module;
     this.context = observable.cls(
-      this.widgetItem.widget,
+      this.widget,
       metadata => {
         // 获取注入的元数据
         this._metadata = metadata;
       },
-      (this.widgetItem.widgetMetaData as any)
-        .ctorParameters /*动态constructor依赖注入*/
+      (this.widgetMetaData as any).ctorParameters /*动态constructor依赖注入*/
     );
 
     // 检查input和output
@@ -146,10 +151,7 @@ export class AjaWidgetProvider {
 
     // 检查视图
     this.host.innerHTML = "";
-    this.host.insertAdjacentHTML(
-      "beforeend",
-      this.widgetItem.widgetMetaData.template
-    );
+    this.host.insertAdjacentHTML("beforeend", this.widgetMetaData.template);
     new Aja(this);
 
     // 视图检擦完毕
@@ -244,12 +246,7 @@ export class AjaWidgetProvider {
         } else {
           // 没注册output，当作普通事件处理
           if (this.parentContextData && this.parent) {
-            new BindingEventBuilder(
-              this.host,
-              attr,
-              this.parentContextData,
-              this.parent.widgetItem.module
-            );
+            new BindingEventBuilder(this.host, attr, this.parentContextData);
           }
         }
         this.host.removeAttribute(attr.name);
@@ -305,52 +302,5 @@ export class EventEmitter<T> {
     if (this.next) {
       this.next(value);
     }
-  }
-}
-
-export interface WidgetItem {
-  /**
-   * 注入的元数据
-   */
-  widgetMetaData: Widget;
-
-  /**
-   * 该widget属于那个模块
-   */
-  module: AjaModuleProvider;
-
-  /**
-   * widget对象
-   */
-  widget: Type<AjaWidgetProvider>;
-}
-
-/**
- * 保存所有widget
- * 每个widget的数据为[WidgetItem]
- */
-export class Widgets {
-  private static _widgets: {
-    [k: string]: WidgetItem;
-  } = {};
-
-  static add(widgetItem: WidgetItem): void {
-    this._widgets[widgetItem.widgetMetaData.selector] = widgetItem;
-  }
-
-  /**
-   *
-   * @param name app-home or APP-HOME
-   */
-  static get(name: string): WidgetItem {
-    return this._widgets[name.toLowerCase()];
-  }
-
-  /**
-   *
-   * @param name app-home
-   */
-  static has(name: string): boolean {
-    return !!this.get(name);
   }
 }

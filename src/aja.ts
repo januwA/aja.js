@@ -17,17 +17,18 @@ import {
   BindingTempvarBuilder,
   BindingSwitchBuilder
 } from "./classes/binding-builder";
-import { AjaWidgetProvider, Widgets } from "./classes/aja-weidget-provider";
+import { WidgetProxy } from "./classes/widget-proxy";
 import {
   structureDirectivePrefix,
   structureDirectives
 } from "./utils/const-string";
+import { WidgetFactory } from "./factory/widget-factory";
+import { ModuleProxy } from "./classes/module-proxy";
 
 export class Aja {
-  get module() {
-    return this.widget.widgetItem.module;
-  }
-  constructor(private readonly widget: AjaWidgetProvider) {
+  module?: ModuleProxy;
+  constructor(private readonly widget: WidgetProxy) {
+    this.module = widget.module;
     const contextData = new ContextData({
       store: widget.context,
       tData: new BindingTempvarBuilder(widget.host)
@@ -63,7 +64,7 @@ export class Aja {
             break;
           case structureDirectives.for:
             depath = false;
-            new BindingForBuilder(node, attr, contextData, this.module)
+            new BindingForBuilder(node, attr, contextData)
               .addRenderListener((root, newContextData) => {
                 this._scan(root, newContextData);
               })
@@ -71,12 +72,12 @@ export class Aja {
             break;
           case structureDirectives.case:
             if (contextData.switch) {
-              new BindingSwitchBuilder(node, attr, contextData, this.module);
+              new BindingSwitchBuilder(node, attr, contextData);
             }
             break;
           case structureDirectives.default:
             if (contextData.switch) {
-              new BindingSwitchBuilder(node, attr, contextData, this.module);
+              new BindingSwitchBuilder(node, attr, contextData);
             }
             break;
           default:
@@ -116,19 +117,16 @@ export class Aja {
    * @param node
    */
   private _isWidget(node: HTMLElement) {
-    const name = node.nodeName.toLowerCase();
-    if (
-      AjaWidgetProvider.isWidgetNode(node) &&
-      this.module.hasWidget(name) &&
+    return (
+      WidgetProxy.isWidgetNode(node) &&
+      this.module?.hasWidget(node.nodeName.toLowerCase()) &&
       node !== this.widget.host
-    ) {
-      return true;
-    }
+    );
   }
 
   private _parseWidget(node: HTMLElement, contextData: ContextData) {
-    new AjaWidgetProvider({
-      widgetItem: Widgets.get(node.nodeName),
+    new WidgetProxy({
+      widget: new WidgetFactory(node.nodeName.toLowerCase()).value,
       host: node,
       parent: this.widget,
       parentContextData: contextData
@@ -150,20 +148,20 @@ export class Aja {
 
       // [title]='xxx'
       if (attrp(name)) {
-        new BindingAttrBuilder(node, attr, contextData, this.module);
+        new BindingAttrBuilder(node, attr, contextData);
         continue;
       }
 
       // (click)="echo('hello',$event)"
       if (eventp(name)) {
-        new BindingEventBuilder(node, attr, contextData, this.module);
+        new BindingEventBuilder(node, attr, contextData);
         continue;
       }
     }
 
     const modleAttr = BindingModelBuilder.findModelAttr(node);
     if (modleAttr) {
-      new BindingModelBuilder(node, modleAttr, contextData, this.module);
+      new BindingModelBuilder(node, modleAttr, contextData);
     }
   }
 
@@ -178,12 +176,7 @@ export class Aja {
     attr: Attr;
     unless?: boolean;
   }) {
-    const ifBuilder = new BindingIfBuilder(
-      attr,
-      node,
-      contextData,
-      this.module
-    );
+    const ifBuilder = new BindingIfBuilder(attr, node, contextData);
     autorun(() => {
       let show = ifBuilder.getPipeData();
       if (unless) show = !show;
@@ -214,7 +207,7 @@ export class Aja {
       this._scan(node, contextData);
     }
     if (textNodep(node)) {
-      new BindingTextBuilder(node, contextData, this.module);
+      new BindingTextBuilder(node, contextData);
     }
     return this._bindingChildNodesAttrs(childNodes.slice(1), contextData);
   }

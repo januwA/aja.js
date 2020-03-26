@@ -48,7 +48,7 @@ import {
   formArrayNameAttrName,
   switchAttrName
 } from "../utils/const-string";
-import { AjaModuleProvider } from "./aja-module-provider";
+import { ModuleProxy } from "./module-proxy";
 import { usePipes } from "../factory/pipe-factory";
 
 const l = console.log;
@@ -70,7 +70,6 @@ export class BindingBuilder {
   constructor(
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaModule: AjaModuleProvider
   ) {}
 
   private get _parsePipe() {
@@ -93,7 +92,6 @@ export class BindingBuilder {
       getData(this.bindKey, this.contextData),
       this.pipeList,
       this.contextData
-      // this.ajaModule
     );
   }
 }
@@ -125,9 +123,8 @@ export class BindingAttrBuilder extends BindingBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaModuel: AjaModuleProvider
   ) {
-    super(attr, contextData, ajaModuel);
+    super(attr, contextData,);
     if (this.name === formControlAttrName) {
       // [formControl]
       this._formControlSetup();
@@ -167,7 +164,7 @@ export class BindingAttrBuilder extends BindingBuilder {
     } else if (this.name === switchAttrName) {
       // [switch]
       contextData.switch = {
-        value: new BindingBuilder(attr, contextData, this.ajaModuel),
+        value: new BindingBuilder(attr, contextData),
         default: []
       };
     } else {
@@ -259,7 +256,6 @@ export class BindingTextBuilder {
   constructor(
     public readonly node: ChildNode,
     public readonly contextData: ContextData,
-    public readonly ajaModuel: AjaModuleProvider
   ) {
     this.text = node.textContent || "";
     this._setup();
@@ -320,9 +316,8 @@ export class BindingModelBuilder extends BindingBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaModule: AjaModuleProvider
   ) {
-    super(attr, contextData, ajaModule);
+    super(attr, contextData);
     this._setup();
     this.node.removeAttribute(this.name);
   }
@@ -515,9 +510,8 @@ export class BindingIfBuilder extends BindingBuilder {
     attr: Attr,
     public node: HTMLElement,
     public contextData: ContextData,
-    public readonly ajaModuel: AjaModuleProvider
   ) {
-    super(attr, contextData, ajaModuel);
+    super(attr, contextData);
     this.elseElement = this._getElseElement();
     this.node.before(this.commentNode);
     this.node.removeAttribute(attr.name);
@@ -616,9 +610,8 @@ export class BindingEventBuilder extends BindingBuilder {
     public readonly node: HTMLElement,
     public readonly attr: Attr,
     public readonly contextData: ContextData,
-    public readonly ajaModuel: AjaModuleProvider
   ) {
-    super(attr, contextData, ajaModuel);
+    super(attr, contextData);
     this.type = BindingEventBuilder.parseEventType(attr);
 
     const { funcName, args } = BindingEventBuilder.parseFun(attr);
@@ -677,9 +670,8 @@ export class BindingForBuilder extends BindingBuilder {
     public node: HTMLElement,
     attr: Attr,
     public contextData: ContextData,
-    public readonly ajaModuel: AjaModuleProvider
   ) {
-    super(attr, contextData, ajaModuel);
+    super(attr, contextData);
     this.node.replaceWith(this.commentNode);
     this.node.removeAttribute(structureDirectives.for);
     return this;
@@ -691,7 +683,6 @@ export class BindingForBuilder extends BindingBuilder {
         getData(this.bindKey, this.contextData),
         this.pipes,
         this.contextData
-        // this.ajaModuel
       );
       this._clear();
       const isNumber = typeof data === "number";
@@ -875,9 +866,8 @@ export class BindingSwitchBuilder extends BindingBuilder {
     public node: HTMLElement,
     attr: Attr,
     public contextData: ContextData,
-    public readonly ajaModuel: AjaModuleProvider
   ) {
-    super(attr, contextData, ajaModuel);
+    super(attr, contextData);
     this.node.before(this.commentNode);
     this.node.removeAttribute(structureDirectives.case);
     this.node.removeAttribute(structureDirectives.default);

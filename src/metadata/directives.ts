@@ -4,6 +4,10 @@ import {
   makeDecorator,
   makePropDecorator
 } from "../utils/decorators";
+import { PipeFactory } from "../factory/pipe-factory";
+import { ServiceFactory } from "../factory/service-factory";
+import { ModuleFactory } from "../factory/module-factory";
+import { WidgetFactory } from "../factory/widget-factory";
 
 export interface AjaModule {
   /**
@@ -36,7 +40,8 @@ export interface AjaModuleDecorator {
 
 export const AjaModule: AjaModuleDecorator = makeDecorator(
   "AjaModule",
-  (opts: AjaModule) => opts
+  (opts: AjaModule) => opts,
+  cls => new ModuleFactory(cls.name, cls)
 );
 
 export interface Input {
@@ -101,21 +106,23 @@ export interface WidgetDecorator {
 
 export const Widget: WidgetDecorator = makeDecorator(
   "Widget",
-  (opts: Widget) => opts
+  (opts: Widget) => opts,
+  (cls, opt: Widget) => new WidgetFactory(opt.selector, cls)
 );
 
 /**
  * 在ng中，穿的的pipe需要在模块的[declarations]中声明
- * 
+ *
  * ```html
  * <p>{{ 'ajanuw' | myHello }}</p>
  * ```
- * 
+ *
  * 在@Pipe期间，将会被注入到工厂，如果要在某个模块中使用，还需要的[declarations]中声明
  */
 export interface Pipe {
   /**
-   * 管道名
+   * 在模板绑定中使用的管道名称
+   * 通常使用[lowerCamelCase]
    */
   name: string;
 }
@@ -135,7 +142,11 @@ export interface PipeDecorator {
     }
   }
  */
-export const Pipe: PipeDecorator = makeDecorator("Pipe", (p: Pipe) => p);
+export const Pipe: PipeDecorator = makeDecorator(
+  "Pipe",
+  (p: Pipe) => p,
+  (cls, opt) => new PipeFactory(opt.name, cls)
+);
 
 export interface Injectable {}
 
@@ -144,4 +155,8 @@ export interface InjectableDecorator {
   new (): Injectable;
 }
 
-export const Injectable: InjectableDecorator = makeDecorator("Injectable");
+export const Injectable: InjectableDecorator = makeDecorator(
+  "Injectable",
+  undefined,
+  cls => new ServiceFactory(cls.name, cls)
+);

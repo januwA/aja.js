@@ -100,3 +100,25 @@ export function hasMultipleStructuredInstructions(node: HTMLElement): boolean {
 export function trim(value: string): string {
   return value.trim();
 }
+
+/**
+ * 查找[key]的值，如果不存在，请添加一个新值
+ *
+ * 返回与[key]关联的值（如果有）。 否则，调用[ifAbsent]获取新值，将[key]关联到该值，然后返回新值。
+ *
+ * @param cache
+ * @param key
+ * @param ifAbsent
+ */
+export function putIfAbsent<K, V>(
+  cache: Map<K, V>,
+  key: K,
+  ifAbsent?: () => V
+) {
+  if (cache.has(key)) return cache.get(key) as V;
+
+  if (key && ifAbsent) {
+    return cache.set(key, ifAbsent()).get(key) as V;
+  }
+  throw `not find [${key}]!`;
+}
