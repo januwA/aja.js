@@ -1,10 +1,11 @@
 import { arrayp } from "../utils/p";
-import { Pipes } from "./pipes";
+import { PipeFactory } from "../factory/pipe-factory";
 import { AjaModule, Widget, Pipe } from "../metadata/directives";
 import { AjaWidgetProvider, Widgets } from "./aja-weidget-provider";
 import { Type } from "../interfaces/type";
 import { ANNOTATIONS } from "../utils/decorators";
 import { ParseAnnotations } from "../utils/parse-annotations";
+import { createDefaultPipes } from "../utils/create-default-pipes";
 
 function createAjaModuleProvider<T>(
   cls: Type<T>
@@ -95,13 +96,7 @@ function parseDeclarations(m: AjaModuleProvider) {
         });
         m.addWidget(widgetMetaData.selector);
       } else if (parseAnnotations.isPipe) {
-        const pipeMetaData = parseAnnotations.annotations as Pipe;
-        if (!Pipes.has(pipeMetaData.name)) {
-          m.addPipe(pipeMetaData.name);
-          Pipes.add(pipeMetaData.name, el);
-        } else {
-          throw `Error: Pipe ${pipeMetaData.name}已经注册。`;
-        }
+        // 申明管道，现在管道已经使用装饰器注册到[PipeFactory]工厂中
       }
     }
   });
@@ -114,6 +109,7 @@ export function bootstrapModule(
   }
 ) {
   if (opt && opt.prefix) AjaWidgetProvider.prefix = `${opt.prefix}-`;
+  createDefaultPipes();
   const ajaModuleProvider = createAjaModuleProvider(moduleType);
   if (ajaModuleProvider) {
     AjaModules.add(moduleType.name, ajaModuleProvider);
@@ -122,7 +118,7 @@ export function bootstrapModule(
       ? ajaModuleProvider.bootstrap[0]
       : ajaModuleProvider.bootstrap;
     if (bootstrap) {
-      // 解析 declarations
+      // 解析 declarations 声明
       parseDeclarations(ajaModuleProvider);
 
       // 解析imports导入的模块

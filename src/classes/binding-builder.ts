@@ -49,7 +49,7 @@ import {
   switchAttrName
 } from "../utils/const-string";
 import { AjaModuleProvider } from "./aja-module-provider";
-import { usePipes } from "./pipes";
+import { usePipes } from "../factory/pipe-factory";
 
 const l = console.log;
 
@@ -92,8 +92,8 @@ export class BindingBuilder {
     return usePipes(
       getData(this.bindKey, this.contextData),
       this.pipeList,
-      this.contextData,
-      this.ajaModule
+      this.contextData
+      // this.ajaModule
     );
   }
 }
@@ -285,7 +285,7 @@ export class BindingTextBuilder {
   private getPipeData(key: string) {
     const [bindKey, pipeList] = parsePipe(key);
     const data = getData(bindKey, this.contextData);
-    return usePipes(data, pipeList, this.contextData, this.ajaModuel);
+    return usePipes(data, pipeList, this.contextData /*this.ajaModuel*/);
   }
 }
 
@@ -690,8 +690,8 @@ export class BindingForBuilder extends BindingBuilder {
       let data = usePipes(
         getData(this.bindKey, this.contextData),
         this.pipes,
-        this.contextData,
-        this.ajaModuel
+        this.contextData
+        // this.ajaModuel
       );
       this._clear();
       const isNumber = typeof data === "number";

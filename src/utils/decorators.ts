@@ -1,7 +1,8 @@
 import "reflect-metadata";
 import { Type } from "../interfaces/type";
 import { AjaModule } from "../metadata/directives";
-import { Services } from "../classes/services";
+import { ServiceFactory } from "../factory/service-factory";
+import { PipeFactory } from "../factory/pipe-factory";
 
 /**
  * 装饰器
@@ -67,22 +68,31 @@ export function makeDecorator<T>(
       annotations.push(annotationInstance);
       if (name === "Widget") {
         annotationInstance.ctorParameters = [];
+
+        // 解析出动态的constructor注入参数
         const paramtypes: Type<any>[] = Reflect.getMetadata(
           "design:paramtypes",
           cls
         );
         if (paramtypes && paramtypes.length) {
           paramtypes.forEach(param => {
-            if(Services.has(param.name)){
-              annotationInstance.ctorParameters.push(Services.get(param.name));
+            const s = new ServiceFactory(param.name);
+            if (s) {
+              annotationInstance.ctorParameters.push(s.value);
             }
-            
           });
         }
       }
-      
+
       if (name === "Injectable") {
-        Services.add(cls);
+        // 在解析装饰器期间，就在工厂函数中注册
+        new ServiceFactory(cls.name, cls);
+      }
+
+      if (name === "Pipe") {
+        // 在解析装饰器期间，就在工厂函数中注册
+        const { name } = args[0];
+        new PipeFactory(name, cls);
       }
       return cls;
     };

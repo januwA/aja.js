@@ -104,6 +104,15 @@ export const Widget: WidgetDecorator = makeDecorator(
   (opts: Widget) => opts
 );
 
+/**
+ * 在ng中，穿的的pipe需要在模块的[declarations]中声明
+ * 
+ * ```html
+ * <p>{{ 'ajanuw' | myHello }}</p>
+ * ```
+ * 
+ * 在@Pipe期间，将会被注入到工厂，如果要在某个模块中使用，还需要的[declarations]中声明
+ */
 export interface Pipe {
   /**
    * 管道名
@@ -114,6 +123,18 @@ export interface PipeDecorator {
   (obj: Pipe): TypeDecorator;
   new (obj: Pipe): Pipe;
 }
+
+/**
+ * 
+  @Pipe({
+    name: "json"
+  })
+  class JsonPipe implements PipeTransform {
+    transform(value: string) {
+      return JSON.stringify(value, null, " ");
+    }
+  }
+ */
 export const Pipe: PipeDecorator = makeDecorator("Pipe", (p: Pipe) => p);
 
 export interface Injectable {}
