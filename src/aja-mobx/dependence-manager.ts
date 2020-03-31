@@ -1,5 +1,10 @@
-// 收集依赖系统
+/**
+ * 依赖收集器
+ */
 export class DependenceManager {
+  /**
+   * 所有的依赖监听函数，通常是[autorun]函数的参数
+   */
   private static _observers: Function[] = [];
   private static get _lastObserver(): null | Function {
     return this._observers.length > 0
@@ -17,39 +22,62 @@ export class DependenceManager {
   /**
    * 存储所有observable和handler的映射关系
    */
-  static _store: {
-    [name: string]: {
+  static _store: Map<
+    number,
+    {
+      /**
+       * 上下文对象
+       */
       target: any;
-      watchers: any[];
-    };
-  } = {};
+      watchers: Function[];
+    }
+  > = new Map();
 
   /**
-   * 填一个当前栈中的依赖到 store 中
-   * @param name
+   * 添加依赖
+   * @param id
    */
-  static _add(name: string) {
-    this._store[name] = this._store[name] || {};
-    this._store[name].target = this._lastTarget;
-    this._store[name].watchers = this._store[name].watchers || [];
-    this._store[name].watchers.push(this._lastObserver);
+  static _add(id: number) {
+    // 如果存在，则在响应事件数组[watchers]中添加[_lastObserver]
+    if (this._store.has(id)) {
+      const map = this._store.get(id);
+      map!.target = this._lastTarget;
+
+      // 避免多次调用一个观察者
+      // autorun(() => {
+      //   console.log(obj.hello);
+      //   console.log(obj.hello);
+      // });
+      // 如果上面的代码不添加下面的if处理
+      // watchers = [fn, fn]
+      // 下次响应的时候将会打印4次
+      if (!map!.watchers.includes(this._lastObserver!)) {
+        map!.watchers.push(this._lastObserver!);
+      }
+    } else {
+      // 不存在，则初始化
+      this._store.set(id, {
+        target: this._lastTarget,
+        watchers: [this._lastObserver!]
+      });
+    }
   }
 
   /**
    * update
-   * 
-   * 向[name]的所有监听者发出信号, value改变了，快做出响应
-   * @param name
+   *
+   * 向[name]的所有监听者[watchers]发出信号, value改变了，快做出响应
+   * @param id
    */
-  static trigger(name: string) {
-    var ds = this._store[name];
-    ds?.watchers?.forEach((d: Function) => {
-      d.call(ds.target || this);
+  static trigger(id: number) {
+    var ds = this._store.get(id);
+    ds?.watchers?.forEach((fn: Function) => {
+      fn.call(ds?.target || this);
     });
   }
 
   /**
-   * 开始收集依赖
+   * 开始收集 observer
    * @param observer 这个参数普遍是autorun的callback函数
    * @param target computed时，会传入target
    */
@@ -67,13 +95,10 @@ export class DependenceManager {
   }
 
   /**
-   * 收集依赖
-   * @param name
+   * 在收集收集依赖期间，添加观察者
+   * @param id
    */
-  static collect(name: string) {
-    if (this._lastObserver) {
-      this._add(name);
-    }
-    return false;
+  static collect(id: number) {
+    if (this._lastObserver) this._add(id);
   }
 }

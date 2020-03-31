@@ -44,10 +44,10 @@ describe("test aja-mobx", () => {
       }
     }
     const x = observable.cls(X);
+    expect(x instanceof X).toBe(true);
     expect(x.name).toBe("Ajanuw");
     expect(x.hello).toBe("hello Ajanuw");
     x.change();
-    // x.name = "ajanuw";
     expect(x.name).toBe("ajanuw");
     expect(x.hello).toBe("hello ajanuw");
   });

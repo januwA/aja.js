@@ -17,16 +17,19 @@ export function observable<T>(value: any): any {
   return observable.object(value);
 }
 
+/**
+ * 
+ * @param context 最后返回的代理对象
+ * @param key 在[obj]中的[key]
+ * @param obj input的object
+ */
 function transform<T>(context: T, key: string, obj: AnyObject) {
   const des = Object.getOwnPropertyDescriptor(obj, key);
 
   if (des) {
     if (des.hasOwnProperty("value")) {
       let value = obj[key];
-      if (isObservable(value)) {
-        return;
-      }
-
+      if (isObservable(value)) return;
       if (typeof value === "function") {
         value = value.bind(context);
       }
@@ -95,32 +98,38 @@ export namespace observable {
     return context;
   }
 
+  /**
+   * 将一个类实例化，在代理所有属性，并将所有方法的this绑定在实例后的对象上，返回实例对象
+   * @param cls 需要实例化的类
+   * @param metadataCallback 实例化之后立即调用该回调函数
+   * @param ctorParameters  实例化需要的构造参数
+   */
   export function cls<T>(
     cls: Type<T>,
-    metadataCallback?: (metadata?: {
-      [key: string]: (Input | Output)[];
-    }) => void,
+    metadataCallback?: (resultObject: T) => void,
     ctorParameters: any[] = []
   ) {
-    // cls.prototype["__isObservable"] = true;
-    const context: T = new cls(...ctorParameters);
+    const context: any = new cls(...ctorParameters);
 
     // 先获取注入的元数据
-    if (metadataCallback) {
-      const constructor = (context as any).constructor;
-      constructor.hasOwnProperty(PROP_METADATA)
-        ? metadataCallback(constructor[PROP_METADATA])
-        : metadataCallback(undefined);
-    }
+    if (metadataCallback) metadataCallback(context as T);
 
     observable.object(context);
 
+    // 下面被注释的代码为了避免上下文的改变
+    // ```
+    // const change = obj.change;
+    // change(); // 找不到this
+    // ```
+    //
     (<string[]>Reflect.ownKeys(cls.prototype)).forEach(key => {
-      transform(context, key, cls.prototype);
+      if (key in context && typeof context[key] === "function") {
+        context[key] = context[key].bind(context);
+      }
     });
 
     Object.defineProperty(context, "__isObservable", { value: true });
-    return context;
+    return context as T;
   }
 }
 

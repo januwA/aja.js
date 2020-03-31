@@ -7,11 +7,11 @@ import { arrayp } from "../utils/p";
 export class Observable<T> {
   private static _obIDCounter = 1;
 
-  static getName(): string {
-    return "ob-" + ++Observable._obIDCounter;
+  static getId(): number {
+    return Observable._obIDCounter++;
   }
 
-  readonly name: string = "";
+  readonly id: number;
 
   /**
    * 真实值
@@ -20,17 +20,17 @@ export class Observable<T> {
   value: any = null;
 
   constructor(value: any) {
-    this.name = Observable.getName();
+    this.id = Observable.getId();
     if (arrayp(value)) {
-      this._wrapArrayProxy(value);
+      this.value = this._wrapArrayProxy(value);
     } else {
       this.value = value;
     }
   }
 
   get() {
-    // 这里的收集依赖，可能是在[autorun]里面
-    DependenceManager.collect(this.name);
+    // 调用依赖收集器，将此observable加入store
+    DependenceManager.collect(this.id);
     return this.value;
   }
 
@@ -38,7 +38,7 @@ export class Observable<T> {
     // 设置相同的值无效
     if (v === this.value) return;
     if (Array.isArray(v)) {
-      this._wrapArrayProxy(v);
+      this.value = this._wrapArrayProxy(v);
     } else {
       this.value = v;
     }
@@ -49,19 +49,18 @@ export class Observable<T> {
    * 手动触发依赖
    */
   trigger() {
-    DependenceManager.trigger(this.name);
+    DependenceManager.trigger(this.id);
   }
 
   /**
    * 对数组包装Proxy拦截数组操作的动作
    */
   _wrapArrayProxy(arrValue: any[]) {
-    this.value = new Proxy(arrValue, {
+    return new Proxy(arrValue, {
       set: (arr, index, newValue) => {
         (<any>arr)[index] = newValue;
+        // 每当数组每一项的改变，都触发观察者做出相应
         if (index !== "length") this.trigger();
-
-        //? 为什么要返回true
         return true;
       }
     });

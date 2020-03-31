@@ -10,7 +10,7 @@ import { ContextData } from "./context-data";
 import { AjaModel } from "./aja-model";
 import { AnyObject } from "../interfaces/any-object";
 import { Type } from "../interfaces/type";
-import { ANNOTATIONS } from "../utils/decorators";
+import { ANNOTATIONS, PROP_METADATA } from "../utils/decorators";
 
 function _findAliasName(
   value: (Input | Output)[],
@@ -125,11 +125,10 @@ export class WidgetProxy {
     this.parent = opt.parent;
     this.parentContextData = opt.parentContextData;
     this.module = opt.module;
-    this.context = observable.cls(
+    this.context = observable.cls<any>(
       this.widget,
-      metadata => {
-        // 获取注入的元数据
-        this._metadata = metadata;
+      (context: any) => {
+        this._metadata = context.constructor[PROP_METADATA];
       },
       (this.widgetMetaData as any).ctorParameters /*动态constructor依赖注入*/
     );
