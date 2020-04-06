@@ -92,6 +92,24 @@ describe("html Ast comment test", () => {
     `);
     // console.log(ast);
     // console.log(ast.toString());
-    expect(ast.toString()).toBe('<!--title start--><p> title </p><!--title end-->')
+    expect(ast.toString()).toBe(
+      "<!--title start--><p> title </p><!--title end-->"
+    );
+  });
+});
+
+describe("html Ast To Element test", () => {
+  it("span Element test", () => {
+    const ast = htmlAst(`<span>hello world</span>`);
+    const el = ast.nodes[0].toElement() as HTMLElement;
+    expect(el!.textContent).toBe("hello world");
+  });
+  it("div Element test", () => {
+    const ast = htmlAst(`<span>hello</span> <br> <script src=""></script> <span>world</span>`);
+    const root = ast.toElement(document.createElement("div"));
+    expect(root.children.length).toBe(3);
+    expect(root.children[0].textContent).toBe("hello");
+    expect(root.children[1].tagName.toLowerCase()).toBe("br");
+    expect(root.children[2].textContent).toBe("world");
   });
 });

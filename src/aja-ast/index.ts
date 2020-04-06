@@ -41,6 +41,7 @@ export const htmlComment = /\s*<!--([^]*?)-->\s*/;
 
 export interface IAstRoot {
   nodes: childType[];
+  toElement(root: HTMLElement): HTMLElement;
   toString(): string;
 }
 
@@ -93,6 +94,10 @@ export interface IAstRoot {
 export function htmlAst(html: string): IAstRoot {
   const _root: IAstRoot = {
     nodes: [],
+    toElement(root: HTMLElement): HTMLElement {
+      this.nodes.map((it) => it.toElement()).forEach((it) => root.append(it));
+      return root;
+    },
     toString() {
       return this.nodes.reduce((acc, el) => (acc += el.toString()), "");
     },
