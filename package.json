@@ -35,7 +35,7 @@
     "webpack-copy-file-plugin": "^0.1.5"
   },
   "dependencies": {
-    "perl-regexp": "^0.2.0",
+    "perl-regexp": "^0.4.1",
     "reflect-metadata": "^0.1.13"
   }
 }

@@ -6,14 +6,15 @@ import {
   AstElement,
   AstAttrbute,
   AstComment,
-  childType
+  childType,
 } from "./element-ast";
+import { stripScripts } from "../utils/util";
 
 // ?: 忽略捕获，只需要分组
 export const ncname = "[a-zA-Z_][\\w\\-\\.]*";
 export const qnameCapture = `((?:${ncname}\\:)?${ncname})`;
 // 匹配tag的标签名
-export const startTagOpen = new RegExp(`^<${qnameCapture}`);
+export const startTagOpen = new PerlRegExp(`^<${qnameCapture}`);
 
 /**
  * 匹配tag: <([a-zA-Z_][\w\-\.]*)
@@ -83,7 +84,7 @@ export interface IAstRoot {
  *        ]
  *      },
  *      Element(div) => {
- *
+ *        ...
  *      }
  *   ]
  * }
@@ -94,8 +95,11 @@ export function htmlAst(html: string): IAstRoot {
     nodes: [],
     toString() {
       return this.nodes.reduce((acc, el) => (acc += el.toString()), "");
-    }
+    },
   };
+
+  // 1. 斩掉script标签
+  html = stripScripts(html);
 
   /**
    * 存储未匹配完成的起始标签
@@ -143,7 +147,7 @@ export function htmlAst(html: string): IAstRoot {
         parseStartTag({
           tagName: match[1].toLowerCase(),
           attrs: match[2],
-          unary: !!match[7]
+          unary: !!match[7],
         });
       }
     }
@@ -178,7 +182,7 @@ export function htmlAst(html: string): IAstRoot {
   function parseStartTag({
     tagName,
     attrs,
-    unary
+    unary,
   }: {
     tagName: string;
     attrs: string;
@@ -189,7 +193,7 @@ export function htmlAst(html: string): IAstRoot {
     unary: boolean;
   }) {
     const astElement: AstElement = new AstElement({
-      name: tagName
+      name: tagName,
     });
 
     // 解析所有的attributes

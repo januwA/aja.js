@@ -69,7 +69,7 @@ export function hasStructureDirective(node: HTMLElement): boolean {
  */
 export function parsePipe(key: string): [string, string[]] {
   const [bindKey, ...pipes] = key.split(parsePipesExp);
-  return [bindKey.trim(), pipes.map(e => e.trim())];
+  return [bindKey.trim(), pipes.map((e) => e.trim())];
 }
 
 export function getAttrs(node: HTMLElement): Attr[] {
@@ -121,4 +121,13 @@ export function putIfAbsent<K, V>(
     return cache.set(key, ifAbsent()).get(key) as V;
   }
   throw `not find [${key}]!`;
+}
+
+/**
+ * 斩掉字符串中的script标签
+ * 【司徒正美 js框架设计】
+ * @param str 
+ */
+export function stripScripts(str: string) {
+  return String(str || "").replace(/<script[^>]*>([\S\s]*?)<\/script>/gi, "");
 }
