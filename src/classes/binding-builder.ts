@@ -8,7 +8,7 @@ import {
   attrEndExp,
   eventStartExp,
   eventEndExp,
-  tempvarExp
+  tempvarExp,
 } from "../utils/exp";
 import {
   EMPTY_STRING,
@@ -18,7 +18,7 @@ import {
   toArray,
   getCheckboxRadioValue,
   parsePipe,
-  trim
+  trim,
 } from "../utils/util";
 import { autorun } from "../aja-mobx";
 import { AjaModel } from "./aja-model";
@@ -32,7 +32,7 @@ import {
   objectp,
   elementNodep,
   tempvarp,
-  formp
+  formp,
 } from "../utils/p";
 import {
   EventType,
@@ -46,7 +46,7 @@ import {
   formControlNameAttrName,
   formGroupNameAttrName,
   formArrayNameAttrName,
-  switchAttrName
+  switchAttrName,
 } from "../utils/const-string";
 import { ModuleProxy } from "./module-proxy";
 import { usePipes } from "../factory/pipe-factory";
@@ -69,7 +69,7 @@ export class BindingBuilder {
   }
   constructor(
     public readonly attr: Attr,
-    public readonly contextData: ContextData,
+    public readonly contextData: ContextData
   ) {}
 
   private get _parsePipe() {
@@ -122,9 +122,9 @@ export class BindingAttrBuilder extends BindingBuilder {
   constructor(
     public readonly node: HTMLElement,
     public readonly attr: Attr,
-    public readonly contextData: ContextData,
+    public readonly contextData: ContextData
   ) {
-    super(attr, contextData,);
+    super(attr, contextData);
     if (this.name === formControlAttrName) {
       // [formControl]
       this._formControlSetup();
@@ -165,7 +165,7 @@ export class BindingAttrBuilder extends BindingBuilder {
       // [switch]
       contextData.switch = {
         value: new BindingBuilder(attr, contextData),
-        default: []
+        default: [],
       };
     } else {
       // other
@@ -255,7 +255,7 @@ export class BindingTextBuilder {
 
   constructor(
     public readonly node: ChildNode,
-    public readonly contextData: ContextData,
+    public readonly contextData: ContextData
   ) {
     this.text = node.textContent || "";
     this._setup();
@@ -309,13 +309,13 @@ export class BindingModelBuilder extends BindingBuilder {
   }
 
   get selectValues(): string[] {
-    return this.options.filter(op => op.selected).map(op => op.value);
+    return this.options.filter((op) => op.selected).map((op) => op.value);
   }
 
   constructor(
     public readonly node: HTMLElement,
     public readonly attr: Attr,
-    public readonly contextData: ContextData,
+    public readonly contextData: ContextData
   ) {
     super(attr, contextData);
     this._setup();
@@ -395,7 +395,7 @@ export class BindingModelBuilder extends BindingBuilder {
           } else {
             setData(
               this.value,
-              data.filter(i => i !== ivalue),
+              data.filter((i) => i !== ivalue),
               this.contextData
             );
           }
@@ -445,7 +445,7 @@ export class BindingModelBuilder extends BindingBuilder {
       if (this.select.multiple && arrayp(value)) {
         let notFind = true;
         this.select.selectedIndex = -1;
-        this.options.forEach(option => {
+        this.options.forEach((option) => {
           if (value.some((d: any) => d === option.value)) {
             notFind = false;
             option.selected = true;
@@ -454,7 +454,7 @@ export class BindingModelBuilder extends BindingBuilder {
         if (notFind) this.select.selectedIndex = -1;
       } else {
         // 没找到默认-1
-        const index = selectOptions.findIndex(op => op.value === value);
+        const index = selectOptions.findIndex((op) => op.value === value);
         this.select.selectedIndex = index;
       }
     }
@@ -497,10 +497,7 @@ export class BindingIfBuilder extends BindingBuilder {
   get elseBind(): string | undefined {
     let elesBindStr = this.attr.value.split(";")[1];
     if (elesBindStr) {
-      return elesBindStr
-        .trim()
-        .replace(/else/, "")
-        .trim();
+      return elesBindStr.trim().replace(/else/, "").trim();
     }
   }
 
@@ -509,7 +506,7 @@ export class BindingIfBuilder extends BindingBuilder {
   constructor(
     attr: Attr,
     public node: HTMLElement,
-    public contextData: ContextData,
+    public contextData: ContextData
   ) {
     super(attr, contextData);
     this.elseElement = this._getElseElement();
@@ -596,7 +593,7 @@ export class BindingEventBuilder extends BindingBuilder {
   }
 
   static argsToArguments(args: string[], contextData: ContextData, event: any) {
-    return args.map(arg => {
+    return args.map((arg) => {
       if (!arg) return arg;
       if (arg === templateEvent) return event;
       return getData(arg, contextData);
@@ -609,7 +606,7 @@ export class BindingEventBuilder extends BindingBuilder {
   constructor(
     public readonly node: HTMLElement,
     public readonly attr: Attr,
-    public readonly contextData: ContextData,
+    public readonly contextData: ContextData
   ) {
     super(attr, contextData);
     this.type = BindingEventBuilder.parseEventType(attr);
@@ -623,7 +620,7 @@ export class BindingEventBuilder extends BindingBuilder {
           ? EventType.input
           : EventType.change;
     }
-    node.addEventListener(this.type, e => {
+    node.addEventListener(this.type, (e) => {
       try {
         getData(
           this.funcName,
@@ -669,7 +666,7 @@ export class BindingForBuilder extends BindingBuilder {
   constructor(
     public node: HTMLElement,
     attr: Attr,
-    public contextData: ContextData,
+    public contextData: ContextData
   ) {
     super(attr, contextData);
     this.node.replaceWith(this.commentNode);
@@ -696,7 +693,7 @@ export class BindingForBuilder extends BindingBuilder {
             ? this._createForContextState(null, k)
             : this._createForContextState(k, data[k]),
           tData: this.contextData.tData.copyWith(this.node),
-          forLet: this.forLet
+          forLet: this.forLet,
         });
         this._render && this._render(this._createItem(), newContextData);
       }
@@ -716,7 +713,7 @@ export class BindingForBuilder extends BindingBuilder {
     // bindKey  -> arr
     const [variable, bindKey] = this.value
       .split(/\bin|of\b/)
-      .map(s => s.trim());
+      .map((s) => s.trim());
 
     // (index, el) of arr
     // variables -> [index, el]
@@ -726,14 +723,14 @@ export class BindingForBuilder extends BindingBuilder {
         .replace(eventStartExp, EMPTY_STRING)
         .replace(eventEndExp, EMPTY_STRING)
         .split(",")
-        .map(v => v.trim());
+        .map((v) => v.trim());
     }
     const p = parsePipe(bindKey);
     return {
       variable,
       variables,
       bindKey: p[0],
-      pipes: p[1]
+      pipes: p[1],
     };
   }
 
@@ -760,7 +757,7 @@ export class BindingForBuilder extends BindingBuilder {
    * * 清除所有节点
    */
   private _clear() {
-    this.forBuffer.forEach(forItem => (<HTMLElement>forItem).remove());
+    this.forBuffer.forEach((forItem) => (<HTMLElement>forItem).remove());
     this.forBuffer = [];
   }
 
@@ -832,10 +829,10 @@ export class BindingTempvarBuilder {
     if (!hasStructureDirective(root)) {
       getAttrs(root)
         .filter(({ name }) => tempvarp(name))
-        .forEach(attr => this._tempvarBindHandle(root, attr));
+        .forEach((attr) => this._tempvarBindHandle(root, attr));
 
-      eachChildNodes(root, itemNode => {
-        if (elementNodep(itemNode)) this.deepParse(itemNode as HTMLElement);
+      eachChildNodes(root, (itemNode) => {
+        if (elementNodep(itemNode)) this.deepParse(itemNode);
       });
     }
   }
@@ -865,7 +862,7 @@ export class BindingSwitchBuilder extends BindingBuilder {
   constructor(
     public node: HTMLElement,
     attr: Attr,
-    public contextData: ContextData,
+    public contextData: ContextData
   ) {
     super(attr, contextData);
     this.node.before(this.commentNode);
@@ -894,7 +891,7 @@ export class BindingSwitchBuilder extends BindingBuilder {
         this._updateCaseComment(caseData);
       } else {
         // default
-        if (this.contextData.switch.default.every(b => b)) {
+        if (this.contextData.switch.default.every((b) => b)) {
           // show
           this.commentNode.after(this.node);
         } else {

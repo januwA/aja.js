@@ -3,7 +3,7 @@ import { ANNOTATIONS } from "../utils/decorators";
 import { ModuleProxy } from "../classes/module-proxy";
 import { ParseAnnotations } from "../utils/parse-annotations";
 import { Widget } from "../metadata/directives";
-import { putIfAbsent } from "../utils/util";
+import { putIfAbsent, getAnnotations } from "../utils/util";
 
 /**
  * 解析导入的所有模块,
@@ -12,10 +12,10 @@ import { putIfAbsent } from "../utils/util";
 export function parseImports(importModule: ModuleProxy) {
   importModule.imports
     ?.map(({ name }) => new ModuleFactory(name).value)
-    .forEach(exportModule => {
+    .forEach((exportModule) => {
       exportModule.exports
-        ?.map(e => new ParseAnnotations(e))
-        .forEach(parseAnnotations => {
+        ?.map((e) => new ParseAnnotations(e))
+        .forEach((parseAnnotations) => {
           if (parseAnnotations.annotations) {
             if (parseAnnotations.isWidget) {
               const widgetMetaData = parseAnnotations.annotations as Widget;
@@ -33,7 +33,7 @@ export function parseImports(importModule: ModuleProxy) {
  * @param m
  */
 export function parseDeclarations(m: ModuleProxy) {
-  m.declarations?.forEach(el => {
+  m.declarations?.forEach((el) => {
     const parseAnnotations = new ParseAnnotations(el);
     if (parseAnnotations.annotations) {
       if (parseAnnotations.isWidget)
@@ -56,10 +56,10 @@ export class ModuleFactory {
     // 第一次构建
 
     // 1. 获取元数据
-    const { ctorParameters, ...decoratorFactory } = (<any>this._value)[
-      ANNOTATIONS
-    ][0];
-    new this._value(...ctorParameters);
+    const { paramtypes, ...decoratorFactory } = getAnnotations(this._value);
+
+    // TODO: 解析construct依赖注入参数[paramtypes]
+    new this._value(...paramtypes);
 
     // 2. 代理
     const ajaModuleProvider: ModuleProxy = new ModuleProxy(decoratorFactory);

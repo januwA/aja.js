@@ -21,7 +21,9 @@ export {
   Output,
   Widget,
   Pipe,
-  Injectable
+  Injectable,
+  Directive,
+  ElementRef,
 } from "./metadata/directives";
 
 export { PipeTransform } from "./factory/pipe-factory";

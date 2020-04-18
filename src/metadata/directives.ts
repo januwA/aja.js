@@ -2,12 +2,63 @@ import { Type } from "../interfaces/type";
 import {
   TypeDecorator,
   makeDecorator,
-  makePropDecorator
+  makePropDecorator,
 } from "../utils/decorators";
 import { PipeFactory } from "../factory/pipe-factory";
 import { ServiceFactory } from "../factory/service-factory";
 import { ModuleFactory } from "../factory/module-factory";
 import { WidgetFactory } from "../factory/widget-factory";
+import { DirectiveFactory } from "../factory/directive-factory";
+
+/**
+ * 指令装饰器和元数据，在ng中，定义了指令需要在模块中导入
+ * 
+ * ## 属性指令
+ * ```html
+ * <p [my_color]="'blue'">hello world</p>
+ * ```
+ * 
+ * ```
+ * @Directive({
+      selector: "[my_color]",
+    })
+    export class MyColor {
+
+      // 使用依赖注入获取 host
+      constructor(private readonly host: ElementRef) {
+        console.log("cccc");
+      }
+
+      // 获取输入的数据
+      @Input("my_color")
+      set color(c: string) {
+        // console.log(this.host);
+        // console.log(c);
+      }
+    }
+ * ```
+ */
+export interface Directive {
+  /**
+   * 在angular中，这是一个css选择器
+   *
+   * 但我在这里，只支持属性选择器 `[attribute]`
+   */
+  selector: string;
+}
+
+export interface DirectiveDecorator {
+  (obj?: Directive): TypeDecorator;
+  new (obj?: Directive): Directive;
+}
+
+export const Directive: DirectiveDecorator = makeDecorator(
+  "Directive",
+  (dir: Directive) => dir,
+  (cls: Type<any>, meta: Directive) => {
+    new DirectiveFactory(meta.selector, cls);
+  }
+);
 
 export interface AjaModule {
   /**
@@ -41,16 +92,14 @@ export interface AjaModuleDecorator {
 export const AjaModule: AjaModuleDecorator = makeDecorator(
   "AjaModule",
   (opts: AjaModule) => opts,
-  cls => new ModuleFactory(cls.name, cls)
+  (cls) => new ModuleFactory(cls.name, cls)
 );
 
-export interface Input {
-  bindingPropertyName?: string;
-}
+export interface Input {}
 
 export interface InputDecorator {
-  (bindingPropertyName?: string): any;
-  new (bindingPropertyName?: string): any;
+  (): any;
+  new (): any;
 }
 
 /**
@@ -65,22 +114,14 @@ export interface InputDecorator {
  * 向A的实例的constructor注入一个不可枚举的属性[PROP_METADATA], 默认是{} 。
  * 让后再把title写进去: { title, ... }, title的值是PropDecoratorFactory实例
  */
-export const Input: InputDecorator = makePropDecorator(
-  "Input",
-  (bindingPropertyName: string) => ({ bindingPropertyName })
-);
+export const Input: InputDecorator = makePropDecorator("Input", () => ({}));
 
-export interface Output {
-  bindingPropertyName?: string;
-}
+export interface Output {}
 export interface OutputDecorator {
-  (bindingPropertyName?: string): any;
-  new (bindingPropertyName?: string): any;
+  (): any;
+  new (): any;
 }
-export const Output: OutputDecorator = makePropDecorator(
-  "Output",
-  (bindingPropertyName?: string) => ({ bindingPropertyName })
-);
+export const Output: OutputDecorator = makePropDecorator("Output", () => ({}));
 
 export interface Widget {
   /**
@@ -158,5 +199,12 @@ export interface InjectableDecorator {
 export const Injectable: InjectableDecorator = makeDecorator(
   "Injectable",
   undefined,
-  cls => new ServiceFactory(cls.name, cls)
+  (cls) => new ServiceFactory(cls.name, cls)
 );
+
+/**
+ * 获取dom的一种方式
+ */
+export class ElementRef<T extends any = any> {
+  constructor(public nativeElement: T) {}
+}

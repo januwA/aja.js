@@ -1,7 +1,10 @@
 import {
   toArray,
   getAttrs,
-  hasMultipleStructuredInstructions
+  hasMultipleStructuredInstructions,
+  getAnnotations,
+  getPropMetadata,
+  parsePipe,
 } from "./utils/util";
 
 import { autorun } from "./aja-mobx";
@@ -15,15 +18,20 @@ import {
   BindingEventBuilder,
   BindingForBuilder,
   BindingTempvarBuilder,
-  BindingSwitchBuilder
+  BindingSwitchBuilder,
 } from "./classes/binding-builder";
 import { WidgetProxy } from "./classes/widget-proxy";
 import {
   structureDirectivePrefix,
-  structureDirectives
+  structureDirectives,
 } from "./utils/const-string";
 import { WidgetFactory } from "./factory/widget-factory";
 import { ModuleProxy } from "./classes/module-proxy";
+import { DirectiveFactory } from "./factory/directive-factory";
+import { ElementRef } from "./metadata/directives";
+import { ServiceFactory } from "./factory/service-factory";
+import { usePipes } from "./factory/pipe-factory";
+import { getData } from "./core";
 
 export class Aja {
   module?: ModuleProxy;
@@ -31,7 +39,7 @@ export class Aja {
     this.module = widget.module;
     const contextData = new ContextData({
       store: widget.context,
-      tData: new BindingTempvarBuilder(widget.host)
+      tData: new BindingTempvarBuilder(widget.host),
     });
     this._scan(widget.host, contextData);
   }
@@ -103,7 +111,7 @@ export class Aja {
 
     if (depath) {
       const childNodes = toArray(node.childNodes).filter(
-        e => e.nodeName !== "#comment"
+        (e) => e.nodeName !== "#comment"
       );
       if (childNodes.length)
         this._bindingChildNodesAttrs(childNodes, contextData);
@@ -129,7 +137,7 @@ export class Aja {
       widget: new WidgetFactory(node.nodeName.toLowerCase()).value,
       host: node,
       parent: this.widget,
-      parentContextData: contextData
+      parentContextData: contextData,
     });
   }
 
@@ -145,6 +153,46 @@ export class Aja {
   ) {
     for (const attr of attrs) {
       const { name } = attr;
+      const directiveFactory = new DirectiveFactory(name);
+      if (!directiveFactory) {
+        return console.error(`未找到指令${name}的解析器，请注册`);
+      }
+      const directive = directiveFactory.value;
+      const annotations = getAnnotations(directive);
+      const paramtypes = annotations.paramtypes;
+
+      const paramtypesValues = paramtypes.map((it) => {
+        if (it.name === "ElementRef") {
+          return new ElementRef(node);
+        }
+        const { metadataName } = getAnnotations(it);
+        switch (metadataName) {
+          case "Injectable":
+            const s = new ServiceFactory(it.name);
+            return s.value;
+          default:
+            break;
+        }
+      });
+
+      const d = new directive(...paramtypesValues);
+      const props = getPropMetadata(d.constructor);
+      for (const key in props) {
+        if (props.hasOwnProperty(key)) {
+          const it = props[key];
+          const [bindKey, pipeList] = parsePipe(attr.value);
+          autorun(() => {
+            const v = usePipes(
+              getData(bindKey, contextData),
+              pipeList,
+              contextData
+            );
+            d[key] = v;
+          });
+        }
+      }
+
+      node.removeAttribute(attr.name);
 
       // [title]='xxx'
       if (attrp(name)) {
@@ -169,7 +217,7 @@ export class Aja {
     node,
     contextData,
     attr,
-    unless
+    unless,
   }: {
     node: HTMLElement;
     contextData: ContextData;
@@ -184,7 +232,7 @@ export class Aja {
         this._scan(
           node,
           contextData.copyWith({
-            tData: contextData.tData.copyWith(node)
+            tData: contextData.tData.copyWith(node),
           })
         );
       }

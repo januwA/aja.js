@@ -12,20 +12,6 @@ import { AnyObject } from "../interfaces/any-object";
 import { Type } from "../interfaces/type";
 import { ANNOTATIONS, PROP_METADATA } from "../utils/decorators";
 
-function _findAliasName(
-  value: (Input | Output)[],
-  metadataName: string
-): string {
-  for (const item of value) {
-    if (Reflect.has(item, metadataName)) {
-      if (item.bindingPropertyName) {
-        return item.bindingPropertyName;
-      }
-    }
-  }
-  return "";
-}
-
 export interface AjaInputChanges {
   /**
    * 当input被改变就会运行一次
@@ -168,15 +154,11 @@ export class WidgetProxy {
     this._attrs
       .filter(({ name }) => !eventp(name))
       .filter(({ name }) => !modelp(name))
-      .forEach(attr => {
+      .forEach((attr) => {
         const { attrName } = BindingAttrBuilder.parseAttr(attr);
 
         this._eachMeta((key, value) => {
-          const hasAliasName = _findAliasName(value, "Input");
-          if (
-            (hasAliasName && hasAliasName === attrName) ||
-            (!hasAliasName && key === attrName)
-          ) {
+          if (key === attrName) {
             autorun(() => {
               if (!this.parentContextData) return;
               const parentData = getData(
@@ -185,7 +167,7 @@ export class WidgetProxy {
               );
               if (init) {
                 extendObservable(this.context, {
-                  [key]: parentData
+                  [key]: parentData,
                 });
                 init = false;
               } else {
@@ -219,8 +201,8 @@ export class WidgetProxy {
    */
   private _bindOutputs() {
     this._attrs
-      .filter(attr => eventp(attr.name))
-      .forEach(attr => {
+      .filter((attr) => eventp(attr.name))
+      .forEach((attr) => {
         const eventType: string = BindingEventBuilder.parseEventType(attr);
         const { funcName, args } = BindingEventBuilder.parseFun(attr);
         const parentMethod = this.parent?.context[funcName];
@@ -264,7 +246,7 @@ export class WidgetProxy {
     let init = true;
     this._attrs
       .filter(({ name }) => modelp(name))
-      .forEach(attr => {
+      .forEach((attr) => {
         const prop = AjaModel.getModelprop(attr.name);
         if (prop && this._metadata) {
           const propEvent = `${prop}Change`;
@@ -279,7 +261,7 @@ export class WidgetProxy {
               const parentData = getData(parentProp, this.parentContextData);
               if (init) {
                 extendObservable(this.context, {
-                  [prop]: parentData
+                  [prop]: parentData,
                 });
                 this.context[propEvent].next = (value: any) => {
                   (<any>this.parent).context[parentProp] = value;

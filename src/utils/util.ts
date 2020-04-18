@@ -1,5 +1,7 @@
 import { parsePipesExp } from "./exp";
 import { structureDirectivePrefix } from "./const-string";
+import { ANNOTATIONS, PROP_METADATA } from "./decorators";
+import { ElementRef } from "../metadata/directives";
 
 export function toArray<T>(iterable: Iterable<T> | ArrayLike<T>): T[] {
   if (!iterable) return [];
@@ -126,8 +128,33 @@ export function putIfAbsent<K, V>(
 /**
  * 斩掉字符串中的script标签
  * 【司徒正美 js框架设计】
- * @param str 
+ * @param str
  */
 export function stripScripts(str: string) {
   return String(str || "").replace(/<script[^>]*>([\S\s]*?)<\/script>/gi, "");
+}
+
+/**
+ * * 获取class上的装饰器注入的数据
+ * * [paramtypes]为constructor依赖注入的参数
+ *
+ * 现在能解析的，依赖注入分别是 ElementRef, Injectable构建的Service
+ *
+ * @param obj
+ */
+export function getAnnotations(
+  obj: any
+): {
+  paramtypes: Array<ElementRef | any>;
+  [key: string]: any;
+} {
+  return obj[ANNOTATIONS][0];
+}
+
+export function getPropMetadata(
+  constructor: any
+): {
+  [prop: string]: {}[];
+} {
+  return constructor[PROP_METADATA];
 }
