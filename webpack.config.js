@@ -22,7 +22,7 @@ module.exports = {
     ]
   },
   resolve: {
-    extensions: [".tsx", ".ts", ".js"]
+    extensions: [".ts", ".js"]
   },
   optimization: {
     minimizer: [new TerserJSPlugin({})]
@@ -36,8 +36,6 @@ module.exports = {
   output: {
     filename: "[name].js",
     path: path.resolve(__dirname, tsConfig.compilerOptions.outDir),
-
-    // 如果发布第三方包，可以启动下面这三个配置
     library: "aja",
     libraryTarget: "umd",
     globalObject: "this"
