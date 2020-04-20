@@ -5,12 +5,20 @@ import {
   parseParamtypes,
   getPropMetadata,
   parsePipe,
+  EMPTY_STRING,
+  trim,
 } from "../utils/util";
 import { autorun } from "../aja-mobx";
 import { usePipes } from "../factory/pipe-factory";
 import { getData } from "../core";
 import { ContextData } from "../classes/context-data";
-import { attrStartExp, attrEndExp } from "../utils/exp";
+import {
+  attrStartExp,
+  attrEndExp,
+  eventStartExp,
+  eventEndExp,
+} from "../utils/exp";
+import { templateEvent } from "../utils/const-string";
 
 abstract class AstHtmlBase {
   /**
@@ -58,7 +66,7 @@ function createElement(
   contextData: ContextData
 ): Text | Element | Comment {
   if (vnode instanceof AstText) {
-    return document.createTextNode(vnode.value);
+    return vnode.createTextNode(contextData);
   }
   if (vnode instanceof AstComment) {
     return document.createComment(vnode.data);
@@ -96,9 +104,34 @@ export class AstText extends AstHtmlBase {
   toString() {
     return `${this.value}`;
   }
+  contextData?: ContextData;
 
   toElement(contextData: ContextData): Text {
     return createElement(this, contextData) as Text;
+  }
+
+  private _getPipeData(key: string) {
+    const [bindKey, pipeList] = parsePipe(key);
+    const data = getData(bindKey, this.contextData!);
+    return usePipes(data, pipeList, this.contextData!);
+  }
+
+  createTextNode(contextData: ContextData): Text {
+    this.contextData = contextData;
+    const text = document.createTextNode(this.value);
+    if (this.isConputed) {
+      autorun(() => {
+        const textContent = this.value.replace(
+          interpolationExpressionExp,
+          (match, g1) => {
+            const pipeData = this._getPipeData(g1);
+            return pipeData;
+          }
+        );
+        text.textContent = textContent;
+      });
+    }
+    return text;
   }
 
   /**
@@ -107,7 +140,7 @@ export class AstText extends AstHtmlBase {
    * 'hello'        => fasle
    * '{{ hello }}'  => true
    */
-  get isInterpolationExpression() {
+  get isConputed() {
     return this.value.match(interpolationExpressionExp) !== null;
   }
 
@@ -173,13 +206,50 @@ export class AstAttrbute {
     return { attrName, attrChild };
   }
 
+  /**
+   * (click) -> click
+   */
+  get eventType() {
+    return this.name
+      .replace(eventStartExp, EMPTY_STRING)
+      .replace(eventEndExp, EMPTY_STRING);
+  }
+
+  /**
+   * (click)="hello"
+   * (click)="hello()"
+   * (click)="hello($event)"
+   * (click)="hello($event, 1)"
+   */
+  parseEventValue() {
+    let funcName = this.value;
+    let args: string[] = [];
+    // TODO: 这部分的逻辑和正则可以优化
+    if (this.value.includes("(")) {
+      // 带参数的函数
+      const index = this.value.indexOf("(");
+
+      // 砍出函数名
+      funcName = this.value.substr(0, index);
+
+      // 砍掉函数名
+      // 去掉首尾圆括号
+      // 用逗号分割参数
+      args = this.value
+        .substr(index)
+        .trim()
+        .replace(/(^\(*)|(\)$)/g, EMPTY_STRING)
+        .split(",")
+        .map(trim);
+    }
+    return { funcName, args };
+  }
+
+  /**
+   * 是否为指令
+   */
   get isNotNativeAttr(): boolean {
-    return (
-      this.isInput ||
-      this.isOutput ||
-      this.isModel ||
-      this.isStructuredDirective
-    );
+    return this.isInput || this.isModel || this.isStructuredDirective;
   }
 
   private stopParseChildren?: () => void;
@@ -203,9 +273,29 @@ export class AstAttrbute {
 
     if (this.isNotNativeAttr) {
       this._parseDirective();
+    } else if (this.isOutput) {
+      this._bindEvent();
     } else {
       host.setAttribute(this.name, this.value);
     }
+  }
+
+  private _bindEvent() {
+    const { funcName, args } = this.parseEventValue();
+    const transformArgs = (e: Event) => {
+      return args.map((arg) => {
+        if (!arg) return arg;
+        if (arg === templateEvent) return e;
+        return getData(arg, this.contextData!);
+      });
+    };
+    this.host?.addEventListener(this.eventType, (e: Event) => {
+      try {
+        getData(funcName, this.contextData!)(...transformArgs(e));
+      } catch (error) {
+        throw `${funcName} 函数未定义.`;
+      }
+    });
   }
 
   private _setNativeAttribute() {
@@ -229,7 +319,7 @@ export class AstAttrbute {
     const select = attrChild ? `[${attrName}]` : this.name;
 
     // TODO: 优化这里的代码
-    if(select === '[innerHTML]') this.stopParseChildren!();
+    if (select === "[innerHTML]") this.stopParseChildren!();
 
     const directiveClass = new DirectiveFactory(select).value;
     if (!directiveClass) {
