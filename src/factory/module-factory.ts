@@ -1,9 +1,9 @@
-import { Type } from "../interfaces/type";
-import { ANNOTATIONS } from "../utils/decorators";
+import { Type } from "../interfaces";
 import { ModuleProxy } from "../classes/module-proxy";
 import { ParseAnnotations } from "../utils/parse-annotations";
 import { Widget } from "../metadata/directives";
-import { putIfAbsent, getAnnotations } from "../utils/util";
+import { putIfAbsent, getAnnotations, parseParamtypes } from "../utils/util";
+import { METADATANAME } from "../utils/decorators";
 
 /**
  * 解析导入的所有模块,
@@ -14,14 +14,14 @@ export function parseImports(importModule: ModuleProxy) {
     ?.map(({ name }) => new ModuleFactory(name).value)
     .forEach((exportModule) => {
       exportModule.exports
-        ?.map((e) => new ParseAnnotations(e))
-        .forEach((parseAnnotations) => {
-          if (parseAnnotations.annotations) {
-            if (parseAnnotations.isWidget) {
-              const widgetMetaData = parseAnnotations.annotations as Widget;
-              if (exportModule.hasWidget(widgetMetaData.selector)) {
-                importModule.addWidget(widgetMetaData.selector);
-              }
+        ?.map((e) => getAnnotations(e))
+        .forEach((annotations) => {
+          // 如果模块要导出一个widget，那么必须在declarations中申明
+          if (annotations[METADATANAME] === "Widget") {
+            if (exportModule.hasWidget(annotations.selector)) {
+              importModule.addWidget(annotations.selector);
+            } else {
+              throw `模块中不存在[${annotations.selector}]widget, 请在declarations中申明此widget`;
             }
           }
         });
@@ -30,57 +30,45 @@ export function parseImports(importModule: ModuleProxy) {
 
 /**
  * 解析模块的所有声明
+ * 现在对于模块只提供了widget的分离，service，pipe，注册后都是全局的
  * @param m
  */
 export function parseDeclarations(m: ModuleProxy) {
   m.declarations?.forEach((el) => {
-    const parseAnnotations = new ParseAnnotations(el);
-    if (parseAnnotations.annotations) {
-      if (parseAnnotations.isWidget)
-        m.addWidget((<Widget>parseAnnotations.annotations).selector);
-    }
+    const a = getAnnotations(el);
+    if (a[METADATANAME] === "Widget") m.addWidget(a.selector);
   });
 }
 
-/**
- * 存储使用[@Widget]注册的小部件
- */
 export class ModuleFactory {
-  private _value!: Type<any>;
-  private _valueCache?: ModuleProxy;
+  private static _cache = new Map<String, ModuleFactory>();
+
+  private _module!: Type<any>;
+  private _moduleCache?: ModuleProxy;
 
   public get value(): ModuleProxy {
-    // 返回缓存
-    if (this._valueCache) return this._valueCache;
-
-    // 第一次构建
+    // 有缓存就返回缓存
+    if (this._moduleCache) return this._moduleCache;
 
     // 1. 获取元数据
-    const { paramtypes, ...decoratorFactory } = getAnnotations(this._value);
+    const { paramtypes, ...opt } = getAnnotations(this._module);
+    new this._module(...parseParamtypes(paramtypes));
 
-    // TODO: 解析construct依赖注入参数[paramtypes]
-    new this._value(...paramtypes);
-
-    // 2. 代理
-    const ajaModuleProvider: ModuleProxy = new ModuleProxy(decoratorFactory);
+    // 2. 构建代理
+    const proxy = new ModuleProxy(opt);
 
     // 3. 解析申明
-    if (
-      ajaModuleProvider.declarations &&
-      ajaModuleProvider.declarations.length
-    ) {
-      parseDeclarations(ajaModuleProvider);
+    if (proxy.declarations && proxy.declarations.length) {
+      parseDeclarations(proxy);
     }
 
     // 4. 解析导入
-    if (ajaModuleProvider.imports && ajaModuleProvider.imports.length) {
-      parseImports(ajaModuleProvider);
+    if (proxy.imports && proxy.imports.length) {
+      parseImports(proxy);
     }
 
-    return (this._valueCache = ajaModuleProvider);
+    return (this._moduleCache = proxy);
   }
-
-  private static _cache = new Map<String, ModuleFactory>();
 
   constructor(name: string, module?: Type<any>) {
     return putIfAbsent(ModuleFactory._cache, name, () =>
@@ -89,7 +77,7 @@ export class ModuleFactory {
   }
 
   private _constructor(value: Type<any>) {
-    this._value = value;
+    this._module = value;
     return this;
   }
 }

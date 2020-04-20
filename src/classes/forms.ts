@@ -1,6 +1,6 @@
 import { observable } from "../aja-mobx";
 import { objectp, arrayp, nullp } from "../utils/p";
-import { AnyObject } from "../interfaces/any-object";
+import { AnyObject } from "../interfaces";
 
 const l = console.log;
 

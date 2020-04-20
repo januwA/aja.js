@@ -1,6 +1,6 @@
 import { Pipe } from "../metadata/directives";
 import { ModuleProxy } from "../classes/module-proxy";
-import { Type } from "../interfaces/type";
+import { Type } from "../interfaces";
 import { ContextData } from "../classes/context-data";
 import { getData } from "../core";
 import { ANNOTATIONS } from "../utils/decorators";

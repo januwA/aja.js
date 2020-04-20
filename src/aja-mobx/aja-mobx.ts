@@ -1,8 +1,5 @@
 import { Observable } from "./observable";
-import { Input, Output } from "../metadata/directives";
-import { AnyObject } from "../interfaces/any-object";
-import { Type } from "../interfaces/type";
-import { PROP_METADATA } from "../utils/decorators";
+import { AnyObject, Type } from "../interfaces";
 
 function isObservable(value: any): boolean {
   if (value === null || value === undefined) return false;
@@ -18,7 +15,7 @@ export function observable<T>(value: any): any {
 }
 
 /**
- * 
+ *
  * @param context 最后返回的代理对象
  * @param key 在[obj]中的[key]
  * @param obj input的object
@@ -44,7 +41,7 @@ function transform<T>(context: T, key: string, obj: AnyObject) {
           set(newValue) {
             return obser.set(newValue);
           },
-          enumerable: true
+          enumerable: true,
         });
 
         // 递归下去
@@ -63,7 +60,7 @@ function transform<T>(context: T, key: string, obj: AnyObject) {
         },
         set: des.set,
         configurable: des.configurable,
-        enumerable: des.enumerable
+        enumerable: des.enumerable,
       });
     }
   }
@@ -82,14 +79,14 @@ export namespace observable {
     }
   ) {
     const context = opt?.result ? opt.result : obj;
-    Object.keys(obj).forEach(key => {
+    Object.keys(obj).forEach((key) => {
       transform(context, key, obj);
     });
 
     // 获取原型上的方法
     if (opt?.depath) {
       const prototype = Object.getPrototypeOf(obj);
-      (<string[]>Reflect.ownKeys(prototype)).forEach(key => {
+      (<string[]>Reflect.ownKeys(prototype)).forEach((key) => {
         transform(context, key, prototype);
       });
     }
@@ -122,7 +119,7 @@ export namespace observable {
     // change(); // 找不到this
     // ```
     //
-    (<string[]>Reflect.ownKeys(cls.prototype)).forEach(key => {
+    (<string[]>Reflect.ownKeys(cls.prototype)).forEach((key) => {
       if (key in context && typeof context[key] === "function") {
         context[key] = context[key].bind(context);
       }

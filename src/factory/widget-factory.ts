@@ -1,4 +1,4 @@
-import { Type } from "../interfaces/type";
+import { Type } from "../interfaces";
 import { putIfAbsent } from "../utils/util";
 
 /**
@@ -8,7 +8,8 @@ export class WidgetFactory {
   // 每个widget只是配置
   private _value!: Type<any>;
 
-  public get value(): any {
+  // 每次获取只返回一个配置
+  public get value(): Type<any> {
     return this._value;
   }
 

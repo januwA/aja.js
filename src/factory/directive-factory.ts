@@ -1,4 +1,4 @@
-import { Type } from "../interfaces/type";
+import { Type } from "../interfaces";
 import { putIfAbsent } from "../utils/util";
 
 /**
@@ -14,6 +14,12 @@ export class DirectiveFactory {
   }
 
   private static _cache = new Map<String, DirectiveFactory>();
+
+  static forEach(fn: (value: DirectiveFactory, key: String) => void) {
+    this._cache.forEach((value: DirectiveFactory, key: String) => {
+      fn(value, key);
+    });
+  }
 
   /**
    * @param select 指令名

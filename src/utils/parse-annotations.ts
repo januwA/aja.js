@@ -1,4 +1,4 @@
-import { Type } from "../interfaces/type";
+import { Type } from "../interfaces";
 import { ANNOTATIONS, METADATANAME } from "./decorators";
 import { arrayp } from "./p";
 

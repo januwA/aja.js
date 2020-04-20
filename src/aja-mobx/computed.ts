@@ -1,11 +1,11 @@
 import { DependenceManager } from "./dependence-manager";
-import { AnyObject } from "../interfaces/any-object";
+import { AnyObject } from "../interfaces";
 
 export class Computed {
-  private static _cpIDCounter = 1;
+  private static _id = 1;
 
-  static getId(): string {
-    return "cp-" + ++Computed._cpIDCounter;
+  static getId(): number {
+    return ++Computed._id;
   }
 
   /**
@@ -17,7 +17,7 @@ export class Computed {
    * 全局唯一的id
    * @type {number}
    */
-  id: string = "";
+  id: number;
 
   /**
    * 是否绑定过recompute依赖，只需要绑定一次
@@ -76,6 +76,6 @@ export function computed(target: any, name: string, descriptor: any) {
     get() {
       computed.target = this;
       return computed.get();
-    }
+    },
   };
 }

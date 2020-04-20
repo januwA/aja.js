@@ -1,23 +1,25 @@
-import { dataTag } from "./util";
+import { dataTag, getAnnotations, getMetadataName } from "./util";
 import {
   stringTag,
   numberTag,
   objectTag,
   arrayTag,
   undefinedTag,
-  nullTag
+  nullTag,
 } from "./const-string";
+import { Type } from "../interfaces";
 
 /**
  * * 谓词
  */
 
 /**
- * [title]="title"
+ * [name]="name"
+ * [[class.select]]="true"
  * @param value
  */
 export function attrp(value: string) {
-  return /^\[\w+\]$/.test(value);
+  return /^\[[\w\.]+\]$/.test(value);
 }
 
 /**
@@ -117,4 +119,11 @@ export function radiop(node: Node): node is HTMLInputElement {
 
 export function formp(node: Node): node is HTMLFormElement {
   return node.nodeName === "FORM";
+}
+
+export function AjaModulep(obj: Type<any>) {
+  return getMetadataName(getAnnotations(obj)) === "AjaModule";
+}
+export function Widgetp(obj: Type<any>) {
+  return getMetadataName(getAnnotations(obj)) === "Widget";
 }

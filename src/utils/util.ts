@@ -1,7 +1,8 @@
 import { parsePipesExp } from "./exp";
 import { structureDirectivePrefix } from "./const-string";
-import { ANNOTATIONS, PROP_METADATA } from "./decorators";
+import { ANNOTATIONS, PROP_METADATA, METADATANAME } from "./decorators";
 import { ElementRef } from "../metadata/directives";
+import { ServiceFactory } from "../factory/service-factory";
 
 export function toArray<T>(iterable: Iterable<T> | ArrayLike<T>): T[] {
   if (!iterable) return [];
@@ -122,7 +123,7 @@ export function putIfAbsent<K, V>(
   if (key && ifAbsent) {
     return cache.set(key, ifAbsent()).get(key) as V;
   }
-  throw `not find [${key}]!`;
+  throw `putIfAbsent: not find [${key}]!`;
 }
 
 /**
@@ -148,13 +149,46 @@ export function getAnnotations(
   paramtypes: Array<ElementRef | any>;
   [key: string]: any;
 } {
-  return obj[ANNOTATIONS][0];
+  return obj[ANNOTATIONS] ? obj[ANNOTATIONS][0] : {};
 }
 
+/**
+ * 在constructor中获取[PROP_METADATA]属性
+ * @param constructor
+ */
 export function getPropMetadata(
   constructor: any
 ): {
   [prop: string]: {}[];
 } {
   return constructor[PROP_METADATA];
+}
+
+export function getMetadataName(obj: any): string {
+  return obj[METADATANAME] || "";
+}
+
+/**
+ * 解析constructor依赖注入的参数
+ */
+export function parseParamtypes(
+  paramtypes: any[],
+  opt: {
+    host?: HTMLElement;
+  } = {}
+) {
+  const paramtypesValues = paramtypes.map((it) => {
+    if (it.name === "ElementRef") {
+      return new ElementRef(opt.host);
+    }
+    const { metadataName } = getAnnotations(it);
+    switch (metadataName) {
+      case "Injectable":
+        const s = new ServiceFactory(it.name);
+        return s.value;
+      default:
+        break;
+    }
+  });
+  return paramtypesValues;
 }

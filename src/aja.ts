@@ -5,6 +5,7 @@ import {
   getAnnotations,
   getPropMetadata,
   parsePipe,
+  parseParamtypes,
 } from "./utils/util";
 
 import { autorun } from "./aja-mobx";
@@ -28,8 +29,6 @@ import {
 import { WidgetFactory } from "./factory/widget-factory";
 import { ModuleProxy } from "./classes/module-proxy";
 import { DirectiveFactory } from "./factory/directive-factory";
-import { ElementRef } from "./metadata/directives";
-import { ServiceFactory } from "./factory/service-factory";
 import { usePipes } from "./factory/pipe-factory";
 import { getData } from "./core";
 
@@ -161,21 +160,11 @@ export class Aja {
       const annotations = getAnnotations(directive);
       const paramtypes = annotations.paramtypes;
 
-      const paramtypesValues = paramtypes.map((it) => {
-        if (it.name === "ElementRef") {
-          return new ElementRef(node);
-        }
-        const { metadataName } = getAnnotations(it);
-        switch (metadataName) {
-          case "Injectable":
-            const s = new ServiceFactory(it.name);
-            return s.value;
-          default:
-            break;
-        }
-      });
-
-      const d = new directive(...paramtypesValues);
+      const d = new directive(
+        ...parseParamtypes(paramtypes, {
+          host: node,
+        })
+      );
       const props = getPropMetadata(d.constructor);
       for (const key in props) {
         if (props.hasOwnProperty(key)) {

@@ -1,8 +1,6 @@
 import "reflect-metadata";
-import { Type } from "../interfaces/type";
+import { Type } from "../interfaces";
 import { AjaModule } from "../metadata/directives";
-import { ServiceFactory } from "../factory/service-factory";
-import { PipeFactory } from "../factory/pipe-factory";
 
 /**
  * 装饰器

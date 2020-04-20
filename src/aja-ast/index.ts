@@ -1,5 +1,3 @@
-import { PerlRegExp } from "perl-regexp";
-
 // 标签起始匹配
 import {
   AstText,
@@ -7,14 +5,16 @@ import {
   AstAttrbute,
   AstComment,
   childType,
+  AstRoot,
 } from "./element-ast";
 import { stripScripts } from "../utils/util";
+import { ContextData } from "../classes/context-data";
 
 // ?: 忽略捕获，只需要分组
 export const ncname = "[a-zA-Z_][\\w\\-\\.]*";
 export const qnameCapture = `((?:${ncname}\\:)?${ncname})`;
 // 匹配tag的标签名
-export const startTagOpen = new PerlRegExp(`^<${qnameCapture}`);
+export const startTagOpen = new RegExp(`^<${qnameCapture}`);
 
 /**
  * 匹配tag: <([a-zA-Z_][\w\-\.]*)
@@ -33,17 +33,12 @@ export const attributeExp = /^\s*([^\s"'<>\/=]+)\s*=\s*(?:"([^"]*)"+|'([^']*)'+|
 
 export const startTagClose = /^\s*(\/?)>/;
 // 匹配结束的tag
-export const endTag = new PerlRegExp(` ^<\\/${qnameCapture}[^>]*> \\s* `, "x");
+export const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>\\s*`);
 
 // 匹配html注释
 export const htmlCommentStart = /^\s*<!--/;
 export const htmlComment = /\s*<!--([^]*?)-->\s*/;
 
-export interface IAstRoot {
-  nodes: childType[];
-  toElement(root: HTMLElement): HTMLElement;
-  toString(): string;
-}
 
 /**
  * 将html字符串转化为ast
@@ -91,17 +86,8 @@ export interface IAstRoot {
  * }
  * ```
  */
-export function htmlAst(html: string): IAstRoot {
-  const _root: IAstRoot = {
-    nodes: [],
-    toElement(root: HTMLElement): HTMLElement {
-      this.nodes.map((it) => it.toElement()).forEach((it) => root.append(it));
-      return root;
-    },
-    toString() {
-      return this.nodes.reduce((acc, el) => (acc += el.toString()), "");
-    },
-  };
+export function htmlAst(html: string): AstRoot {
+  const _root: AstRoot = new AstRoot([]);
 
   // 1. 斩掉script标签
   html = stripScripts(html);

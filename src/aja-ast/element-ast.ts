@@ -1,4 +1,16 @@
 import { attrp, eventp, modelp } from "../utils/p";
+import { DirectiveFactory } from "../factory/directive-factory";
+import {
+  getAnnotations,
+  parseParamtypes,
+  getPropMetadata,
+  parsePipe,
+} from "../utils/util";
+import { autorun } from "../aja-mobx";
+import { usePipes } from "../factory/pipe-factory";
+import { getData } from "../core";
+import { ContextData } from "../classes/context-data";
+import { attrStartExp, attrEndExp } from "../utils/exp";
 
 abstract class AstHtmlBase {
   /**
@@ -9,7 +21,7 @@ abstract class AstHtmlBase {
   /**
    * 返回DOM元素
    */
-  abstract toElement(): HTMLElement | Text | Comment;
+  abstract toElement(contextData: ContextData): HTMLElement | Text | Comment;
 }
 
 /**
@@ -33,7 +45,7 @@ const SELFCLOSING = [
   "source",
   "command",
   "track",
-  "wbr"
+  "wbr",
 ];
 
 const interpolationExpressionExp = /{{\s*([^]+)\s*}}/g;
@@ -41,17 +53,10 @@ const interpolationExpressionExp = /{{\s*([^]+)\s*}}/g;
 // children可能包含的类型
 export type childType = AstText | AstElement | AstComment;
 
-export interface IAstElement {
-  name: string;
-  attrbutes?: AstAttrbute[];
-  inputs?: AstAttrbute[];
-  outputs?: AstAttrbute[];
-  models?: AstAttrbute[];
-  directives?: AstAttrbute[];
-  children?: childType[];
-}
-
-function createElement(vnode: childType): Text | Element | Comment {
+function createElement(
+  vnode: childType,
+  contextData: ContextData
+): Text | Element | Comment {
   if (vnode instanceof AstText) {
     return document.createTextNode(vnode.value);
   }
@@ -59,10 +64,24 @@ function createElement(vnode: childType): Text | Element | Comment {
     return document.createComment(vnode.data);
   }
   const { name, attrbutes, children } = vnode;
+
+  // 创建dom
   const el = document.createElement(name);
 
-  attrbutes.forEach(({ name, value }) => el.setAttribute(name, value));
-  children.map(createElement).forEach(node => el.appendChild(node));
+  let isStopParseChildren = false;
+  // 先解析attrs
+  attrbutes.forEach((it) =>
+    it.toDom(el, contextData, () => {
+      isStopParseChildren = true;
+    })
+  );
+
+  if (isStopParseChildren) return el;
+
+  // 在解析子元素
+  children
+    .map((it) => createElement(it, contextData))
+    .forEach((node) => el.appendChild(node));
   return el;
 }
 
@@ -78,8 +97,8 @@ export class AstText extends AstHtmlBase {
     return `${this.value}`;
   }
 
-  toElement(): Text {
-    return createElement(this) as Text;
+  toElement(contextData: ContextData): Text {
+    return createElement(this, contextData) as Text;
   }
 
   /**
@@ -109,6 +128,7 @@ export class AstAttrbute {
 
   /**
    * [name]="name"
+   * [class.select]="true"
    */
   get isInput(): boolean {
     return attrp(this.name);
@@ -136,6 +156,112 @@ export class AstAttrbute {
   get isModel() {
     return modelp(this.name);
   }
+
+  /**
+   * 有些attr可能是这种情况
+   *
+   * ```html
+   * <p [class.select]="true">hello world</p>
+   * ```
+   */
+  parseAttr() {
+    // [style.coloe] => [style, coloe]
+    const [attrName, attrChild] = this.name
+      .replace(attrStartExp, "")
+      .replace(attrEndExp, "")
+      .split(".");
+    return { attrName, attrChild };
+  }
+
+  get isNotNativeAttr(): boolean {
+    return (
+      this.isInput ||
+      this.isOutput ||
+      this.isModel ||
+      this.isStructuredDirective
+    );
+  }
+
+  private stopParseChildren?: () => void;
+  private host?: HTMLElement;
+  private contextData?: ContextData;
+
+  /**
+   * 解析自己，设置到host上
+   * @param host
+   * @param contextData
+   * @param stopParseChildren  调用这个函数，会立即停止解析子元素
+   */
+  toDom(
+    host: HTMLElement,
+    contextData: ContextData,
+    stopParseChildren: () => void
+  ) {
+    this.host = host;
+    this.contextData = contextData;
+    this.stopParseChildren = stopParseChildren;
+
+    if (this.isNotNativeAttr) {
+      this._parseDirective();
+    } else {
+      host.setAttribute(this.name, this.value);
+    }
+  }
+
+  private _setNativeAttribute() {
+    if (!this.host || !this.contextData) return;
+    const { attrName, attrChild } = this.parseAttr();
+    const [bindKey, pipeList] = parsePipe(this.value);
+
+    autorun(() => {
+      const v = usePipes(
+        getData(bindKey, this.contextData!),
+        pipeList,
+        this.contextData!
+      );
+      this.host!.setAttribute(attrName, v);
+    });
+  }
+
+  private _parseDirective() {
+    if (!this.host || !this.contextData) return;
+    const { attrName, attrChild } = this.parseAttr();
+    const select = attrChild ? `[${attrName}]` : this.name;
+
+    // TODO: 优化这里的代码
+    if(select === '[innerHTML]') this.stopParseChildren!();
+
+    const directiveClass = new DirectiveFactory(select).value;
+    if (!directiveClass) {
+      try {
+        this._setNativeAttribute();
+      } catch (er) {
+        return console.error(`未找到指令${this.name}的解析器，请注册.`);
+      }
+      return;
+    }
+    // 获取类装饰器数据
+    const { paramtypes } = getAnnotations(directiveClass);
+    const args = parseParamtypes(paramtypes, { host: this.host });
+    const directive = new directiveClass(...args);
+
+    // 获取属性装饰器数据
+    const props = getPropMetadata(directive.constructor);
+    for (const key in props) {
+      if (!props.hasOwnProperty(key)) {
+        continue;
+      }
+      const [bindKey, pipeList] = parsePipe(this.value);
+      autorun(() => {
+        const v = usePipes(
+          getData(bindKey, this.contextData!),
+          pipeList,
+          this.contextData!
+        );
+        directive[key] = attrChild ? { [attrChild]: v } : v;
+      });
+    }
+  }
 }
 
 export class AstElement extends AstHtmlBase {
@@ -154,8 +280,16 @@ export class AstElement extends AstHtmlBase {
     outputs = [],
     children = [],
     directives = [],
-    models = []
-  }: IAstElement) {
+    models = [],
+  }: {
+    name: string;
+    attrbutes?: AstAttrbute[];
+    inputs?: AstAttrbute[];
+    outputs?: AstAttrbute[];
+    models?: AstAttrbute[];
+    directives?: AstAttrbute[];
+    children?: childType[];
+  }) {
     super();
     this.name = name;
     this.attrbutes = attrbutes;
@@ -173,8 +307,8 @@ export class AstElement extends AstHtmlBase {
     return SELFCLOSING.indexOf(this.name) !== -1;
   }
 
-  toElement(): HTMLElement {
-    return createElement(this) as HTMLElement;
+  toElement(contextData: ContextData): HTMLElement {
+    return createElement(this, contextData) as HTMLElement;
   }
 
   setAttr(attr: AstAttrbute) {
@@ -196,7 +330,7 @@ export class AstElement extends AstHtmlBase {
       htmlString = `<${this.name}${attrs}>`;
     } else {
       htmlString = `<${this.name}${attrs}>${this.children
-        .map(e => e.toString())
+        .map((e) => e.toString())
         .join("")}</${this.name}>`;
     }
     return htmlString;
@@ -211,7 +345,22 @@ export class AstComment extends AstHtmlBase {
     return `<!--${this.data}-->`;
   }
 
-  toElement(): Comment {
-    return createElement(this) as Comment;
+  toElement(contextData: ContextData): Comment {
+    return createElement(this, contextData) as Comment;
+  }
+}
+
+export class AstRoot {
+  constructor(public readonly nodes: childType[]) {}
+
+  toElement(root: HTMLElement, contextData: ContextData): HTMLElement {
+    this.nodes
+      .map((it) => it.toElement(contextData))
+      .forEach((it) => root.append(it));
+    return root;
+  }
+
+  toString() {
+    return this.nodes.reduce((acc, el) => (acc += el.toString()), "");
   }
 }

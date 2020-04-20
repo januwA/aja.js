@@ -7,7 +7,7 @@ export {
   AbstractControl
 } from "./classes/forms";
 
-export { bootstrapModule } from "./classes/module-proxy";
+export { bootstrapModule } from "./core";
 export {
   AjaInitState,
   AjaDispose,

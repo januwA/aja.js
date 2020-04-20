@@ -3,6 +3,8 @@ import { parsePipe, EMPTY_STRING } from "../utils/util";
 import { undefinedp, stringp } from "../utils/p";
 import { extendObservable } from "../aja-mobx";
 
+export { bootstrapModule } from "./bootstrapModule";
+
 /**
  * * 1. 优先寻找模板变量
  * * 2. 在传入的state中寻找

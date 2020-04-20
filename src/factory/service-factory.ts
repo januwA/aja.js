@@ -1,4 +1,4 @@
-import { Type } from "../interfaces/type";
+import { Type } from "../interfaces";
 import { observable } from "../aja-mobx";
 import { ANNOTATIONS } from "../utils/decorators";
 import { putIfAbsent } from "../utils/util";
