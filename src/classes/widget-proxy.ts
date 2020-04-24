@@ -167,7 +167,8 @@ export class WidgetProxy implements AjaInitState, AjaViewInit, AjaDispose {
       store: this.context,
       tData: {},
     });
-    ast.toElement(this.host, contextData);
+    ast.host = this.host;
+    ast.createHost(contextData);
 
     // 旧的解析方式
     // this.host.insertAdjacentHTML("beforeend", this.widgetMetaData.template);

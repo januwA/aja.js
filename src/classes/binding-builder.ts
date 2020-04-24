@@ -31,7 +31,7 @@ import {
   arrayp,
   objectp,
   elementNodep,
-  tempvarp,
+  referencep,
   formp,
 } from "../utils/p";
 import {
@@ -828,7 +828,7 @@ export class BindingTempvarBuilder {
     // 如果有结构指令，则跳过
     if (!hasStructureDirective(root)) {
       getAttrs(root)
-        .filter(({ name }) => tempvarp(name))
+        .filter(({ name }) => referencep(name))
         .forEach((attr) => this._tempvarBindHandle(root, attr));
 
       eachChildNodes(root, (itemNode) => {

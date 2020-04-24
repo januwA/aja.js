@@ -6,6 +6,12 @@ import { getData } from "../core";
 import { ANNOTATIONS } from "../utils/decorators";
 import { putIfAbsent } from "../utils/util";
 
+/**
+ * 
+ * @param value 数据
+ * @param pipeList 管道数组 ["p1", "p2:xx"]
+ * @param contextData 
+ */
 export function usePipes(
   value: any,
   pipeList: string[],

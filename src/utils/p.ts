@@ -41,7 +41,7 @@ export function eventp(value: string) {
  * #input 模板变量
  * @param value
  */
-export function tempvarp(value: string) {
+export function referencep(value: string) {
   return value.charAt(0) === "#";
 }
 
