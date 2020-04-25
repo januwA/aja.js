@@ -1,10 +1,11 @@
-import { AstHtmlBase } from "./ast-html-base";
+import { AstHtmlBase, ParseSourceSpan } from "./ast-html-base";
 import { ContextData } from "../classes/context-data";
 
 export class AstComment extends AstHtmlBase<Comment> {
+  sourceSpan: ParseSourceSpan = new ParseSourceSpan();
   contextData!: ContextData;
   host!: Comment;
-  constructor(readonly data: string) {
+  constructor(public readonly data: string) {
     super();
   }
   toString(): string {

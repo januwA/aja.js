@@ -4,6 +4,8 @@ import { AstComment } from "./ast-comment";
 import { stripScripts } from "../utils/util";
 import { AstText } from "./ast-text";
 import { childType } from "./child-type";
+import { ParseSourceSpan } from "./ast-html-base";
+import { rnExp } from "../utils/exp";
 
 /**
  * 匹配html标签名
@@ -36,7 +38,7 @@ export const startTagOpenExp = new RegExp(`^<${qnameCapture}`);
  * https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes
  *
  */
-export const startTagExp = /\s*<(?<tagName>[a-zA-Z_][\w\-\.]*)(?<attributes>(?:\s*(?:[^\s"'<>\/=]+)\s*(?:=\s*(?:"(?:[^"]*)"+|'(?:[^']*)'+|(?:[^\s"'=<>`]+)))?)*)\s*(?<unary>\/?)>/;
+export const startTagExp = /<(?<tagName>[a-zA-Z_][\w\-\.]*)(?<attributes>(?:\s*(?:[^\s"'<>\/=]+)\s*(?:=\s*(?:"(?:[^"]*)"+|'(?:[^']*)'+|(?:[^\s"'=<>`]+)))?)*)\s*(?<unary>\/?)>/;
 
 /**
  * 匹配起始标签的属性
@@ -53,7 +55,7 @@ export const endTagExp = new RegExp(`^<\\/${qnameCapture}[^>]*>\\s*`);
 
 // 匹配html注释
 export const htmlCommentStartExp = /^\s*<!--/;
-export const htmlCommentExp = /\s*<!--([^]*?)-->\s*/;
+export const htmlCommentExp = /<!--([^]*?)-->/;
 
 /**
  * 将html字符串转化为ast
@@ -102,11 +104,11 @@ export const htmlCommentExp = /\s*<!--([^]*?)-->\s*/;
  * ```
  */
 export function htmlAst(html: string): AstRoot {
-  const _root: AstRoot = new AstRoot([]);
-
-  // 1. 斩掉script标签
   html = stripScripts(html);
+  const _html = html;
 
+  const _root: AstRoot = new AstRoot([]);
+  
   /**
    * 存储未匹配完成的起始标签
    * 如：<div><span></span></div>
@@ -115,8 +117,9 @@ export function htmlAst(html: string): AstRoot {
    */
   const startTagBuffer: AstElement[] = [];
   let isChars: boolean; // 是不是文本内容
-  let match;
+  let match: RegExpMatchArray | null;
   let last;
+  let startIndex = 0;
 
   while (html && last != html) {
     last = html;
@@ -125,8 +128,11 @@ export function htmlAst(html: string): AstRoot {
     match = html.match(htmlCommentExp);
     if (html.match(htmlCommentStartExp) && match) {
       isChars = false;
-      html = html.substring(match[0].length);
-      pushChild(new AstComment(match[1]));
+      let sourceSpan = stepStartIndex(match.index!, match[0].length);
+      stepHtml();
+      const astComment = new AstComment(match[1]);
+      astComment.sourceSpan = sourceSpan;
+      pushChild(astComment);
     }
 
     if (html.startsWith("</")) {
@@ -134,26 +140,22 @@ export function htmlAst(html: string): AstRoot {
       match = html.match(endTagExp); // 匹配结束tag
       if (match) {
         isChars = false;
-
-        // 斩掉匹配到字符串的长度
-        html = html.substring(match[0].length);
-
-        // 获取第一个打组
-        parseEndTag(match[1]);
+        let endSourceSpan = stepStartIndex(match.index!, match[0].length);
+        stepHtml();
+        parseEndTag(match[1], endSourceSpan);
       }
     } else if (/^\s*</.test(html)) {
       // 起始标签
-      // <body style="color: red;">
-      // <img style="color: red;" >
-      // <img style="color: red;" />
       match = html.match(startTagExp);
       if (match) {
         isChars = false;
-        html = html.substring(match[0].length);
+        let sourceSpan = stepStartIndex(match.index!, match[0].length);
+        stepHtml();
         parseStartTag({
           tagName: match.groups!.tagName.toLowerCase(),
           attrs: match.groups!.attributes || "",
           unary: !!match.groups!.unary,
+          sourceSpan,
         });
       }
     }
@@ -170,13 +172,34 @@ export function htmlAst(html: string): AstRoot {
         text = html.substring(0, index);
         html = html.substring(index);
       }
-
-      pushChild(new AstText(text));
+      let sourceSpan = stepStartIndex(0, text.length);
+      const astText = new AstText(text);
+      astText.sourceSpan = sourceSpan;
+      pushChild(astText);
     }
+  }
+
+  function stepStartIndex(startOffset: number, endOffset: number) {
+    let sourceSpan = new ParseSourceSpan();
+    sourceSpan.start = startIndex + startOffset; // 标签起始位置
+    sourceSpan.end = startIndex + endOffset; // 标签结束位置
+    startIndex = sourceSpan.end;
+    sourceSpan.line =
+      _html.substr(0, sourceSpan.start).match(rnExp)?.length ?? 0;
+    return sourceSpan;
+  }
+
+  function stepHtml() {
+    if (!match) return;
+    // 斩掉匹配到字符串的长度
+    html = html.substring(match[0].length + match.index! || 0);
   }
 
   function pushChild(child: childType) {
     // 如果为0， 则一个根元素被解析完毕
+    //TODO: 可能出现意外情况 <p><div>hello</div>
+    //TODO: 标签不匹配导致最后nodes没元素
+    //TODO: 所以还的判断在往parent添加child的时候判断接下来的html不为空，并且下一次的endTagName必须和parent.name相等
     if (startTagBuffer.length === 0) {
       _root.nodes.push(child);
     } else {
@@ -189,6 +212,8 @@ export function htmlAst(html: string): AstRoot {
     tagName,
     attrs,
     unary,
+
+    sourceSpan,
   }: {
     tagName: string;
     attrs: string;
@@ -197,9 +222,12 @@ export function htmlAst(html: string): AstRoot {
      * 是否为自闭和标签,最后那个匹配(\/?)的分组
      */
     unary: boolean;
+    sourceSpan: ParseSourceSpan;
   }) {
     const astElement: AstElement = new AstElement({
       name: tagName,
+      sourceSpan: sourceSpan,
+      startSourceSpan: sourceSpan,
     });
 
     // 解析所有的attributes
@@ -225,19 +253,18 @@ export function htmlAst(html: string): AstRoot {
     }
   }
 
-  function parseEndTag(tagName: string) {
-    let pos = 0;
-    // 从其实标签的尾部开始匹配对应的结束标签
-    for (pos = startTagBuffer.length - 1; pos >= 0; pos--) {
-      // 如果标签名相同，则匹配
-      if (startTagBuffer[pos].name === tagName) {
-        break;
-      }
+  function parseEndTag(endtagName: string, endSourceSpan: ParseSourceSpan) {
+    const last: undefined | AstElement = startTagBuffer.pop(); // 获取最后一个
+    if (!last) {
+      throw new Error(`parseEndTag error: endtagName: ${endtagName}`);
     }
-    if (pos >= 0) {
-      const astElement = startTagBuffer.pop(); // 斩掉最后一个元素
-      if (astElement) pushChild(astElement);
+
+    if (last.name.toLowerCase() !== endtagName.toLowerCase()) {
+      throw new Error(`parseEndTag error: 开始标签与闭合标签不匹配`);
     }
+
+    last.endSourceSpan = endSourceSpan;
+    pushChild(last);
   }
 
   return _root;

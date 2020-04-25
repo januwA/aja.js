@@ -8,7 +8,7 @@ import {
   BindingPipe,
 } from "./ast-attrbute";
 import { ContextData } from "../classes/context-data";
-import { AstHtmlBase } from "./ast-html-base";
+import { AstHtmlBase, ParseSourceSpan } from "./ast-html-base";
 import { childType } from "./child-type";
 import { referencep, attrp, eventp, modelp } from "../utils/p";
 import { DirectiveFactory } from "../factory/directive-factory";
@@ -54,6 +54,17 @@ export class AstElement extends AstHtmlBase<HTMLElement> {
   inputs: AstBoundAttrbute[];
   outputs: AstBoundEvent[];
 
+  sourceSpan: ParseSourceSpan;
+
+  /**
+   * 起始标签的位置和[sourceSpan]一样
+   */
+  startSourceSpan: ParseSourceSpan;
+
+  /**
+   * 标签闭合时的位置
+   */
+  endSourceSpan: ParseSourceSpan;
   /**
    * 存结构指令
    *
@@ -69,6 +80,9 @@ export class AstElement extends AstHtmlBase<HTMLElement> {
 
   constructor({
     name,
+    sourceSpan = new ParseSourceSpan(),
+    startSourceSpan = new ParseSourceSpan(),
+    endSourceSpan = new ParseSourceSpan(),
     attrbutes = [],
     inputs = [],
     outputs = [],
@@ -83,6 +97,9 @@ export class AstElement extends AstHtmlBase<HTMLElement> {
     references?: AstReference[];
     children?: childType[];
     templateAttrs?: any[];
+    sourceSpan?: ParseSourceSpan;
+    startSourceSpan?: ParseSourceSpan;
+    endSourceSpan?: ParseSourceSpan;
   }) {
     super();
     this.name = name;
@@ -92,6 +109,9 @@ export class AstElement extends AstHtmlBase<HTMLElement> {
     this.children = children;
     this.references = references;
     this.templateAttrs = templateAttrs;
+    this.sourceSpan = sourceSpan;
+    this.startSourceSpan = startSourceSpan;
+    this.endSourceSpan = endSourceSpan;
   }
 
   /**

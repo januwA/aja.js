@@ -140,7 +140,9 @@ export class BindingPipe {
 
 export class AstWithSource {
   /**
-   *? 只写一个简单的
+   * 如果是`f()` 将是 MethodCall
+   * 如果是 `data | json` 将是 BindingPipe
+   * 如果是`name` `1` `true` 将是 PropertyRead
    */
   ast: MethodCall | PropertyRead | BindingPipe;
 

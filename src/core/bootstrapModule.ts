@@ -8,11 +8,11 @@ import { AjaModulep, Widgetp } from "../utils/p";
 
 /**
  *
- * @param moduleType 导入的根模块
+ * @param mainModule 导入的根模块
  * @param opt 一些配置选项
  */
 export function bootstrapModule(
-  moduleType: Type<any>,
+  mainModule: Type<any>,
   opt?: {
     prefix: string;
   }
@@ -21,11 +21,11 @@ export function bootstrapModule(
   if (opt && opt.prefix) WidgetProxy.prefix = `${opt.prefix}-`;
   createDefault();
 
-  if (!AjaModulep(moduleType)) {
+  if (!AjaModulep(mainModule)) {
     throw `请使用@AjaModule创建模块`;
   }
 
-  const moduleProxy = new ModuleFactory(moduleType.name).value;
+  const moduleProxy = new ModuleFactory(mainModule.name).value;
 
   if (!moduleProxy.bootstrap?.length) return;
   const bootstrapWidget = moduleProxy.bootstrap[0];
@@ -33,6 +33,7 @@ export function bootstrapModule(
   if (!Widgetp(bootstrapWidget)) throw `请用@Widget创建组件.`;
 
   const annotations = getAnnotations(bootstrapWidget);
+
   const widgetConfig = new WidgetFactory(annotations.selector).value;
 
   const widgetProxy = new WidgetProxy({

@@ -1,5 +1,5 @@
 import { AstElement } from "../src/aja-ast/ast-element";
-import { htmlAst, AstRoot, AstText } from "../src/aja-ast";
+import { htmlAst, AstRoot, AstText, AstComment } from "../src/aja-ast";
 import {
   htmlCommentExp,
   startTagOpenExp,
@@ -82,10 +82,6 @@ describe("template html Ast test", () => {
     expect(appTile.outputs.length).toBe(2);
     expect(appTile.templateAttrs.length).toBe(1);
     expect((appTile.children[0] as AstText).isConputed).toBe(true);
-    // console.log(appTile.toString());
-    // expect(appTile.toString()).toBe(
-    //   '<app-tile [title]="title" (click)="action($event)" *if="show" [(subtitle)]="subtitle"> {{ text }} <p>hello</p></app-tile>'
-    // );
   });
 });
 
@@ -102,11 +98,8 @@ describe("html Ast comment test", () => {
       <p> title </p>
       <!--title end-->
     `);
-    // console.log(ast);
-    // console.log(ast.toString());
-    expect(ast.toString()).toBe(
-      "<!--title start--><p> title </p><!--title end-->"
-    );
+    expect(ast.nodes[0] instanceof AstComment).toBe(true);
+    expect(ast.nodes[2] instanceof AstComment).toBe(true);
   });
 });
 
@@ -142,10 +135,6 @@ describe("exp test", () => {
 
     // bool key
     expect(startTagExp.test(`<app-home autoplay>`)).toBe(true);
-
-    // console.log(
-    //   `<app-home title='ajanuw' autoplay checked />`.match(startTagExp)
-    // );
   });
 
   it("attributeExp test", () => {
@@ -171,5 +160,24 @@ describe("exp test", () => {
     const m5 = `   #inputRef autoplay checked`.match(attributeExp);
     if (!m5) throw "attributeExp error.";
     expect(m5[1]).toBe("#inputRef");
+  });
+});
+
+describe("sourceSpan test", () => {
+  it("substr test", () => {
+    let t = `<!-- 注释 --><div title='ajanuw'>hello</div>`;
+    let ast = htmlAst(t);
+    let node1 = ast.nodes[0] as AstComment;
+    expect(t.substring(node1.sourceSpan.start, node1.sourceSpan.end)).toBe(
+      "<!-- 注释 -->"
+    );
+
+    let node2 = ast.nodes[1] as AstElement;
+    expect(t.substring(node2.startSourceSpan.start, node2.endSourceSpan.end)).toBe(
+      `<div title='ajanuw'>hello</div>`
+    );
+
+    let text = node2.children[0] as AstText;
+    expect(t.substring(text.sourceSpan.start, text.sourceSpan.end)).toBe(`hello`);
   });
 });

@@ -1,4 +1,4 @@
-import { AstHtmlBase } from "./ast-html-base";
+import { AstHtmlBase, ParseSourceSpan } from "./ast-html-base";
 import { ContextData } from "../classes/context-data";
 import { parsePipe } from "../utils/util";
 import { getData } from "../core";
@@ -8,6 +8,7 @@ import { autorun } from "../aja-mobx";
 const interpolationExpressionExp = /{{\s*([^]+)\s*}}/g;
 
 export class AstText extends AstHtmlBase<Text> {
+  sourceSpan: ParseSourceSpan = new ParseSourceSpan();
   host!: Text;
   contextData!: ContextData;
   value: string;
